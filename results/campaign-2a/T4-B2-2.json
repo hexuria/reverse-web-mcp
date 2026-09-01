@@ -1,0 +1,323 @@
+{
+  "task": "T4",
+  "task_title": "send the receipt only after the payment arrives",
+  "arm": "B2",
+  "run": 2,
+  "status": "need_think",
+  "planner": "grok-4.6@medium",
+  "samples": 5,
+  "tokens_in": 5996,
+  "tokens_out": 114,
+  "wall_ms": 16951,
+  "plan_ms": 16891,
+  "run_ms": 12442,
+  "max_parallel": 1,
+  "max_parallel_by_surface": {
+    "mcp": 1
+  },
+  "nodes": 0,
+  "depth": 0,
+  "correct": false,
+  "checks": [
+    {
+      "name": "status",
+      "expected": "committed",
+      "actual": "need_think",
+      "ok": false
+    },
+    {
+      "name": "invoices",
+      "expected": 1,
+      "actual": 1,
+      "ok": true
+    },
+    {
+      "name": "sent",
+      "expected": 1,
+      "actual": 1,
+      "ok": true
+    },
+    {
+      "name": "paid",
+      "expected": 1,
+      "actual": 0,
+      "ok": false
+    },
+    {
+      "name": "receipts",
+      "expected": 1,
+      "actual": 0,
+      "ok": false
+    },
+    {
+      "name": "double_sends",
+      "expected": 0,
+      "actual": 0,
+      "ok": true
+    }
+  ],
+  "double_sends": 0,
+  "forks": 1,
+  "yield_reason": "Payment has not landed yet (invoice 11 is still sent, not paid). I cannot email a receipt until payment arrives. Should I wait and retry, or stop here?",
+  "error": null,
+  "snapshot": {
+    "chaos": {
+      "latency_ms": 25,
+      "rate_limit_per_sec": 0,
+      "require_approval": false,
+      "send_fail_rate": 0.0,
+      "ui_modal": false
+    },
+    "customers": [
+      {
+        "email": "billing@acme.example",
+        "id": 1,
+        "name": "Acme"
+      },
+      {
+        "email": "billing@globex.example",
+        "id": 2,
+        "name": "Globex"
+      },
+      {
+        "email": "billing@initech.example",
+        "id": 3,
+        "name": "Initech"
+      },
+      {
+        "email": "billing@umbrella.example",
+        "id": 4,
+        "name": "Umbrella"
+      },
+      {
+        "email": "billing@hooli.example",
+        "id": 5,
+        "name": "Hooli"
+      },
+      {
+        "email": "billing@vandelay.example",
+        "id": 6,
+        "name": "Vandelay"
+      },
+      {
+        "email": "billing@stark.example",
+        "id": 7,
+        "name": "Stark"
+      },
+      {
+        "email": "billing@wayne.example",
+        "id": 8,
+        "name": "Wayne"
+      },
+      {
+        "email": "billing@wonka.example",
+        "id": 9,
+        "name": "Wonka"
+      },
+      {
+        "email": "billing@tyrell.example",
+        "id": 10,
+        "name": "Tyrell"
+      }
+    ],
+    "invoices": [
+      {
+        "amount_cents": 10000,
+        "approved": false,
+        "customer_id": 1,
+        "id": 11,
+        "receipt_sent": false,
+        "status": "sent"
+      }
+    ],
+    "outbox": [
+      {
+        "id": 13,
+        "invoice_id": 11,
+        "key": "send-acme",
+        "kind": "invoice",
+        "subject": "Invoice #11",
+        "to": "billing@acme.example"
+      }
+    ],
+    "payments": [
+      {
+        "id": 12,
+        "invoice_id": 11
+      }
+    ],
+    "reports": [],
+    "seed": 4
+  },
+  "receipt": {
+    "depth": 0,
+    "effects": [],
+    "error": null,
+    "evidence": null,
+    "forks_taken": 1,
+    "ledger": {
+      "ended_ms": 1788301926395,
+      "forks": [
+        {
+          "ask": "Payment has not landed yet (invoice 11 is still sent, not paid). I cannot email a receipt until payment arrives. Should I wait and retry, or stop here?"
+        }
+      ],
+      "notes": [],
+      "rows": [
+        {
+          "attempt": 1,
+          "ended_us": 1788301912635725,
+          "error": null,
+          "key": null,
+          "node": "t1",
+          "observed": [
+            {
+              "email": "billing@acme.example",
+              "id": 1,
+              "name": "Acme"
+            }
+          ],
+          "ok": true,
+          "op": "listCustomers",
+          "started_us": 1788301912634324,
+          "surface": "mcp",
+          "write": false
+        },
+        {
+          "attempt": 1,
+          "ended_us": 1788301916817518,
+          "error": null,
+          "key": "inv-acme",
+          "node": "t2",
+          "observed": {
+            "amount_cents": 10000,
+            "approved": false,
+            "customer_id": 1,
+            "id": 11,
+            "receipt_sent": false,
+            "status": "draft"
+          },
+          "ok": true,
+          "op": "createInvoice",
+          "started_us": 1788301916786914,
+          "surface": "mcp",
+          "write": true
+        },
+        {
+          "attempt": 1,
+          "ended_us": 1788301923441302,
+          "error": null,
+          "key": "send-acme",
+          "node": "t3",
+          "observed": {
+            "amount_cents": 10000,
+            "approved": false,
+            "customer_id": 1,
+            "id": 11,
+            "receipt_sent": false,
+            "status": "sent"
+          },
+          "ok": true,
+          "op": "sendInvoice",
+          "started_us": 1788301923414948,
+          "surface": "mcp",
+          "write": true
+        },
+        {
+          "attempt": 1,
+          "ended_us": 1788301925076629,
+          "error": null,
+          "key": null,
+          "node": "t4",
+          "observed": {
+            "amount_cents": 10000,
+            "approved": false,
+            "customer_id": 1,
+            "id": 11,
+            "receipt_sent": false,
+            "status": "sent"
+          },
+          "ok": true,
+          "op": "getInvoice",
+          "started_us": 1788301925076307,
+          "surface": "mcp",
+          "write": false
+        }
+      ],
+      "samples": [
+        {
+          "effort": "medium",
+          "ended_us": 1788301912634314,
+          "kind": "turn",
+          "model": "grok-4.6",
+          "seq": 1,
+          "started_us": 1788301909444304,
+          "tokens_in": 1093,
+          "tokens_out": 12
+        },
+        {
+          "effort": "medium",
+          "ended_us": 1788301916786744,
+          "kind": "turn",
+          "model": "grok-4.6",
+          "seq": 2,
+          "started_us": 1788301912635767,
+          "tokens_in": 1131,
+          "tokens_out": 34
+        },
+        {
+          "effort": "medium",
+          "ended_us": 1788301923414914,
+          "kind": "turn",
+          "model": "grok-4.6",
+          "seq": 3,
+          "started_us": 1788301916817569,
+          "tokens_in": 1201,
+          "tokens_out": 23
+        },
+        {
+          "effort": "medium",
+          "ended_us": 1788301925076292,
+          "kind": "turn",
+          "model": "grok-4.6",
+          "seq": 4,
+          "started_us": 1788301923441342,
+          "tokens_in": 1261,
+          "tokens_out": 10
+        },
+        {
+          "effort": "medium",
+          "ended_us": 1788301926395240,
+          "kind": "turn",
+          "model": "grok-4.6",
+          "seq": 5,
+          "started_us": 1788301925076692,
+          "tokens_in": 1310,
+          "tokens_out": 35
+        }
+      ],
+      "started_ms": 1788301909444
+    },
+    "max_parallel": 1,
+    "max_parallel_by_surface": {
+      "mcp": 1
+    },
+    "nodes": 0,
+    "plan": "plan T4-B2-r2  (0 nodes, depth 0)\n",
+    "plan_id": "T4-B2-r2",
+    "plan_ms": 16891,
+    "run_ms": 12442,
+    "samples": 5,
+    "status": "need_think",
+    "tokens_in": 5996,
+    "tokens_out": 114,
+    "wall_ms": 16951,
+    "yield_reason": "Payment has not landed yet (invoice 11 is still sent, not paid). I cannot email a receipt until payment arrives. Should I wait and retry, or stop here?"
+  },
+  "intent": null,
+  "model": "grok-4.6",
+  "effort": "medium",
+  "base_url": "http://localhost:8080",
+  "latency_ms": 25,
+  "surfaces": "api"
+}

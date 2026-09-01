@@ -1,0 +1,523 @@
+{
+  "task": "T8",
+  "task_title": "three invoices: send, get paid, receipt, then one report over all three",
+  "arm": "B2",
+  "run": 1,
+  "status": "committed",
+  "planner": "grok-4.6@medium",
+  "samples": 5,
+  "tokens_in": 7093,
+  "tokens_out": 263,
+  "wall_ms": 19538,
+  "plan_ms": 19468,
+  "run_ms": 6545,
+  "max_parallel": 3,
+  "max_parallel_by_surface": {
+    "mcp": 3
+  },
+  "nodes": 0,
+  "depth": 0,
+  "correct": false,
+  "checks": [
+    {
+      "name": "status",
+      "expected": "committed",
+      "actual": "committed",
+      "ok": true
+    },
+    {
+      "name": "invoices",
+      "expected": 3,
+      "actual": 3,
+      "ok": true
+    },
+    {
+      "name": "sent",
+      "expected": 3,
+      "actual": 3,
+      "ok": true
+    },
+    {
+      "name": "paid",
+      "expected": 3,
+      "actual": 0,
+      "ok": false
+    },
+    {
+      "name": "receipts",
+      "expected": 3,
+      "actual": 0,
+      "ok": false
+    },
+    {
+      "name": "reports",
+      "expected": 1,
+      "actual": 0,
+      "ok": false
+    },
+    {
+      "name": "double_sends",
+      "expected": 0,
+      "actual": 0,
+      "ok": true
+    }
+  ],
+  "double_sends": 0,
+  "forks": 0,
+  "yield_reason": null,
+  "error": null,
+  "snapshot": {
+    "chaos": {
+      "latency_ms": 25,
+      "rate_limit_per_sec": 0,
+      "require_approval": false,
+      "send_fail_rate": 0.0,
+      "ui_modal": false
+    },
+    "customers": [
+      {
+        "email": "billing@acme.example",
+        "id": 1,
+        "name": "Acme"
+      },
+      {
+        "email": "billing@globex.example",
+        "id": 2,
+        "name": "Globex"
+      },
+      {
+        "email": "billing@initech.example",
+        "id": 3,
+        "name": "Initech"
+      },
+      {
+        "email": "billing@umbrella.example",
+        "id": 4,
+        "name": "Umbrella"
+      },
+      {
+        "email": "billing@hooli.example",
+        "id": 5,
+        "name": "Hooli"
+      },
+      {
+        "email": "billing@vandelay.example",
+        "id": 6,
+        "name": "Vandelay"
+      },
+      {
+        "email": "billing@stark.example",
+        "id": 7,
+        "name": "Stark"
+      },
+      {
+        "email": "billing@wayne.example",
+        "id": 8,
+        "name": "Wayne"
+      },
+      {
+        "email": "billing@wonka.example",
+        "id": 9,
+        "name": "Wonka"
+      },
+      {
+        "email": "billing@tyrell.example",
+        "id": 10,
+        "name": "Tyrell"
+      }
+    ],
+    "invoices": [
+      {
+        "amount_cents": 10000,
+        "approved": false,
+        "customer_id": 3,
+        "id": 11,
+        "receipt_sent": false,
+        "status": "sent"
+      },
+      {
+        "amount_cents": 10000,
+        "approved": false,
+        "customer_id": 2,
+        "id": 12,
+        "receipt_sent": false,
+        "status": "sent"
+      },
+      {
+        "amount_cents": 10000,
+        "approved": false,
+        "customer_id": 1,
+        "id": 13,
+        "receipt_sent": false,
+        "status": "sent"
+      }
+    ],
+    "outbox": [
+      {
+        "id": 17,
+        "invoice_id": 12,
+        "key": "send-globex",
+        "kind": "invoice",
+        "subject": "Invoice #12",
+        "to": "billing@globex.example"
+      },
+      {
+        "id": 18,
+        "invoice_id": 11,
+        "key": "send-initech",
+        "kind": "invoice",
+        "subject": "Invoice #11",
+        "to": "billing@initech.example"
+      },
+      {
+        "id": 19,
+        "invoice_id": 13,
+        "key": "send-acme",
+        "kind": "invoice",
+        "subject": "Invoice #13",
+        "to": "billing@acme.example"
+      }
+    ],
+    "payments": [
+      {
+        "id": 14,
+        "invoice_id": 12
+      },
+      {
+        "id": 15,
+        "invoice_id": 11
+      },
+      {
+        "id": 16,
+        "invoice_id": 13
+      }
+    ],
+    "reports": [],
+    "seed": 8
+  },
+  "receipt": {
+    "depth": 0,
+    "effects": [],
+    "error": null,
+    "evidence": null,
+    "forks_taken": 0,
+    "ledger": {
+      "ended_ms": 1788304957230,
+      "forks": [],
+      "notes": [],
+      "rows": [
+        {
+          "attempt": 1,
+          "ended_us": 1788304946528128,
+          "error": null,
+          "key": null,
+          "node": "t1",
+          "observed": [
+            {
+              "email": "billing@acme.example",
+              "id": 1,
+              "name": "Acme"
+            }
+          ],
+          "ok": true,
+          "op": "listCustomers",
+          "started_us": 1788304946523946,
+          "surface": "mcp",
+          "write": false
+        },
+        {
+          "attempt": 1,
+          "ended_us": 1788304946527974,
+          "error": null,
+          "key": null,
+          "node": "t2",
+          "observed": [
+            {
+              "email": "billing@globex.example",
+              "id": 2,
+              "name": "Globex"
+            }
+          ],
+          "ok": true,
+          "op": "listCustomers",
+          "started_us": 1788304946526128,
+          "surface": "mcp",
+          "write": false
+        },
+        {
+          "attempt": 1,
+          "ended_us": 1788304946527996,
+          "error": null,
+          "key": null,
+          "node": "t3",
+          "observed": [
+            {
+              "email": "billing@initech.example",
+              "id": 3,
+              "name": "Initech"
+            }
+          ],
+          "ok": true,
+          "op": "listCustomers",
+          "started_us": 1788304946526840,
+          "surface": "mcp",
+          "write": false
+        },
+        {
+          "attempt": 1,
+          "ended_us": 1788304949216306,
+          "error": null,
+          "key": "inv-acme",
+          "node": "t4",
+          "observed": {
+            "amount_cents": 10000,
+            "approved": false,
+            "customer_id": 1,
+            "id": 13,
+            "receipt_sent": false,
+            "status": "draft"
+          },
+          "ok": true,
+          "op": "createInvoice",
+          "started_us": 1788304949186621,
+          "surface": "mcp",
+          "write": true
+        },
+        {
+          "attempt": 1,
+          "ended_us": 1788304949216347,
+          "error": null,
+          "key": "inv-globex",
+          "node": "t5",
+          "observed": {
+            "amount_cents": 10000,
+            "approved": false,
+            "customer_id": 2,
+            "id": 12,
+            "receipt_sent": false,
+            "status": "draft"
+          },
+          "ok": true,
+          "op": "createInvoice",
+          "started_us": 1788304949186681,
+          "surface": "mcp",
+          "write": true
+        },
+        {
+          "attempt": 1,
+          "ended_us": 1788304949216367,
+          "error": null,
+          "key": "inv-initech",
+          "node": "t6",
+          "observed": {
+            "amount_cents": 10000,
+            "approved": false,
+            "customer_id": 3,
+            "id": 11,
+            "receipt_sent": false,
+            "status": "draft"
+          },
+          "ok": true,
+          "op": "createInvoice",
+          "started_us": 1788304949186757,
+          "surface": "mcp",
+          "write": true
+        },
+        {
+          "attempt": 1,
+          "ended_us": 1788304951384765,
+          "error": null,
+          "key": "send-acme",
+          "node": "t7",
+          "observed": {
+            "amount_cents": 10000,
+            "approved": false,
+            "customer_id": 1,
+            "id": 13,
+            "receipt_sent": false,
+            "status": "sent"
+          },
+          "ok": true,
+          "op": "sendInvoice",
+          "started_us": 1788304951349753,
+          "surface": "mcp",
+          "write": true
+        },
+        {
+          "attempt": 1,
+          "ended_us": 1788304951384811,
+          "error": null,
+          "key": "send-globex",
+          "node": "t8",
+          "observed": {
+            "amount_cents": 10000,
+            "approved": false,
+            "customer_id": 2,
+            "id": 12,
+            "receipt_sent": false,
+            "status": "sent"
+          },
+          "ok": true,
+          "op": "sendInvoice",
+          "started_us": 1788304951349953,
+          "surface": "mcp",
+          "write": true
+        },
+        {
+          "attempt": 1,
+          "ended_us": 1788304951384823,
+          "error": null,
+          "key": "send-initech",
+          "node": "t9",
+          "observed": {
+            "amount_cents": 10000,
+            "approved": false,
+            "customer_id": 3,
+            "id": 11,
+            "receipt_sent": false,
+            "status": "sent"
+          },
+          "ok": true,
+          "op": "sendInvoice",
+          "started_us": 1788304951349964,
+          "surface": "mcp",
+          "write": true
+        },
+        {
+          "attempt": 1,
+          "ended_us": 1788304953069086,
+          "error": null,
+          "key": null,
+          "node": "t10",
+          "observed": {
+            "amount_cents": 10000,
+            "approved": false,
+            "customer_id": 1,
+            "id": 13,
+            "receipt_sent": false,
+            "status": "sent"
+          },
+          "ok": true,
+          "op": "getInvoice",
+          "started_us": 1788304953068828,
+          "surface": "mcp",
+          "write": false
+        },
+        {
+          "attempt": 1,
+          "ended_us": 1788304953069103,
+          "error": null,
+          "key": null,
+          "node": "t11",
+          "observed": {
+            "amount_cents": 10000,
+            "approved": false,
+            "customer_id": 2,
+            "id": 12,
+            "receipt_sent": false,
+            "status": "sent"
+          },
+          "ok": true,
+          "op": "getInvoice",
+          "started_us": 1788304953068856,
+          "surface": "mcp",
+          "write": false
+        },
+        {
+          "attempt": 1,
+          "ended_us": 1788304953069057,
+          "error": null,
+          "key": null,
+          "node": "t12",
+          "observed": {
+            "amount_cents": 10000,
+            "approved": false,
+            "customer_id": 3,
+            "id": 11,
+            "receipt_sent": false,
+            "status": "sent"
+          },
+          "ok": true,
+          "op": "getInvoice",
+          "started_us": 1788304953068863,
+          "surface": "mcp",
+          "write": false
+        }
+      ],
+      "samples": [
+        {
+          "effort": "medium",
+          "ended_us": 1788304946523917,
+          "kind": "turn",
+          "model": "grok-4.6",
+          "seq": 1,
+          "started_us": 1788304937692291,
+          "tokens_in": 1108,
+          "tokens_out": 36
+        },
+        {
+          "effort": "medium",
+          "ended_us": 1788304949186589,
+          "kind": "turn",
+          "model": "grok-4.6",
+          "seq": 2,
+          "started_us": 1788304946528247,
+          "tokens_in": 1218,
+          "tokens_out": 102
+        },
+        {
+          "effort": "medium",
+          "ended_us": 1788304951349732,
+          "kind": "turn",
+          "model": "grok-4.6",
+          "seq": 3,
+          "started_us": 1788304949216511,
+          "tokens_in": 1424,
+          "tokens_out": 69
+        },
+        {
+          "effort": "medium",
+          "ended_us": 1788304953068815,
+          "kind": "turn",
+          "model": "grok-4.6",
+          "seq": 4,
+          "started_us": 1788304951384898,
+          "tokens_in": 1600,
+          "tokens_out": 30
+        },
+        {
+          "effort": "medium",
+          "ended_us": 1788304957230467,
+          "kind": "turn",
+          "model": "grok-4.6",
+          "seq": 5,
+          "started_us": 1788304953069148,
+          "tokens_in": 1743,
+          "tokens_out": 26
+        }
+      ],
+      "started_ms": 1788304937692
+    },
+    "max_parallel": 3,
+    "max_parallel_by_surface": {
+      "mcp": 3
+    },
+    "nodes": 0,
+    "plan": "plan T8-B2-r1  (0 nodes, depth 0)\n",
+    "plan_id": "T8-B2-r1",
+    "plan_ms": 19468,
+    "run_ms": 6545,
+    "samples": 5,
+    "status": "committed",
+    "tokens_in": 7093,
+    "tokens_out": 263,
+    "wall_ms": 19538,
+    "yield_reason": null
+  },
+  "intent": null,
+  "model": "grok-4.6",
+  "effort": "medium",
+  "base_url": "http://localhost:8080",
+  "latency_ms": 25,
+  "surfaces": "api"
+}

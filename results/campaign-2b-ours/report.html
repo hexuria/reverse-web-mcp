@@ -1,0 +1,1039 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><title>chiffon bench</title><style>body{font:15px/1.5 system-ui,sans-serif;margin:0;padding:32px;background:#f3f5f2;color:#1a2321;max-width:1100px}h1{font-size:26px;margin:0 0 4px}h2{font-size:18px;margin:32px 0 8px}p{color:#4b5955;max-width:70ch}table{border-collapse:collapse;width:100%;background:#fff;font-variant-numeric:tabular-nums;font-size:14px}th,td{padding:7px 10px;border-bottom:1px solid #d5dcd7;text-align:left}th{font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:#4b5955;background:#e9eeea}td.ok{color:#2f7d4f;font-weight:600}td.bad{color:#b23a2e;font-weight:600}td.hot{background:#dceef0;font-weight:600}code{font-family:ui-monospace,monospace;background:#eef2ef;padding:1px 5px;border-radius:4px}details{margin-top:10px}pre{font-size:12px;background:#eef2ef;padding:10px;overflow-x:auto;border-radius:6px}</style></head><body><h1>chiffon bench</h1><p>run directory <code>results/campaign-2b-ours</code>. Every figure is recomputed from the stored ledgers and oracle snapshots. The decisive column is <b>max parallel</b>: the largest number of effects in flight at one instant.</p><h2>T10 · ten invoices: send, get paid, receipt, a report per invoice, then one report over all ten</h2><table><thead><tr><th>arm</th><th>what</th><th>runs</th><th>correct</th><th>model samples</th><th>tokens</th><th>plan ms</th><th>run ms</th><th>wall ms (median)</th><th>wall p25–p75</th><th>max parallel</th><th>double-sends</th><th>forks</th></tr></thead><tbody><tr><td><b>D</b></td><td>ours: planned graph</td><td>5</td><td class="bad">4/5</td><td>1</td><td>2103</td><td>13451</td><td>699</td><td>14342</td><td>14155–28240</td><td class="hot">11</td><td class="">0</td><td>0</td></tr><tr><td><b>E</b></td><td>script ceiling, no model</td><td>5</td><td class="ok">5/5</td><td>0</td><td>0</td><td>0</td><td>751</td><td>751</td><td>749–754</td><td class="hot">10</td><td class="">0</td><td>0</td></tr></tbody></table><details><summary>errors</summary><pre>D: timed out waiting for payment.received id=19
+</pre></details><details><summary>plan (arm D, run 1)</summary><pre>plan T10-r1  (61 nodes, depth 5)
+  A    listCustomers    api      customer(name='Acme').resolved
+  B    createInvoice    api      invoice(customer=$A.id).exists  after A  key T10-r1/cac417d575b6be6d
+  C    sendInvoice      api      invoice(id=$B.id).status='sent'  after B  key T10-r1/77c40e9faea35860
+  D    payment.received event    invoice(id=$B.id).status='paid'  after B
+  E    sendReceipt      api      invoice(id=$B.id).receipt_sent=true  after C,D  key T10-r1/69c73fde8085d346
+  F    createReport     api      report(invoices=[$B.id]).exists  after E  key T10-r1/22a85252d0ac1bb6
+  G    listCustomers    api      customer(name='Globex').resolved
+  H    createInvoice    api      invoice(customer=$G.id).exists  after G  key T10-r1/7a6db2d29bc0aee0
+  I    sendInvoice      api      invoice(id=$H.id).status='sent'  after H  key T10-r1/016b5803a0d96d9e
+  J    payment.received event    invoice(id=$H.id).status='paid'  after H
+  K    sendReceipt      api      invoice(id=$H.id).receipt_sent=true  after I,J  key T10-r1/5db283aed4ab5578
+  L    createReport     api      report(invoices=[$H.id]).exists  after K  key T10-r1/cb3e26a0259bc490
+  M    listCustomers    api      customer(name='Initech').resolved
+  N    createInvoice    api      invoice(customer=$M.id).exists  after M  key T10-r1/b057c3c06a17db36
+  O    sendInvoice      api      invoice(id=$N.id).status='sent'  after N  key T10-r1/ae9f82a5201f3d5a
+  P    payment.received event    invoice(id=$N.id).status='paid'  after N
+  Q    sendReceipt      api      invoice(id=$N.id).receipt_sent=true  after O,P  key T10-r1/026d23c5c05d35e7
+  R    createReport     api      report(invoices=[$N.id]).exists  after Q  key T10-r1/83370f8146b9f554
+  S    listCustomers    api      customer(name='Umbrella').resolved
+  T    createInvoice    api      invoice(customer=$S.id).exists  after S  key T10-r1/3320d467bd0c0bf1
+  U    sendInvoice      api      invoice(id=$T.id).status='sent'  after T  key T10-r1/f877c968f4187a29
+  V    payment.received event    invoice(id=$T.id).status='paid'  after T
+  W    sendReceipt      api      invoice(id=$T.id).receipt_sent=true  after U,V  key T10-r1/71b4434cbf56c39f
+  X    createReport     api      report(invoices=[$T.id]).exists  after W  key T10-r1/45d66ed9979db1c4
+  Y    listCustomers    api      customer(name='Hooli').resolved
+  Z    createInvoice    api      invoice(customer=$Y.id).exists  after Y  key T10-r1/a6097c3de11d8982
+  A1   sendInvoice      api      invoice(id=$Z.id).status='sent'  after Z  key T10-r1/d1ebc80e74aef832
+  B1   payment.received event    invoice(id=$Z.id).status='paid'  after Z
+  C1   sendReceipt      api      invoice(id=$Z.id).receipt_sent=true  after A1,B1  key T10-r1/7715f90ad4b5512c
+  D1   createReport     api      report(invoices=[$Z.id]).exists  after C1  key T10-r1/da9ae9263e540240
+  E1   listCustomers    api      customer(name='Vandelay').resolved
+  F1   createInvoice    api      invoice(customer=$E1.id).exists  after E1  key T10-r1/d4bcc8facea3754b
+  G1   sendInvoice      api      invoice(id=$F1.id).status='sent'  after F1  key T10-r1/42e7d83fc4ba4156
+  H1   payment.received event    invoice(id=$F1.id).status='paid'  after F1
+  I1   sendReceipt      api      invoice(id=$F1.id).receipt_sent=true  after G1,H1  key T10-r1/5731308c98bebc30
+  J1   createReport     api      report(invoices=[$F1.id]).exists  after I1  key T10-r1/24deb443ca1d6e33
+  K1   listCustomers    api      customer(name='Stark').resolved
+  L1   createInvoice    api      invoice(customer=$K1.id).exists  after K1  key T10-r1/264451efa8c7aedb
+  M1   sendInvoice      api      invoice(id=$L1.id).status='sent'  after L1  key T10-r1/d3e2d9af82b485ff
+  N1   payment.received event    invoice(id=$L1.id).status='paid'  after L1
+  O1   sendReceipt      api      invoice(id=$L1.id).receipt_sent=true  after M1,N1  key T10-r1/75c1f3ec9e478faa
+  P1   createReport     api      report(invoices=[$L1.id]).exists  after O1  key T10-r1/300ad4263ff3854b
+  Q1   listCustomers    api      customer(name='Wayne').resolved
+  R1   createInvoice    api      invoice(customer=$Q1.id).exists  after Q1  key T10-r1/dd5c66f291d3308e
+  S1   sendInvoice      api      invoice(id=$R1.id).status='sent'  after R1  key T10-r1/7b48abbd16c0ff6b
+  T1   payment.received event    invoice(id=$R1.id).status='paid'  after R1
+  U1   sendReceipt      api      invoice(id=$R1.id).receipt_sent=true  after S1,T1  key T10-r1/6c4a90dec288fc9d
+  V1   createReport     api      report(invoices=[$R1.id]).exists  after U1  key T10-r1/203345691d53a559
+  W1   listCustomers    api      customer(name='Wonka').resolved
+  X1   createInvoice    api      invoice(customer=$W1.id).exists  after W1  key T10-r1/9b505552264c5cef
+  Y1   sendInvoice      api      invoice(id=$X1.id).status='sent'  after X1  key T10-r1/bb129b1cbfb7706d
+  Z1   payment.received event    invoice(id=$X1.id).status='paid'  after X1
+  A2   sendReceipt      api      invoice(id=$X1.id).receipt_sent=true  after Y1,Z1  key T10-r1/c83167edf1b29338
+  B2   createReport     api      report(invoices=[$X1.id]).exists  after A2  key T10-r1/7f222f3aa1e15e4d
+  C2   listCustomers    api      customer(name='Tyrell').resolved
+  D2   createInvoice    api      invoice(customer=$C2.id).exists  after C2  key T10-r1/29497bfea7cec28f
+  E2   sendInvoice      api      invoice(id=$D2.id).status='sent'  after D2  key T10-r1/458b94bcc57fb8b5
+  F2   payment.received event    invoice(id=$D2.id).status='paid'  after D2
+  G2   sendReceipt      api      invoice(id=$D2.id).receipt_sent=true  after E2,F2  key T10-r1/271b75314ba8819c
+  H2   createReport     api      report(invoices=[$D2.id]).exists  after G2  key T10-r1/c41fae9d845e295d
+  I2   createReport     api      report(invoices=[$B.id,$H.id,$N.id,$T.id,$Z.id,$F1.id,$L1.id,$R1.id,$X1.id,$D2.id]).exists  after E,K,Q,W,C1,I1,O1,U1,A2,G2  key T10-r1/9e645a993041e0c9
+</pre></details><h2>T11 · three hundred invoices, all sent, from one want</h2><table><thead><tr><th>arm</th><th>what</th><th>runs</th><th>correct</th><th>model samples</th><th>tokens</th><th>plan ms</th><th>run ms</th><th>wall ms (median)</th><th>wall p25–p75</th><th>max parallel</th><th>double-sends</th><th>forks</th></tr></thead><tbody><tr><td><b>D</b></td><td>ours: planned graph</td><td>5</td><td class="ok">5/5</td><td>1</td><td>12111</td><td>111532</td><td>1179</td><td>112952</td><td>112763–114705</td><td class="hot">16</td><td class="">0</td><td>0</td></tr><tr><td><b>E</b></td><td>script ceiling, no model</td><td>5</td><td class="ok">5/5</td><td>0</td><td>0</td><td>0</td><td>291</td><td>292</td><td>267–445</td><td class="hot">300</td><td class="">0</td><td>0</td></tr></tbody></table><details><summary>plan (arm D, run 1)</summary><pre>plan T11-r1  (900 nodes, depth 3)
+  A    listCustomers    api      customer(name='Customer 001').resolved
+  B    createInvoice    api      invoice(customer=$A.id).exists  after A  key T11-r1/b6faf6abb5684dbb
+  C    sendInvoice      api      invoice(id=$B.id).status='sent'  after B  key T11-r1/12450cb4f5519b0b
+  D    listCustomers    api      customer(name='Customer 002').resolved
+  E    createInvoice    api      invoice(customer=$D.id).exists  after D  key T11-r1/256b1df546021f7b
+  F    sendInvoice      api      invoice(id=$E.id).status='sent'  after E  key T11-r1/5998d901b0542e90
+  G    listCustomers    api      customer(name='Customer 003').resolved
+  H    createInvoice    api      invoice(customer=$G.id).exists  after G  key T11-r1/3f58d1ed1123d3a2
+  I    sendInvoice      api      invoice(id=$H.id).status='sent'  after H  key T11-r1/61334ac948bdd15d
+  J    listCustomers    api      customer(name='Customer 004').resolved
+  K    createInvoice    api      invoice(customer=$J.id).exists  after J  key T11-r1/22b3301989b4c353
+  L    sendInvoice      api      invoice(id=$K.id).status='sent'  after K  key T11-r1/157e698d961bcc76
+  M    listCustomers    api      customer(name='Customer 005').resolved
+  N    createInvoice    api      invoice(customer=$M.id).exists  after M  key T11-r1/8ee0e165db8fae1d
+  O    sendInvoice      api      invoice(id=$N.id).status='sent'  after N  key T11-r1/f3dbcf7889bc2c4e
+  P    listCustomers    api      customer(name='Customer 006').resolved
+  Q    createInvoice    api      invoice(customer=$P.id).exists  after P  key T11-r1/5bebe1ba44b8f1ca
+  R    sendInvoice      api      invoice(id=$Q.id).status='sent'  after Q  key T11-r1/daeb5c257d5226c7
+  S    listCustomers    api      customer(name='Customer 007').resolved
+  T    createInvoice    api      invoice(customer=$S.id).exists  after S  key T11-r1/5cf34b4a6e357d6e
+  U    sendInvoice      api      invoice(id=$T.id).status='sent'  after T  key T11-r1/dddf5eba7aaf9d6a
+  V    listCustomers    api      customer(name='Customer 008').resolved
+  W    createInvoice    api      invoice(customer=$V.id).exists  after V  key T11-r1/579463d8d47fe639
+  X    sendInvoice      api      invoice(id=$W.id).status='sent'  after W  key T11-r1/19ea8f18e90385bf
+  Y    listCustomers    api      customer(name='Customer 009').resolved
+  Z    createInvoice    api      invoice(customer=$Y.id).exists  after Y  key T11-r1/0c6664e87b8b29c5
+  A1   sendInvoice      api      invoice(id=$Z.id).status='sent'  after Z  key T11-r1/ec83d951436325e9
+  B1   listCustomers    api      customer(name='Customer 010').resolved
+  C1   createInvoice    api      invoice(customer=$B1.id).exists  after B1  key T11-r1/fe6e851b5384274c
+  D1   sendInvoice      api      invoice(id=$C1.id).status='sent'  after C1  key T11-r1/fffdb0cd3a1f9383
+  E1   listCustomers    api      customer(name='Customer 011').resolved
+  F1   createInvoice    api      invoice(customer=$E1.id).exists  after E1  key T11-r1/edb84cfd4f8dfd2d
+  G1   sendInvoice      api      invoice(id=$F1.id).status='sent'  after F1  key T11-r1/bd43e70817ec581b
+  H1   listCustomers    api      customer(name='Customer 012').resolved
+  I1   createInvoice    api      invoice(customer=$H1.id).exists  after H1  key T11-r1/5fb92a0bfbc7b736
+  J1   sendInvoice      api      invoice(id=$I1.id).status='sent'  after I1  key T11-r1/2350e61a483c9d5d
+  K1   listCustomers    api      customer(name='Customer 013').resolved
+  L1   createInvoice    api      invoice(customer=$K1.id).exists  after K1  key T11-r1/12878614994c662d
+  M1   sendInvoice      api      invoice(id=$L1.id).status='sent'  after L1  key T11-r1/aff1fa782be19365
+  N1   listCustomers    api      customer(name='Customer 014').resolved
+  O1   createInvoice    api      invoice(customer=$N1.id).exists  after N1  key T11-r1/c1f06ea73b9ed379
+  P1   sendInvoice      api      invoice(id=$O1.id).status='sent'  after O1  key T11-r1/db13ba6a9bb3a6f4
+  Q1   listCustomers    api      customer(name='Customer 015').resolved
+  R1   createInvoice    api      invoice(customer=$Q1.id).exists  after Q1  key T11-r1/1055fddf76d38bc1
+  S1   sendInvoice      api      invoice(id=$R1.id).status='sent'  after R1  key T11-r1/3b8817a0bb8ebc5c
+  T1   listCustomers    api      customer(name='Customer 016').resolved
+  U1   createInvoice    api      invoice(customer=$T1.id).exists  after T1  key T11-r1/0fa6632dd9e9a52e
+  V1   sendInvoice      api      invoice(id=$U1.id).status='sent'  after U1  key T11-r1/d9c2c3fd4a2c6cc8
+  W1   listCustomers    api      customer(name='Customer 017').resolved
+  X1   createInvoice    api      invoice(customer=$W1.id).exists  after W1  key T11-r1/0877f5728f2602f7
+  Y1   sendInvoice      api      invoice(id=$X1.id).status='sent'  after X1  key T11-r1/550a0cabc175eaa2
+  Z1   listCustomers    api      customer(name='Customer 018').resolved
+  A2   createInvoice    api      invoice(customer=$Z1.id).exists  after Z1  key T11-r1/07102eff069f9345
+  B2   sendInvoice      api      invoice(id=$A2.id).status='sent'  after A2  key T11-r1/19d62cc02c269c87
+  C2   listCustomers    api      customer(name='Customer 019').resolved
+  D2   createInvoice    api      invoice(customer=$C2.id).exists  after C2  key T11-r1/5e43c4115a47f485
+  E2   sendInvoice      api      invoice(id=$D2.id).status='sent'  after D2  key T11-r1/dd11989c9a56b1a5
+  F2   listCustomers    api      customer(name='Customer 020').resolved
+  G2   createInvoice    api      invoice(customer=$F2.id).exists  after F2  key T11-r1/4a2850218055f71a
+  H2   sendInvoice      api      invoice(id=$G2.id).status='sent'  after G2  key T11-r1/1327e5c995da2ff4
+  I2   listCustomers    api      customer(name='Customer 021').resolved
+  J2   createInvoice    api      invoice(customer=$I2.id).exists  after I2  key T11-r1/d398c17da93308a3
+  K2   sendInvoice      api      invoice(id=$J2.id).status='sent'  after J2  key T11-r1/ab73417fadf8aa85
+  L2   listCustomers    api      customer(name='Customer 022').resolved
+  M2   createInvoice    api      invoice(customer=$L2.id).exists  after L2  key T11-r1/7abd20984ed587fe
+  N2   sendInvoice      api      invoice(id=$M2.id).status='sent'  after M2  key T11-r1/d7767ad2971621ed
+  O2   listCustomers    api      customer(name='Customer 023').resolved
+  P2   createInvoice    api      invoice(customer=$O2.id).exists  after O2  key T11-r1/91c6ab062c8825da
+  Q2   sendInvoice      api      invoice(id=$P2.id).status='sent'  after P2  key T11-r1/905bf07ee0a84377
+  R2   listCustomers    api      customer(name='Customer 024').resolved
+  S2   createInvoice    api      invoice(customer=$R2.id).exists  after R2  key T11-r1/85bf58217a4d82e2
+  T2   sendInvoice      api      invoice(id=$S2.id).status='sent'  after S2  key T11-r1/91e6270978146b41
+  U2   listCustomers    api      customer(name='Customer 025').resolved
+  V2   createInvoice    api      invoice(customer=$U2.id).exists  after U2  key T11-r1/b1bcb0f6a8fdd057
+  W2   sendInvoice      api      invoice(id=$V2.id).status='sent'  after V2  key T11-r1/b8daee429fd5f5d2
+  X2   listCustomers    api      customer(name='Customer 026').resolved
+  Y2   createInvoice    api      invoice(customer=$X2.id).exists  after X2  key T11-r1/be52528ec1a371e4
+  Z2   sendInvoice      api      invoice(id=$Y2.id).status='sent'  after Y2  key T11-r1/f74ff7582216f426
+  A3   listCustomers    api      customer(name='Customer 027').resolved
+  B3   createInvoice    api      invoice(customer=$A3.id).exists  after A3  key T11-r1/31ab2dc54d9c6a22
+  C3   sendInvoice      api      invoice(id=$B3.id).status='sent'  after B3  key T11-r1/a30fe43501c682c7
+  D3   listCustomers    api      customer(name='Customer 028').resolved
+  E3   createInvoice    api      invoice(customer=$D3.id).exists  after D3  key T11-r1/2d0606e4d6ec1724
+  F3   sendInvoice      api      invoice(id=$E3.id).status='sent'  after E3  key T11-r1/5071b3049990c1e5
+  G3   listCustomers    api      customer(name='Customer 029').resolved
+  H3   createInvoice    api      invoice(customer=$G3.id).exists  after G3  key T11-r1/5335d1d38b989486
+  I3   sendInvoice      api      invoice(id=$H3.id).status='sent'  after H3  key T11-r1/ecc5a8cec24aaab7
+  J3   listCustomers    api      customer(name='Customer 030').resolved
+  K3   createInvoice    api      invoice(customer=$J3.id).exists  after J3  key T11-r1/17153608b9366af2
+  L3   sendInvoice      api      invoice(id=$K3.id).status='sent'  after K3  key T11-r1/4808f336c126a7a4
+  M3   listCustomers    api      customer(name='Customer 031').resolved
+  N3   createInvoice    api      invoice(customer=$M3.id).exists  after M3  key T11-r1/f90e4f307ca918a4
+  O3   sendInvoice      api      invoice(id=$N3.id).status='sent'  after N3  key T11-r1/9f5958c3800047a5
+  P3   listCustomers    api      customer(name='Customer 032').resolved
+  Q3   createInvoice    api      invoice(customer=$P3.id).exists  after P3  key T11-r1/dc0e7dda11ecb4a5
+  R3   sendInvoice      api      invoice(id=$Q3.id).status='sent'  after Q3  key T11-r1/5522fd69d0f3b504
+  S3   listCustomers    api      customer(name='Customer 033').resolved
+  T3   createInvoice    api      invoice(customer=$S3.id).exists  after S3  key T11-r1/13fdf7f67481cf76
+  U3   sendInvoice      api      invoice(id=$T3.id).status='sent'  after T3  key T11-r1/35c3bb9c2828f3d5
+  V3   listCustomers    api      customer(name='Customer 034').resolved
+  W3   createInvoice    api      invoice(customer=$V3.id).exists  after V3  key T11-r1/be132463db852c25
+  X3   sendInvoice      api      invoice(id=$W3.id).status='sent'  after W3  key T11-r1/67f6e777ebfc1905
+  Y3   listCustomers    api      customer(name='Customer 035').resolved
+  Z3   createInvoice    api      invoice(customer=$Y3.id).exists  after Y3  key T11-r1/d0d5959a5c9cdc5d
+  A4   sendInvoice      api      invoice(id=$Z3.id).status='sent'  after Z3  key T11-r1/2427af32c8bd5443
+  B4   listCustomers    api      customer(name='Customer 036').resolved
+  C4   createInvoice    api      invoice(customer=$B4.id).exists  after B4  key T11-r1/3e8768d1abda10a0
+  D4   sendInvoice      api      invoice(id=$C4.id).status='sent'  after C4  key T11-r1/527eaf632183c351
+  E4   listCustomers    api      customer(name='Customer 037').resolved
+  F4   createInvoice    api      invoice(customer=$E4.id).exists  after E4  key T11-r1/674ada7008defea9
+  G4   sendInvoice      api      invoice(id=$F4.id).status='sent'  after F4  key T11-r1/88279bf3102374ad
+  H4   listCustomers    api      customer(name='Customer 038').resolved
+  I4   createInvoice    api      invoice(customer=$H4.id).exists  after H4  key T11-r1/e7e3dea9b4e0ff58
+  J4   sendInvoice      api      invoice(id=$I4.id).status='sent'  after I4  key T11-r1/544b1a31186db13e
+  K4   listCustomers    api      customer(name='Customer 039').resolved
+  L4   createInvoice    api      invoice(customer=$K4.id).exists  after K4  key T11-r1/d79657eb64e2b6ed
+  M4   sendInvoice      api      invoice(id=$L4.id).status='sent'  after L4  key T11-r1/a6d4457bf0d38c4c
+  N4   listCustomers    api      customer(name='Customer 040').resolved
+  O4   createInvoice    api      invoice(customer=$N4.id).exists  after N4  key T11-r1/d042e9bc521cdb1a
+  P4   sendInvoice      api      invoice(id=$O4.id).status='sent'  after O4  key T11-r1/e95e8ba9e908d469
+  Q4   listCustomers    api      customer(name='Customer 041').resolved
+  R4   createInvoice    api      invoice(customer=$Q4.id).exists  after Q4  key T11-r1/b623e8b6ddd5c596
+  S4   sendInvoice      api      invoice(id=$R4.id).status='sent'  after R4  key T11-r1/c78860dae2ff4c37
+  T4   listCustomers    api      customer(name='Customer 042').resolved
+  U4   createInvoice    api      invoice(customer=$T4.id).exists  after T4  key T11-r1/b8e1d7531a36a0b1
+  V4   sendInvoice      api      invoice(id=$U4.id).status='sent'  after U4  key T11-r1/6970ee75e549f6dd
+  W4   listCustomers    api      customer(name='Customer 043').resolved
+  X4   createInvoice    api      invoice(customer=$W4.id).exists  after W4  key T11-r1/f48222b483ce9f3f
+  Y4   sendInvoice      api      invoice(id=$X4.id).status='sent'  after X4  key T11-r1/0cf85d19547860ce
+  Z4   listCustomers    api      customer(name='Customer 044').resolved
+  A5   createInvoice    api      invoice(customer=$Z4.id).exists  after Z4  key T11-r1/75300211df72017b
+  B5   sendInvoice      api      invoice(id=$A5.id).status='sent'  after A5  key T11-r1/a3ef6621500fb075
+  C5   listCustomers    api      customer(name='Customer 045').resolved
+  D5   createInvoice    api      invoice(customer=$C5.id).exists  after C5  key T11-r1/aceb32a4c67b5a57
+  E5   sendInvoice      api      invoice(id=$D5.id).status='sent'  after D5  key T11-r1/40546ee8cc8f2a5c
+  F5   listCustomers    api      customer(name='Customer 046').resolved
+  G5   createInvoice    api      invoice(customer=$F5.id).exists  after F5  key T11-r1/58d0a12419d461de
+  H5   sendInvoice      api      invoice(id=$G5.id).status='sent'  after G5  key T11-r1/c4f38ad75d94e09d
+  I5   listCustomers    api      customer(name='Customer 047').resolved
+  J5   createInvoice    api      invoice(customer=$I5.id).exists  after I5  key T11-r1/ac874e2835dfc047
+  K5   sendInvoice      api      invoice(id=$J5.id).status='sent'  after J5  key T11-r1/344dd9547a935c0e
+  L5   listCustomers    api      customer(name='Customer 048').resolved
+  M5   createInvoice    api      invoice(customer=$L5.id).exists  after L5  key T11-r1/8bc9f94bb00ee979
+  N5   sendInvoice      api      invoice(id=$M5.id).status='sent'  after M5  key T11-r1/7d81588bb4663e05
+  O5   listCustomers    api      customer(name='Customer 049').resolved
+  P5   createInvoice    api      invoice(customer=$O5.id).exists  after O5  key T11-r1/9790a955f8156062
+  Q5   sendInvoice      api      invoice(id=$P5.id).status='sent'  after P5  key T11-r1/0242bcfb4b54cff2
+  R5   listCustomers    api      customer(name='Customer 050').resolved
+  S5   createInvoice    api      invoice(customer=$R5.id).exists  after R5  key T11-r1/972f37c1e28ec9e6
+  T5   sendInvoice      api      invoice(id=$S5.id).status='sent'  after S5  key T11-r1/18cb75efc73c3aa2
+  U5   listCustomers    api      customer(name='Customer 051').resolved
+  V5   createInvoice    api      invoice(customer=$U5.id).exists  after U5  key T11-r1/efdd4cf4a6518953
+  W5   sendInvoice      api      invoice(id=$V5.id).status='sent'  after V5  key T11-r1/4bf1b904b8ae63aa
+  X5   listCustomers    api      customer(name='Customer 052').resolved
+  Y5   createInvoice    api      invoice(customer=$X5.id).exists  after X5  key T11-r1/5b53a45ee65bbac8
+  Z5   sendInvoice      api      invoice(id=$Y5.id).status='sent'  after Y5  key T11-r1/3f5eb034fda671e3
+  A6   listCustomers    api      customer(name='Customer 053').resolved
+  B6   createInvoice    api      invoice(customer=$A6.id).exists  after A6  key T11-r1/f1eaee836456c04e
+  C6   sendInvoice      api      invoice(id=$B6.id).status='sent'  after B6  key T11-r1/92b47927e4b60b33
+  D6   listCustomers    api      customer(name='Customer 054').resolved
+  E6   createInvoice    api      invoice(customer=$D6.id).exists  after D6  key T11-r1/a2223a175808ba63
+  F6   sendInvoice      api      invoice(id=$E6.id).status='sent'  after E6  key T11-r1/2301470a8689ce5f
+  G6   listCustomers    api      customer(name='Customer 055').resolved
+  H6   createInvoice    api      invoice(customer=$G6.id).exists  after G6  key T11-r1/025dc774544713d1
+  I6   sendInvoice      api      invoice(id=$H6.id).status='sent'  after H6  key T11-r1/9984a09a4b20223c
+  J6   listCustomers    api      customer(name='Customer 056').resolved
+  K6   createInvoice    api      invoice(customer=$J6.id).exists  after J6  key T11-r1/c396d445183fe381
+  L6   sendInvoice      api      invoice(id=$K6.id).status='sent'  after K6  key T11-r1/69109d563dc3ab80
+  M6   listCustomers    api      customer(name='Customer 057').resolved
+  N6   createInvoice    api      invoice(customer=$M6.id).exists  after M6  key T11-r1/dfc4e458b391af85
+  O6   sendInvoice      api      invoice(id=$N6.id).status='sent'  after N6  key T11-r1/6c7946aa3e1d13bc
+  P6   listCustomers    api      customer(name='Customer 058').resolved
+  Q6   createInvoice    api      invoice(customer=$P6.id).exists  after P6  key T11-r1/7afa08237641e0d9
+  R6   sendInvoice      api      invoice(id=$Q6.id).status='sent'  after Q6  key T11-r1/db275fd77d5bd718
+  S6   listCustomers    api      customer(name='Customer 059').resolved
+  T6   createInvoice    api      invoice(customer=$S6.id).exists  after S6  key T11-r1/1d635e850cacddb1
+  U6   sendInvoice      api      invoice(id=$T6.id).status='sent'  after T6  key T11-r1/b18d3bed49dcd338
+  V6   listCustomers    api      customer(name='Customer 060').resolved
+  W6   createInvoice    api      invoice(customer=$V6.id).exists  after V6  key T11-r1/09df08cb4bf30f4a
+  X6   sendInvoice      api      invoice(id=$W6.id).status='sent'  after W6  key T11-r1/5a4d65c7cbb441d5
+  Y6   listCustomers    api      customer(name='Customer 061').resolved
+  Z6   createInvoice    api      invoice(customer=$Y6.id).exists  after Y6  key T11-r1/2f95b5cc4df6574c
+  A7   sendInvoice      api      invoice(id=$Z6.id).status='sent'  after Z6  key T11-r1/f9ac0104b456fcfc
+  B7   listCustomers    api      customer(name='Customer 062').resolved
+  C7   createInvoice    api      invoice(customer=$B7.id).exists  after B7  key T11-r1/ba041fbdda431100
+  D7   sendInvoice      api      invoice(id=$C7.id).status='sent'  after C7  key T11-r1/3336c30f7a7dcdb4
+  E7   listCustomers    api      customer(name='Customer 063').resolved
+  F7   createInvoice    api      invoice(customer=$E7.id).exists  after E7  key T11-r1/ad4eb54cfb0338c5
+  G7   sendInvoice      api      invoice(id=$F7.id).status='sent'  after F7  key T11-r1/ac4738aab1b6b876
+  H7   listCustomers    api      customer(name='Customer 064').resolved
+  I7   createInvoice    api      invoice(customer=$H7.id).exists  after H7  key T11-r1/61b749331db7d5a8
+  J7   sendInvoice      api      invoice(id=$I7.id).status='sent'  after I7  key T11-r1/d01c117aec08b259
+  K7   listCustomers    api      customer(name='Customer 065').resolved
+  L7   createInvoice    api      invoice(customer=$K7.id).exists  after K7  key T11-r1/02194db9413f1f01
+  M7   sendInvoice      api      invoice(id=$L7.id).status='sent'  after L7  key T11-r1/95145dc2f4782d67
+  N7   listCustomers    api      customer(name='Customer 066').resolved
+  O7   createInvoice    api      invoice(customer=$N7.id).exists  after N7  key T11-r1/4990e99aa68b799a
+  P7   sendInvoice      api      invoice(id=$O7.id).status='sent'  after O7  key T11-r1/4debef5aed2fd136
+  Q7   listCustomers    api      customer(name='Customer 067').resolved
+  R7   createInvoice    api      invoice(customer=$Q7.id).exists  after Q7  key T11-r1/c3a7cb743fadfaa1
+  S7   sendInvoice      api      invoice(id=$R7.id).status='sent'  after R7  key T11-r1/b9fd5f163a1ff207
+  T7   listCustomers    api      customer(name='Customer 068').resolved
+  U7   createInvoice    api      invoice(customer=$T7.id).exists  after T7  key T11-r1/34d08ca60d9ac74b
+  V7   sendInvoice      api      invoice(id=$U7.id).status='sent'  after U7  key T11-r1/c6b96afab833cddd
+  W7   listCustomers    api      customer(name='Customer 069').resolved
+  X7   createInvoice    api      invoice(customer=$W7.id).exists  after W7  key T11-r1/33e26a5d191327a5
+  Y7   sendInvoice      api      invoice(id=$X7.id).status='sent'  after X7  key T11-r1/a743a370c0664568
+  Z7   listCustomers    api      customer(name='Customer 070').resolved
+  A8   createInvoice    api      invoice(customer=$Z7.id).exists  after Z7  key T11-r1/ca6969b8504ebab6
+  B8   sendInvoice      api      invoice(id=$A8.id).status='sent'  after A8  key T11-r1/c6dfa165505c0adf
+  C8   listCustomers    api      customer(name='Customer 071').resolved
+  D8   createInvoice    api      invoice(customer=$C8.id).exists  after C8  key T11-r1/ffc0e9dd42d7ef10
+  E8   sendInvoice      api      invoice(id=$D8.id).status='sent'  after D8  key T11-r1/1a0334fc7876cb2a
+  F8   listCustomers    api      customer(name='Customer 072').resolved
+  G8   createInvoice    api      invoice(customer=$F8.id).exists  after F8  key T11-r1/51473698bcfb70b4
+  H8   sendInvoice      api      invoice(id=$G8.id).status='sent'  after G8  key T11-r1/efb227eee4077f36
+  I8   listCustomers    api      customer(name='Customer 073').resolved
+  J8   createInvoice    api      invoice(customer=$I8.id).exists  after I8  key T11-r1/12344322477f6708
+  K8   sendInvoice      api      invoice(id=$J8.id).status='sent'  after J8  key T11-r1/49caa4a7005add02
+  L8   listCustomers    api      customer(name='Customer 074').resolved
+  M8   createInvoice    api      invoice(customer=$L8.id).exists  after L8  key T11-r1/ccc7325bbc1c5917
+  N8   sendInvoice      api      invoice(id=$M8.id).status='sent'  after M8  key T11-r1/ad20e875eb8bc87d
+  O8   listCustomers    api      customer(name='Customer 075').resolved
+  P8   createInvoice    api      invoice(customer=$O8.id).exists  after O8  key T11-r1/bce5d9607fc1fefa
+  Q8   sendInvoice      api      invoice(id=$P8.id).status='sent'  after P8  key T11-r1/f641c0f3048c0cc4
+  R8   listCustomers    api      customer(name='Customer 076').resolved
+  S8   createInvoice    api      invoice(customer=$R8.id).exists  after R8  key T11-r1/cc15f2e7d2c25838
+  T8   sendInvoice      api      invoice(id=$S8.id).status='sent'  after S8  key T11-r1/92964b42ed5bce16
+  U8   listCustomers    api      customer(name='Customer 077').resolved
+  V8   createInvoice    api      invoice(customer=$U8.id).exists  after U8  key T11-r1/01ce6ab4f98575bd
+  W8   sendInvoice      api      invoice(id=$V8.id).status='sent'  after V8  key T11-r1/993d479ce6806caa
+  X8   listCustomers    api      customer(name='Customer 078').resolved
+  Y8   createInvoice    api      invoice(customer=$X8.id).exists  after X8  key T11-r1/08a11bbfa660077c
+  Z8   sendInvoice      api      invoice(id=$Y8.id).status='sent'  after Y8  key T11-r1/ef51acdf08f7bce6
+  A9   listCustomers    api      customer(name='Customer 079').resolved
+  B9   createInvoice    api      invoice(customer=$A9.id).exists  after A9  key T11-r1/2a6604579059835f
+  C9   sendInvoice      api      invoice(id=$B9.id).status='sent'  after B9  key T11-r1/c2db6e061f719c3e
+  D9   listCustomers    api      customer(name='Customer 080').resolved
+  E9   createInvoice    api      invoice(customer=$D9.id).exists  after D9  key T11-r1/98eb752208a94d36
+  F9   sendInvoice      api      invoice(id=$E9.id).status='sent'  after E9  key T11-r1/b7778e45c225f5ba
+  G9   listCustomers    api      customer(name='Customer 081').resolved
+  H9   createInvoice    api      invoice(customer=$G9.id).exists  after G9  key T11-r1/f675707b47575650
+  I9   sendInvoice      api      invoice(id=$H9.id).status='sent'  after H9  key T11-r1/de6332e7b926818e
+  J9   listCustomers    api      customer(name='Customer 082').resolved
+  K9   createInvoice    api      invoice(customer=$J9.id).exists  after J9  key T11-r1/6054413dea87cd2a
+  L9   sendInvoice      api      invoice(id=$K9.id).status='sent'  after K9  key T11-r1/ab73abf4da8a276d
+  M9   listCustomers    api      customer(name='Customer 083').resolved
+  N9   createInvoice    api      invoice(customer=$M9.id).exists  after M9  key T11-r1/6c0fe40fdf6bf50e
+  O9   sendInvoice      api      invoice(id=$N9.id).status='sent'  after N9  key T11-r1/38f701ac509fd4ea
+  P9   listCustomers    api      customer(name='Customer 084').resolved
+  Q9   createInvoice    api      invoice(customer=$P9.id).exists  after P9  key T11-r1/70bcca51e0144697
+  R9   sendInvoice      api      invoice(id=$Q9.id).status='sent'  after Q9  key T11-r1/e00a971a26058c5b
+  S9   listCustomers    api      customer(name='Customer 085').resolved
+  T9   createInvoice    api      invoice(customer=$S9.id).exists  after S9  key T11-r1/61a53f82fb9a7c84
+  U9   sendInvoice      api      invoice(id=$T9.id).status='sent'  after T9  key T11-r1/02e4c3b28a947e46
+  V9   listCustomers    api      customer(name='Customer 086').resolved
+  W9   createInvoice    api      invoice(customer=$V9.id).exists  after V9  key T11-r1/357f4b4511fdcf2e
+  X9   sendInvoice      api      invoice(id=$W9.id).status='sent'  after W9  key T11-r1/a8582110bc4cf65a
+  Y9   listCustomers    api      customer(name='Customer 087').resolved
+  Z9   createInvoice    api      invoice(customer=$Y9.id).exists  after Y9  key T11-r1/1ae185fecb193a6e
+  A10  sendInvoice      api      invoice(id=$Z9.id).status='sent'  after Z9  key T11-r1/19bab6c022dc3db2
+  B10  listCustomers    api      customer(name='Customer 088').resolved
+  C10  createInvoice    api      invoice(customer=$B10.id).exists  after B10  key T11-r1/7b5515938ef6f9b4
+  D10  sendInvoice      api      invoice(id=$C10.id).status='sent'  after C10  key T11-r1/945fd16188f8afbb
+  E10  listCustomers    api      customer(name='Customer 089').resolved
+  F10  createInvoice    api      invoice(customer=$E10.id).exists  after E10  key T11-r1/5d368fca6e9f632c
+  G10  sendInvoice      api      invoice(id=$F10.id).status='sent'  after F10  key T11-r1/33ea2209ba9bb5c8
+  H10  listCustomers    api      customer(name='Customer 090').resolved
+  I10  createInvoice    api      invoice(customer=$H10.id).exists  after H10  key T11-r1/7a690ceaf7f0c2e2
+  J10  sendInvoice      api      invoice(id=$I10.id).status='sent'  after I10  key T11-r1/ae09d5650a65130c
+  K10  listCustomers    api      customer(name='Customer 091').resolved
+  L10  createInvoice    api      invoice(customer=$K10.id).exists  after K10  key T11-r1/1e9aa54ffaf70087
+  M10  sendInvoice      api      invoice(id=$L10.id).status='sent'  after L10  key T11-r1/24036aa7184a1f6b
+  N10  listCustomers    api      customer(name='Customer 092').resolved
+  O10  createInvoice    api      invoice(customer=$N10.id).exists  after N10  key T11-r1/bcfd4a1a6aecaddf
+  P10  sendInvoice      api      invoice(id=$O10.id).status='sent'  after O10  key T11-r1/020151f59e00152f
+  Q10  listCustomers    api      customer(name='Customer 093').resolved
+  R10  createInvoice    api      invoice(customer=$Q10.id).exists  after Q10  key T11-r1/ab8f884465d1a347
+  S10  sendInvoice      api      invoice(id=$R10.id).status='sent'  after R10  key T11-r1/a167d9f7f69a141a
+  T10  listCustomers    api      customer(name='Customer 094').resolved
+  U10  createInvoice    api      invoice(customer=$T10.id).exists  after T10  key T11-r1/c70857b3960e2fbf
+  V10  sendInvoice      api      invoice(id=$U10.id).status='sent'  after U10  key T11-r1/4d534a1c7d20931d
+  W10  listCustomers    api      customer(name='Customer 095').resolved
+  X10  createInvoice    api      invoice(customer=$W10.id).exists  after W10  key T11-r1/433c28eb33f59c82
+  Y10  sendInvoice      api      invoice(id=$X10.id).status='sent'  after X10  key T11-r1/8ce35c336c72825a
+  Z10  listCustomers    api      customer(name='Customer 096').resolved
+  A11  createInvoice    api      invoice(customer=$Z10.id).exists  after Z10  key T11-r1/838b5a16d828b8d4
+  B11  sendInvoice      api      invoice(id=$A11.id).status='sent'  after A11  key T11-r1/91ca130c235d4768
+  C11  listCustomers    api      customer(name='Customer 097').resolved
+  D11  createInvoice    api      invoice(customer=$C11.id).exists  after C11  key T11-r1/3ea51275d7ddfcf3
+  E11  sendInvoice      api      invoice(id=$D11.id).status='sent'  after D11  key T11-r1/9d655c6d7f9bc27e
+  F11  listCustomers    api      customer(name='Customer 098').resolved
+  G11  createInvoice    api      invoice(customer=$F11.id).exists  after F11  key T11-r1/f864329b7e59a326
+  H11  sendInvoice      api      invoice(id=$G11.id).status='sent'  after G11  key T11-r1/63c55c942c1241be
+  I11  listCustomers    api      customer(name='Customer 099').resolved
+  J11  createInvoice    api      invoice(customer=$I11.id).exists  after I11  key T11-r1/4b1d2c8891d6ab11
+  K11  sendInvoice      api      invoice(id=$J11.id).status='sent'  after J11  key T11-r1/e6e8eff10581597d
+  L11  listCustomers    api      customer(name='Customer 100').resolved
+  M11  createInvoice    api      invoice(customer=$L11.id).exists  after L11  key T11-r1/1103780aca577477
+  N11  sendInvoice      api      invoice(id=$M11.id).status='sent'  after M11  key T11-r1/b5a184dc3c9de8fd
+  O11  listCustomers    api      customer(name='Customer 101').resolved
+  P11  createInvoice    api      invoice(customer=$O11.id).exists  after O11  key T11-r1/bc4faea8b5abad9a
+  Q11  sendInvoice      api      invoice(id=$P11.id).status='sent'  after P11  key T11-r1/08db496d5077324b
+  R11  listCustomers    api      customer(name='Customer 102').resolved
+  S11  createInvoice    api      invoice(customer=$R11.id).exists  after R11  key T11-r1/267af2e0f83783b8
+  T11  sendInvoice      api      invoice(id=$S11.id).status='sent'  after S11  key T11-r1/71d9f342d57cd33d
+  U11  listCustomers    api      customer(name='Customer 103').resolved
+  V11  createInvoice    api      invoice(customer=$U11.id).exists  after U11  key T11-r1/96546cec1c44331a
+  W11  sendInvoice      api      invoice(id=$V11.id).status='sent'  after V11  key T11-r1/b23487fda9ca609f
+  X11  listCustomers    api      customer(name='Customer 104').resolved
+  Y11  createInvoice    api      invoice(customer=$X11.id).exists  after X11  key T11-r1/8e88dce8c0c110c3
+  Z11  sendInvoice      api      invoice(id=$Y11.id).status='sent'  after Y11  key T11-r1/5ce66eefb9d484df
+  A12  listCustomers    api      customer(name='Customer 105').resolved
+  B12  createInvoice    api      invoice(customer=$A12.id).exists  after A12  key T11-r1/b9b23653d6520b37
+  C12  sendInvoice      api      invoice(id=$B12.id).status='sent'  after B12  key T11-r1/5505ef97dcb207d6
+  D12  listCustomers    api      customer(name='Customer 106').resolved
+  E12  createInvoice    api      invoice(customer=$D12.id).exists  after D12  key T11-r1/154123f27085a8af
+  F12  sendInvoice      api      invoice(id=$E12.id).status='sent'  after E12  key T11-r1/91d9504f6465a18d
+  G12  listCustomers    api      customer(name='Customer 107').resolved
+  H12  createInvoice    api      invoice(customer=$G12.id).exists  after G12  key T11-r1/52b5b5ae0cd79e72
+  I12  sendInvoice      api      invoice(id=$H12.id).status='sent'  after H12  key T11-r1/91cd576fe2c9161d
+  J12  listCustomers    api      customer(name='Customer 108').resolved
+  K12  createInvoice    api      invoice(customer=$J12.id).exists  after J12  key T11-r1/1de5f4d1d188d247
+  L12  sendInvoice      api      invoice(id=$K12.id).status='sent'  after K12  key T11-r1/2d8d45661e0512b8
+  M12  listCustomers    api      customer(name='Customer 109').resolved
+  N12  createInvoice    api      invoice(customer=$M12.id).exists  after M12  key T11-r1/d9f04696f7a7938b
+  O12  sendInvoice      api      invoice(id=$N12.id).status='sent'  after N12  key T11-r1/54bb2d05e9934439
+  P12  listCustomers    api      customer(name='Customer 110').resolved
+  Q12  createInvoice    api      invoice(customer=$P12.id).exists  after P12  key T11-r1/5cb92d2cc1994a32
+  R12  sendInvoice      api      invoice(id=$Q12.id).status='sent'  after Q12  key T11-r1/95e2eefbbbd94407
+  S12  listCustomers    api      customer(name='Customer 111').resolved
+  T12  createInvoice    api      invoice(customer=$S12.id).exists  after S12  key T11-r1/b8e7ebc78c5ae2e6
+  U12  sendInvoice      api      invoice(id=$T12.id).status='sent'  after T12  key T11-r1/0af677e39edf39fb
+  V12  listCustomers    api      customer(name='Customer 112').resolved
+  W12  createInvoice    api      invoice(customer=$V12.id).exists  after V12  key T11-r1/b1111b918bab2e2b
+  X12  sendInvoice      api      invoice(id=$W12.id).status='sent'  after W12  key T11-r1/010af3f2d69d1238
+  Y12  listCustomers    api      customer(name='Customer 113').resolved
+  Z12  createInvoice    api      invoice(customer=$Y12.id).exists  after Y12  key T11-r1/839bf2572ad62845
+  A13  sendInvoice      api      invoice(id=$Z12.id).status='sent'  after Z12  key T11-r1/f2dae48922366bae
+  B13  listCustomers    api      customer(name='Customer 114').resolved
+  C13  createInvoice    api      invoice(customer=$B13.id).exists  after B13  key T11-r1/1e7c80b11815dd68
+  D13  sendInvoice      api      invoice(id=$C13.id).status='sent'  after C13  key T11-r1/c8208a7a137e059f
+  E13  listCustomers    api      customer(name='Customer 115').resolved
+  F13  createInvoice    api      invoice(customer=$E13.id).exists  after E13  key T11-r1/02aeb21e43c37eb2
+  G13  sendInvoice      api      invoice(id=$F13.id).status='sent'  after F13  key T11-r1/730f0c1bdb0e0d1a
+  H13  listCustomers    api      customer(name='Customer 116').resolved
+  I13  createInvoice    api      invoice(customer=$H13.id).exists  after H13  key T11-r1/c983ea328c2ae5c6
+  J13  sendInvoice      api      invoice(id=$I13.id).status='sent'  after I13  key T11-r1/27ec6c97f7d29536
+  K13  listCustomers    api      customer(name='Customer 117').resolved
+  L13  createInvoice    api      invoice(customer=$K13.id).exists  after K13  key T11-r1/c99b461717cb5025
+  M13  sendInvoice      api      invoice(id=$L13.id).status='sent'  after L13  key T11-r1/2f3cc0af3ba1b751
+  N13  listCustomers    api      customer(name='Customer 118').resolved
+  O13  createInvoice    api      invoice(customer=$N13.id).exists  after N13  key T11-r1/d95b446c61d5eaf9
+  P13  sendInvoice      api      invoice(id=$O13.id).status='sent'  after O13  key T11-r1/3d3c427843618c5f
+  Q13  listCustomers    api      customer(name='Customer 119').resolved
+  R13  createInvoice    api      invoice(customer=$Q13.id).exists  after Q13  key T11-r1/1ae3ebeab414a7c7
+  S13  sendInvoice      api      invoice(id=$R13.id).status='sent'  after R13  key T11-r1/8658bb5fb0570d9e
+  T13  listCustomers    api      customer(name='Customer 120').resolved
+  U13  createInvoice    api      invoice(customer=$T13.id).exists  after T13  key T11-r1/817f4f3c07fe42af
+  V13  sendInvoice      api      invoice(id=$U13.id).status='sent'  after U13  key T11-r1/34712cf294f7ab2b
+  W13  listCustomers    api      customer(name='Customer 121').resolved
+  X13  createInvoice    api      invoice(customer=$W13.id).exists  after W13  key T11-r1/f553877839a9cb8d
+  Y13  sendInvoice      api      invoice(id=$X13.id).status='sent'  after X13  key T11-r1/a012752811b90e4f
+  Z13  listCustomers    api      customer(name='Customer 122').resolved
+  A14  createInvoice    api      invoice(customer=$Z13.id).exists  after Z13  key T11-r1/a616b497bcf8778f
+  B14  sendInvoice      api      invoice(id=$A14.id).status='sent'  after A14  key T11-r1/5416c00ccb48e806
+  C14  listCustomers    api      customer(name='Customer 123').resolved
+  D14  createInvoice    api      invoice(customer=$C14.id).exists  after C14  key T11-r1/2ac2c9a5b3588601
+  E14  sendInvoice      api      invoice(id=$D14.id).status='sent'  after D14  key T11-r1/6b8ed919ddf4ed08
+  F14  listCustomers    api      customer(name='Customer 124').resolved
+  G14  createInvoice    api      invoice(customer=$F14.id).exists  after F14  key T11-r1/7961d8a75f34ee24
+  H14  sendInvoice      api      invoice(id=$G14.id).status='sent'  after G14  key T11-r1/e57d54ca26b92f7f
+  I14  listCustomers    api      customer(name='Customer 125').resolved
+  J14  createInvoice    api      invoice(customer=$I14.id).exists  after I14  key T11-r1/88a36ce39442c015
+  K14  sendInvoice      api      invoice(id=$J14.id).status='sent'  after J14  key T11-r1/f8a16f77474dfaa1
+  L14  listCustomers    api      customer(name='Customer 126').resolved
+  M14  createInvoice    api      invoice(customer=$L14.id).exists  after L14  key T11-r1/6654730a64df71ef
+  N14  sendInvoice      api      invoice(id=$M14.id).status='sent'  after M14  key T11-r1/e441a5997a7d1e08
+  O14  listCustomers    api      customer(name='Customer 127').resolved
+  P14  createInvoice    api      invoice(customer=$O14.id).exists  after O14  key T11-r1/114ba1bd18d088b4
+  Q14  sendInvoice      api      invoice(id=$P14.id).status='sent'  after P14  key T11-r1/0b155caa3f793e89
+  R14  listCustomers    api      customer(name='Customer 128').resolved
+  S14  createInvoice    api      invoice(customer=$R14.id).exists  after R14  key T11-r1/f2095b4eff7be81d
+  T14  sendInvoice      api      invoice(id=$S14.id).status='sent'  after S14  key T11-r1/6ebac3c2cbafab06
+  U14  listCustomers    api      customer(name='Customer 129').resolved
+  V14  createInvoice    api      invoice(customer=$U14.id).exists  after U14  key T11-r1/3ff106d0f8d5f900
+  W14  sendInvoice      api      invoice(id=$V14.id).status='sent'  after V14  key T11-r1/65b92edb8e205333
+  X14  listCustomers    api      customer(name='Customer 130').resolved
+  Y14  createInvoice    api      invoice(customer=$X14.id).exists  after X14  key T11-r1/048f4030b83250d9
+  Z14  sendInvoice      api      invoice(id=$Y14.id).status='sent'  after Y14  key T11-r1/f3640ee33f5c5a83
+  A15  listCustomers    api      customer(name='Customer 131').resolved
+  B15  createInvoice    api      invoice(customer=$A15.id).exists  after A15  key T11-r1/6592c190426ff5aa
+  C15  sendInvoice      api      invoice(id=$B15.id).status='sent'  after B15  key T11-r1/02856cdcf9458df7
+  D15  listCustomers    api      customer(name='Customer 132').resolved
+  E15  createInvoice    api      invoice(customer=$D15.id).exists  after D15  key T11-r1/2ce11ee3be61b83b
+  F15  sendInvoice      api      invoice(id=$E15.id).status='sent'  after E15  key T11-r1/c92dc6febbb6b67c
+  G15  listCustomers    api      customer(name='Customer 133').resolved
+  H15  createInvoice    api      invoice(customer=$G15.id).exists  after G15  key T11-r1/2b9b15aaab79125b
+  I15  sendInvoice      api      invoice(id=$H15.id).status='sent'  after H15  key T11-r1/74ea0169fb4a9513
+  J15  listCustomers    api      customer(name='Customer 134').resolved
+  K15  createInvoice    api      invoice(customer=$J15.id).exists  after J15  key T11-r1/5cf20227470e3aba
+  L15  sendInvoice      api      invoice(id=$K15.id).status='sent'  after K15  key T11-r1/9cadbb33e1395a38
+  M15  listCustomers    api      customer(name='Customer 135').resolved
+  N15  createInvoice    api      invoice(customer=$M15.id).exists  after M15  key T11-r1/f623e81f22a0b93f
+  O15  sendInvoice      api      invoice(id=$N15.id).status='sent'  after N15  key T11-r1/0b5f12b734d46bed
+  P15  listCustomers    api      customer(name='Customer 136').resolved
+  Q15  createInvoice    api      invoice(customer=$P15.id).exists  after P15  key T11-r1/9254d02e8b7ebb2e
+  R15  sendInvoice      api      invoice(id=$Q15.id).status='sent'  after Q15  key T11-r1/ac35bd9729be45c8
+  S15  listCustomers    api      customer(name='Customer 137').resolved
+  T15  createInvoice    api      invoice(customer=$S15.id).exists  after S15  key T11-r1/7d66f376f2957334
+  U15  sendInvoice      api      invoice(id=$T15.id).status='sent'  after T15  key T11-r1/8f49076c9dbf7787
+  V15  listCustomers    api      customer(name='Customer 138').resolved
+  W15  createInvoice    api      invoice(customer=$V15.id).exists  after V15  key T11-r1/60ed5ddf3c23fd79
+  X15  sendInvoice      api      invoice(id=$W15.id).status='sent'  after W15  key T11-r1/68426dd065149613
+  Y15  listCustomers    api      customer(name='Customer 139').resolved
+  Z15  createInvoice    api      invoice(customer=$Y15.id).exists  after Y15  key T11-r1/a9e7bcb19be90911
+  A16  sendInvoice      api      invoice(id=$Z15.id).status='sent'  after Z15  key T11-r1/3210a54d4ab19d0f
+  B16  listCustomers    api      customer(name='Customer 140').resolved
+  C16  createInvoice    api      invoice(customer=$B16.id).exists  after B16  key T11-r1/1a1b3c21d2724cd8
+  D16  sendInvoice      api      invoice(id=$C16.id).status='sent'  after C16  key T11-r1/0a8a7efd39867b1a
+  E16  listCustomers    api      customer(name='Customer 141').resolved
+  F16  createInvoice    api      invoice(customer=$E16.id).exists  after E16  key T11-r1/35f01adc91772886
+  G16  sendInvoice      api      invoice(id=$F16.id).status='sent'  after F16  key T11-r1/3804de7a13e1a9c8
+  H16  listCustomers    api      customer(name='Customer 142').resolved
+  I16  createInvoice    api      invoice(customer=$H16.id).exists  after H16  key T11-r1/252192bbd8d6e0f6
+  J16  sendInvoice      api      invoice(id=$I16.id).status='sent'  after I16  key T11-r1/11e6219f4386e134
+  K16  listCustomers    api      customer(name='Customer 143').resolved
+  L16  createInvoice    api      invoice(customer=$K16.id).exists  after K16  key T11-r1/f4734fffbf76a1f4
+  M16  sendInvoice      api      invoice(id=$L16.id).status='sent'  after L16  key T11-r1/fc80a8102fa94426
+  N16  listCustomers    api      customer(name='Customer 144').resolved
+  O16  createInvoice    api      invoice(customer=$N16.id).exists  after N16  key T11-r1/bdc61bd6560a7bb6
+  P16  sendInvoice      api      invoice(id=$O16.id).status='sent'  after O16  key T11-r1/1ea21d1a5aef893d
+  Q16  listCustomers    api      customer(name='Customer 145').resolved
+  R16  createInvoice    api      invoice(customer=$Q16.id).exists  after Q16  key T11-r1/68bc02828060a8be
+  S16  sendInvoice      api      invoice(id=$R16.id).status='sent'  after R16  key T11-r1/07adb21d6ffb3a82
+  T16  listCustomers    api      customer(name='Customer 146').resolved
+  U16  createInvoice    api      invoice(customer=$T16.id).exists  after T16  key T11-r1/20afc0e95361e72c
+  V16  sendInvoice      api      invoice(id=$U16.id).status='sent'  after U16  key T11-r1/d2e799201e0bb4ba
+  W16  listCustomers    api      customer(name='Customer 147').resolved
+  X16  createInvoice    api      invoice(customer=$W16.id).exists  after W16  key T11-r1/de57278463cf018d
+  Y16  sendInvoice      api      invoice(id=$X16.id).status='sent'  after X16  key T11-r1/931461546e3730c9
+  Z16  listCustomers    api      customer(name='Customer 148').resolved
+  A17  createInvoice    api      invoice(customer=$Z16.id).exists  after Z16  key T11-r1/f00fabed644fac85
+  B17  sendInvoice      api      invoice(id=$A17.id).status='sent'  after A17  key T11-r1/b7b2db4f70777c95
+  C17  listCustomers    api      customer(name='Customer 149').resolved
+  D17  createInvoice    api      invoice(customer=$C17.id).exists  after C17  key T11-r1/eb6f0b7fb21d9f78
+  E17  sendInvoice      api      invoice(id=$D17.id).status='sent'  after D17  key T11-r1/370f6826e21ac5a6
+  F17  listCustomers    api      customer(name='Customer 150').resolved
+  G17  createInvoice    api      invoice(customer=$F17.id).exists  after F17  key T11-r1/26e20c215059087c
+  H17  sendInvoice      api      invoice(id=$G17.id).status='sent'  after G17  key T11-r1/e237c001e7cfc9ff
+  I17  listCustomers    api      customer(name='Customer 151').resolved
+  J17  createInvoice    api      invoice(customer=$I17.id).exists  after I17  key T11-r1/24a2d90ac8e2bb81
+  K17  sendInvoice      api      invoice(id=$J17.id).status='sent'  after J17  key T11-r1/f3e54bca2bbef229
+  L17  listCustomers    api      customer(name='Customer 152').resolved
+  M17  createInvoice    api      invoice(customer=$L17.id).exists  after L17  key T11-r1/ad83d16bcbe2d051
+  N17  sendInvoice      api      invoice(id=$M17.id).status='sent'  after M17  key T11-r1/5626fdcb901d60c4
+  O17  listCustomers    api      customer(name='Customer 153').resolved
+  P17  createInvoice    api      invoice(customer=$O17.id).exists  after O17  key T11-r1/39a1285c3e082781
+  Q17  sendInvoice      api      invoice(id=$P17.id).status='sent'  after P17  key T11-r1/87564ca12fdac9aa
+  R17  listCustomers    api      customer(name='Customer 154').resolved
+  S17  createInvoice    api      invoice(customer=$R17.id).exists  after R17  key T11-r1/801b6efceaaed633
+  T17  sendInvoice      api      invoice(id=$S17.id).status='sent'  after S17  key T11-r1/708670cd3c20ba6c
+  U17  listCustomers    api      customer(name='Customer 155').resolved
+  V17  createInvoice    api      invoice(customer=$U17.id).exists  after U17  key T11-r1/cb52bf19ac3ca7cf
+  W17  sendInvoice      api      invoice(id=$V17.id).status='sent'  after V17  key T11-r1/520537ed55e037c3
+  X17  listCustomers    api      customer(name='Customer 156').resolved
+  Y17  createInvoice    api      invoice(customer=$X17.id).exists  after X17  key T11-r1/b61d2017dcc91ef9
+  Z17  sendInvoice      api      invoice(id=$Y17.id).status='sent'  after Y17  key T11-r1/97c8715fe6e0c004
+  A18  listCustomers    api      customer(name='Customer 157').resolved
+  B18  createInvoice    api      invoice(customer=$A18.id).exists  after A18  key T11-r1/d4f421e25fb855a0
+  C18  sendInvoice      api      invoice(id=$B18.id).status='sent'  after B18  key T11-r1/3bb599eb2bd8ef6f
+  D18  listCustomers    api      customer(name='Customer 158').resolved
+  E18  createInvoice    api      invoice(customer=$D18.id).exists  after D18  key T11-r1/9efa2f5c62070ec9
+  F18  sendInvoice      api      invoice(id=$E18.id).status='sent'  after E18  key T11-r1/bcb4f85837806135
+  G18  listCustomers    api      customer(name='Customer 159').resolved
+  H18  createInvoice    api      invoice(customer=$G18.id).exists  after G18  key T11-r1/bc870d7648004c1e
+  I18  sendInvoice      api      invoice(id=$H18.id).status='sent'  after H18  key T11-r1/42b4fe955eae6e40
+  J18  listCustomers    api      customer(name='Customer 160').resolved
+  K18  createInvoice    api      invoice(customer=$J18.id).exists  after J18  key T11-r1/d1e37a06859c7b15
+  L18  sendInvoice      api      invoice(id=$K18.id).status='sent'  after K18  key T11-r1/f6bbf50702a7b4ca
+  M18  listCustomers    api      customer(name='Customer 161').resolved
+  N18  createInvoice    api      invoice(customer=$M18.id).exists  after M18  key T11-r1/1b8dc5e1273a5490
+  O18  sendInvoice      api      invoice(id=$N18.id).status='sent'  after N18  key T11-r1/b679e05afea3d26e
+  P18  listCustomers    api      customer(name='Customer 162').resolved
+  Q18  createInvoice    api      invoice(customer=$P18.id).exists  after P18  key T11-r1/c6699ff2e454b402
+  R18  sendInvoice      api      invoice(id=$Q18.id).status='sent'  after Q18  key T11-r1/5aaa5146b9dedfb2
+  S18  listCustomers    api      customer(name='Customer 163').resolved
+  T18  createInvoice    api      invoice(customer=$S18.id).exists  after S18  key T11-r1/f93f1c6a158a3fb7
+  U18  sendInvoice      api      invoice(id=$T18.id).status='sent'  after T18  key T11-r1/81bbfe7507e5928f
+  V18  listCustomers    api      customer(name='Customer 164').resolved
+  W18  createInvoice    api      invoice(customer=$V18.id).exists  after V18  key T11-r1/8276fa714cfc96fe
+  X18  sendInvoice      api      invoice(id=$W18.id).status='sent'  after W18  key T11-r1/6f2bbfe629693795
+  Y18  listCustomers    api      customer(name='Customer 165').resolved
+  Z18  createInvoice    api      invoice(customer=$Y18.id).exists  after Y18  key T11-r1/e6b6ef6c6ef09040
+  A19  sendInvoice      api      invoice(id=$Z18.id).status='sent'  after Z18  key T11-r1/d8d4b70a3a21ce8d
+  B19  listCustomers    api      customer(name='Customer 166').resolved
+  C19  createInvoice    api      invoice(customer=$B19.id).exists  after B19  key T11-r1/8a350f7d9c634ed3
+  D19  sendInvoice      api      invoice(id=$C19.id).status='sent'  after C19  key T11-r1/3a7e05df62b2c048
+  E19  listCustomers    api      customer(name='Customer 167').resolved
+  F19  createInvoice    api      invoice(customer=$E19.id).exists  after E19  key T11-r1/525b61e003fe7476
+  G19  sendInvoice      api      invoice(id=$F19.id).status='sent'  after F19  key T11-r1/b5f1f261ade1b4f2
+  H19  listCustomers    api      customer(name='Customer 168').resolved
+  I19  createInvoice    api      invoice(customer=$H19.id).exists  after H19  key T11-r1/d55e0c992f81a705
+  J19  sendInvoice      api      invoice(id=$I19.id).status='sent'  after I19  key T11-r1/44b4917f39d876f6
+  K19  listCustomers    api      customer(name='Customer 169').resolved
+  L19  createInvoice    api      invoice(customer=$K19.id).exists  after K19  key T11-r1/2572052fa29899be
+  M19  sendInvoice      api      invoice(id=$L19.id).status='sent'  after L19  key T11-r1/02e0ad05332cfeec
+  N19  listCustomers    api      customer(name='Customer 170').resolved
+  O19  createInvoice    api      invoice(customer=$N19.id).exists  after N19  key T11-r1/c3a7ab1da5bce5e1
+  P19  sendInvoice      api      invoice(id=$O19.id).status='sent'  after O19  key T11-r1/1321c5083a10d507
+  Q19  listCustomers    api      customer(name='Customer 171').resolved
+  R19  createInvoice    api      invoice(customer=$Q19.id).exists  after Q19  key T11-r1/3f3291f996aec11c
+  S19  sendInvoice      api      invoice(id=$R19.id).status='sent'  after R19  key T11-r1/67ca9f1d39ca9a4b
+  T19  listCustomers    api      customer(name='Customer 172').resolved
+  U19  createInvoice    api      invoice(customer=$T19.id).exists  after T19  key T11-r1/d9f566ca2f640a25
+  V19  sendInvoice      api      invoice(id=$U19.id).status='sent'  after U19  key T11-r1/c3711e56dfec0ac5
+  W19  listCustomers    api      customer(name='Customer 173').resolved
+  X19  createInvoice    api      invoice(customer=$W19.id).exists  after W19  key T11-r1/e35db1c6cb259131
+  Y19  sendInvoice      api      invoice(id=$X19.id).status='sent'  after X19  key T11-r1/3bc56db143bf0549
+  Z19  listCustomers    api      customer(name='Customer 174').resolved
+  A20  createInvoice    api      invoice(customer=$Z19.id).exists  after Z19  key T11-r1/84d6eb029f6c2f46
+  B20  sendInvoice      api      invoice(id=$A20.id).status='sent'  after A20  key T11-r1/0c641073465d2f6a
+  C20  listCustomers    api      customer(name='Customer 175').resolved
+  D20  createInvoice    api      invoice(customer=$C20.id).exists  after C20  key T11-r1/96f67c0cd652b69e
+  E20  sendInvoice      api      invoice(id=$D20.id).status='sent'  after D20  key T11-r1/e830953eba8e171b
+  F20  listCustomers    api      customer(name='Customer 176').resolved
+  G20  createInvoice    api      invoice(customer=$F20.id).exists  after F20  key T11-r1/6766d5bec82596c3
+  H20  sendInvoice      api      invoice(id=$G20.id).status='sent'  after G20  key T11-r1/c4d9aabc025ac6f6
+  I20  listCustomers    api      customer(name='Customer 177').resolved
+  J20  createInvoice    api      invoice(customer=$I20.id).exists  after I20  key T11-r1/e429e821291121bf
+  K20  sendInvoice      api      invoice(id=$J20.id).status='sent'  after J20  key T11-r1/2a8431db2675332c
+  L20  listCustomers    api      customer(name='Customer 178').resolved
+  M20  createInvoice    api      invoice(customer=$L20.id).exists  after L20  key T11-r1/b291dac93ca7a79e
+  N20  sendInvoice      api      invoice(id=$M20.id).status='sent'  after M20  key T11-r1/2340e6b6f56303b6
+  O20  listCustomers    api      customer(name='Customer 179').resolved
+  P20  createInvoice    api      invoice(customer=$O20.id).exists  after O20  key T11-r1/5b3ef863112046cc
+  Q20  sendInvoice      api      invoice(id=$P20.id).status='sent'  after P20  key T11-r1/c2f2618569156bd0
+  R20  listCustomers    api      customer(name='Customer 180').resolved
+  S20  createInvoice    api      invoice(customer=$R20.id).exists  after R20  key T11-r1/884f88cdfa1fe091
+  T20  sendInvoice      api      invoice(id=$S20.id).status='sent'  after S20  key T11-r1/8b642d1a6a84ab8f
+  U20  listCustomers    api      customer(name='Customer 181').resolved
+  V20  createInvoice    api      invoice(customer=$U20.id).exists  after U20  key T11-r1/8806a84fa99d6a84
+  W20  sendInvoice      api      invoice(id=$V20.id).status='sent'  after V20  key T11-r1/053e2e466d5a772f
+  X20  listCustomers    api      customer(name='Customer 182').resolved
+  Y20  createInvoice    api      invoice(customer=$X20.id).exists  after X20  key T11-r1/3f8f9fe0c0605631
+  Z20  sendInvoice      api      invoice(id=$Y20.id).status='sent'  after Y20  key T11-r1/a295f134af91035a
+  A21  listCustomers    api      customer(name='Customer 183').resolved
+  B21  createInvoice    api      invoice(customer=$A21.id).exists  after A21  key T11-r1/c5e87b8e42cbca73
+  C21  sendInvoice      api      invoice(id=$B21.id).status='sent'  after B21  key T11-r1/71172782078e8c78
+  D21  listCustomers    api      customer(name='Customer 184').resolved
+  E21  createInvoice    api      invoice(customer=$D21.id).exists  after D21  key T11-r1/728abc37d3709b2e
+  F21  sendInvoice      api      invoice(id=$E21.id).status='sent'  after E21  key T11-r1/6aa359070c72bba6
+  G21  listCustomers    api      customer(name='Customer 185').resolved
+  H21  createInvoice    api      invoice(customer=$G21.id).exists  after G21  key T11-r1/994c96f8ca1b4edb
+  I21  sendInvoice      api      invoice(id=$H21.id).status='sent'  after H21  key T11-r1/1bbe7325f71e8c96
+  J21  listCustomers    api      customer(name='Customer 186').resolved
+  K21  createInvoice    api      invoice(customer=$J21.id).exists  after J21  key T11-r1/1be3e79558c33506
+  L21  sendInvoice      api      invoice(id=$K21.id).status='sent'  after K21  key T11-r1/60f40a4d061b372f
+  M21  listCustomers    api      customer(name='Customer 187').resolved
+  N21  createInvoice    api      invoice(customer=$M21.id).exists  after M21  key T11-r1/f11d8f03e60ee51d
+  O21  sendInvoice      api      invoice(id=$N21.id).status='sent'  after N21  key T11-r1/92ef476584ce24e1
+  P21  listCustomers    api      customer(name='Customer 188').resolved
+  Q21  createInvoice    api      invoice(customer=$P21.id).exists  after P21  key T11-r1/2c60e14f0945bc31
+  R21  sendInvoice      api      invoice(id=$Q21.id).status='sent'  after Q21  key T11-r1/deff7c9a5ba5199a
+  S21  listCustomers    api      customer(name='Customer 189').resolved
+  T21  createInvoice    api      invoice(customer=$S21.id).exists  after S21  key T11-r1/77d0f9ff44048d39
+  U21  sendInvoice      api      invoice(id=$T21.id).status='sent'  after T21  key T11-r1/30b882176390bee7
+  V21  listCustomers    api      customer(name='Customer 190').resolved
+  W21  createInvoice    api      invoice(customer=$V21.id).exists  after V21  key T11-r1/5ac5d480b6d6042e
+  X21  sendInvoice      api      invoice(id=$W21.id).status='sent'  after W21  key T11-r1/d6d731eb322a95b0
+  Y21  listCustomers    api      customer(name='Customer 191').resolved
+  Z21  createInvoice    api      invoice(customer=$Y21.id).exists  after Y21  key T11-r1/d8bbb7f470e3ce30
+  A22  sendInvoice      api      invoice(id=$Z21.id).status='sent'  after Z21  key T11-r1/3a70f5b1194ee5a2
+  B22  listCustomers    api      customer(name='Customer 192').resolved
+  C22  createInvoice    api      invoice(customer=$B22.id).exists  after B22  key T11-r1/945962c6de5867f2
+  D22  sendInvoice      api      invoice(id=$C22.id).status='sent'  after C22  key T11-r1/1de48f25fd38d234
+  E22  listCustomers    api      customer(name='Customer 193').resolved
+  F22  createInvoice    api      invoice(customer=$E22.id).exists  after E22  key T11-r1/66f920e2c1cfba9f
+  G22  sendInvoice      api      invoice(id=$F22.id).status='sent'  after F22  key T11-r1/9263647fccf81659
+  H22  listCustomers    api      customer(name='Customer 194').resolved
+  I22  createInvoice    api      invoice(customer=$H22.id).exists  after H22  key T11-r1/af56063c686e53f7
+  J22  sendInvoice      api      invoice(id=$I22.id).status='sent'  after I22  key T11-r1/3614024332b7d19e
+  K22  listCustomers    api      customer(name='Customer 195').resolved
+  L22  createInvoice    api      invoice(customer=$K22.id).exists  after K22  key T11-r1/f78bbc7a2970fd42
+  M22  sendInvoice      api      invoice(id=$L22.id).status='sent'  after L22  key T11-r1/0a60b35b1a111bf5
+  N22  listCustomers    api      customer(name='Customer 196').resolved
+  O22  createInvoice    api      invoice(customer=$N22.id).exists  after N22  key T11-r1/7a73abcec3e15574
+  P22  sendInvoice      api      invoice(id=$O22.id).status='sent'  after O22  key T11-r1/b9676eb9c33943a8
+  Q22  listCustomers    api      customer(name='Customer 197').resolved
+  R22  createInvoice    api      invoice(customer=$Q22.id).exists  after Q22  key T11-r1/873640c4cd9ed249
+  S22  sendInvoice      api      invoice(id=$R22.id).status='sent'  after R22  key T11-r1/d8f1ca79f25790f7
+  T22  listCustomers    api      customer(name='Customer 198').resolved
+  U22  createInvoice    api      invoice(customer=$T22.id).exists  after T22  key T11-r1/b36fc1a67a7c5710
+  V22  sendInvoice      api      invoice(id=$U22.id).status='sent'  after U22  key T11-r1/d271906cbaee4ed9
+  W22  listCustomers    api      customer(name='Customer 199').resolved
+  X22  createInvoice    api      invoice(customer=$W22.id).exists  after W22  key T11-r1/7fa02e3b5918166a
+  Y22  sendInvoice      api      invoice(id=$X22.id).status='sent'  after X22  key T11-r1/15c8fdb26b4a4227
+  Z22  listCustomers    api      customer(name='Customer 200').resolved
+  A23  createInvoice    api      invoice(customer=$Z22.id).exists  after Z22  key T11-r1/33bda1be5d4e7ea1
+  B23  sendInvoice      api      invoice(id=$A23.id).status='sent'  after A23  key T11-r1/08aa7cd2af5699ac
+  C23  listCustomers    api      customer(name='Customer 201').resolved
+  D23  createInvoice    api      invoice(customer=$C23.id).exists  after C23  key T11-r1/d9c8ff52557406fc
+  E23  sendInvoice      api      invoice(id=$D23.id).status='sent'  after D23  key T11-r1/5c686a255dc8f688
+  F23  listCustomers    api      customer(name='Customer 202').resolved
+  G23  createInvoice    api      invoice(customer=$F23.id).exists  after F23  key T11-r1/e2ae5eea7596e7d7
+  H23  sendInvoice      api      invoice(id=$G23.id).status='sent'  after G23  key T11-r1/537d84176702a21f
+  I23  listCustomers    api      customer(name='Customer 203').resolved
+  J23  createInvoice    api      invoice(customer=$I23.id).exists  after I23  key T11-r1/6c400e47aa37ffcf
+  K23  sendInvoice      api      invoice(id=$J23.id).status='sent'  after J23  key T11-r1/b6b046d8910495e2
+  L23  listCustomers    api      customer(name='Customer 204').resolved
+  M23  createInvoice    api      invoice(customer=$L23.id).exists  after L23  key T11-r1/7ebbb659656933ee
+  N23  sendInvoice      api      invoice(id=$M23.id).status='sent'  after M23  key T11-r1/9c0175eeb279563b
+  O23  listCustomers    api      customer(name='Customer 205').resolved
+  P23  createInvoice    api      invoice(customer=$O23.id).exists  after O23  key T11-r1/eb87db41e3cd9bb3
+  Q23  sendInvoice      api      invoice(id=$P23.id).status='sent'  after P23  key T11-r1/7e31eb03566f990e
+  R23  listCustomers    api      customer(name='Customer 206').resolved
+  S23  createInvoice    api      invoice(customer=$R23.id).exists  after R23  key T11-r1/2c4efce7dee39843
+  T23  sendInvoice      api      invoice(id=$S23.id).status='sent'  after S23  key T11-r1/c0850ded3b52085d
+  U23  listCustomers    api      customer(name='Customer 207').resolved
+  V23  createInvoice    api      invoice(customer=$U23.id).exists  after U23  key T11-r1/8b3e7e0c130a3b84
+  W23  sendInvoice      api      invoice(id=$V23.id).status='sent'  after V23  key T11-r1/df0bbf91d3201af7
+  X23  listCustomers    api      customer(name='Customer 208').resolved
+  Y23  createInvoice    api      invoice(customer=$X23.id).exists  after X23  key T11-r1/ca4650f2fca06025
+  Z23  sendInvoice      api      invoice(id=$Y23.id).status='sent'  after Y23  key T11-r1/a32edd5e603d4263
+  A24  listCustomers    api      customer(name='Customer 209').resolved
+  B24  createInvoice    api      invoice(customer=$A24.id).exists  after A24  key T11-r1/a3842ff8ec70c204
+  C24  sendInvoice      api      invoice(id=$B24.id).status='sent'  after B24  key T11-r1/d2cae197e8604d48
+  D24  listCustomers    api      customer(name='Customer 210').resolved
+  E24  createInvoice    api      invoice(customer=$D24.id).exists  after D24  key T11-r1/290cb20a9743d3d9
+  F24  sendInvoice      api      invoice(id=$E24.id).status='sent'  after E24  key T11-r1/fb2273bb51b4af84
+  G24  listCustomers    api      customer(name='Customer 211').resolved
+  H24  createInvoice    api      invoice(customer=$G24.id).exists  after G24  key T11-r1/1165e351546b635e
+  I24  sendInvoice      api      invoice(id=$H24.id).status='sent'  after H24  key T11-r1/effa5dc41963f4fa
+  J24  listCustomers    api      customer(name='Customer 212').resolved
+  K24  createInvoice    api      invoice(customer=$J24.id).exists  after J24  key T11-r1/b887fec32e0e90bb
+  L24  sendInvoice      api      invoice(id=$K24.id).status='sent'  after K24  key T11-r1/c8ebccd20f58dabd
+  M24  listCustomers    api      customer(name='Customer 213').resolved
+  N24  createInvoice    api      invoice(customer=$M24.id).exists  after M24  key T11-r1/cee00ee65ff2e768
+  O24  sendInvoice      api      invoice(id=$N24.id).status='sent'  after N24  key T11-r1/08014581c3d4bc19
+  P24  listCustomers    api      customer(name='Customer 214').resolved
+  Q24  createInvoice    api      invoice(customer=$P24.id).exists  after P24  key T11-r1/f5f43556d4178fb5
+  R24  sendInvoice      api      invoice(id=$Q24.id).status='sent'  after Q24  key T11-r1/0ba1cdd09b06e622
+  S24  listCustomers    api      customer(name='Customer 215').resolved
+  T24  createInvoice    api      invoice(customer=$S24.id).exists  after S24  key T11-r1/1b3c6b4751af2f35
+  U24  sendInvoice      api      invoice(id=$T24.id).status='sent'  after T24  key T11-r1/e1f3cf69f920eed9
+  V24  listCustomers    api      customer(name='Customer 216').resolved
+  W24  createInvoice    api      invoice(customer=$V24.id).exists  after V24  key T11-r1/b22d0d28de6d1e60
+  X24  sendInvoice      api      invoice(id=$W24.id).status='sent'  after W24  key T11-r1/e12a389ae59e42ac
+  Y24  listCustomers    api      customer(name='Customer 217').resolved
+  Z24  createInvoice    api      invoice(customer=$Y24.id).exists  after Y24  key T11-r1/32c765f5e94ec9ca
+  A25  sendInvoice      api      invoice(id=$Z24.id).status='sent'  after Z24  key T11-r1/1e4373fa32c3c623
+  B25  listCustomers    api      customer(name='Customer 218').resolved
+  C25  createInvoice    api      invoice(customer=$B25.id).exists  after B25  key T11-r1/dd2e44682cf76b1c
+  D25  sendInvoice      api      invoice(id=$C25.id).status='sent'  after C25  key T11-r1/b815bbb14867283f
+  E25  listCustomers    api      customer(name='Customer 219').resolved
+  F25  createInvoice    api      invoice(customer=$E25.id).exists  after E25  key T11-r1/033295547f2b691f
+  G25  sendInvoice      api      invoice(id=$F25.id).status='sent'  after F25  key T11-r1/695ba4cf4bec8069
+  H25  listCustomers    api      customer(name='Customer 220').resolved
+  I25  createInvoice    api      invoice(customer=$H25.id).exists  after H25  key T11-r1/3fb5bd7be55a2f7b
+  J25  sendInvoice      api      invoice(id=$I25.id).status='sent'  after I25  key T11-r1/356cf61c3834f613
+  K25  listCustomers    api      customer(name='Customer 221').resolved
+  L25  createInvoice    api      invoice(customer=$K25.id).exists  after K25  key T11-r1/d098d5c26fd8ee43
+  M25  sendInvoice      api      invoice(id=$L25.id).status='sent'  after L25  key T11-r1/22dae4a429efcb53
+  N25  listCustomers    api      customer(name='Customer 222').resolved
+  O25  createInvoice    api      invoice(customer=$N25.id).exists  after N25  key T11-r1/637df6269acec890
+  P25  sendInvoice      api      invoice(id=$O25.id).status='sent'  after O25  key T11-r1/1a64240978af3a30
+  Q25  listCustomers    api      customer(name='Customer 223').resolved
+  R25  createInvoice    api      invoice(customer=$Q25.id).exists  after Q25  key T11-r1/763854a8b53f54d3
+  S25  sendInvoice      api      invoice(id=$R25.id).status='sent'  after R25  key T11-r1/5a22b2b4fd17ccc4
+  T25  listCustomers    api      customer(name='Customer 224').resolved
+  U25  createInvoice    api      invoice(customer=$T25.id).exists  after T25  key T11-r1/e7c96c9d22c21bfd
+  V25  sendInvoice      api      invoice(id=$U25.id).status='sent'  after U25  key T11-r1/40d86e51ab8b18d9
+  W25  listCustomers    api      customer(name='Customer 225').resolved
+  X25  createInvoice    api      invoice(customer=$W25.id).exists  after W25  key T11-r1/b3b3e0e64a078a41
+  Y25  sendInvoice      api      invoice(id=$X25.id).status='sent'  after X25  key T11-r1/e0d444847a828768
+  Z25  listCustomers    api      customer(name='Customer 226').resolved
+  A26  createInvoice    api      invoice(customer=$Z25.id).exists  after Z25  key T11-r1/6bea8a37e5e14cfb
+  B26  sendInvoice      api      invoice(id=$A26.id).status='sent'  after A26  key T11-r1/bce2a5a5059d13f6
+  C26  listCustomers    api      customer(name='Customer 227').resolved
+  D26  createInvoice    api      invoice(customer=$C26.id).exists  after C26  key T11-r1/7448eaecb4ebedc9
+  E26  sendInvoice      api      invoice(id=$D26.id).status='sent'  after D26  key T11-r1/7111d0bba14700c4
+  F26  listCustomers    api      customer(name='Customer 228').resolved
+  G26  createInvoice    api      invoice(customer=$F26.id).exists  after F26  key T11-r1/f9b79f0073cdd520
+  H26  sendInvoice      api      invoice(id=$G26.id).status='sent'  after G26  key T11-r1/477409629ef6f838
+  I26  listCustomers    api      customer(name='Customer 229').resolved
+  J26  createInvoice    api      invoice(customer=$I26.id).exists  after I26  key T11-r1/32dd1fdf0eaf01e8
+  K26  sendInvoice      api      invoice(id=$J26.id).status='sent'  after J26  key T11-r1/861ae0734a8dc74f
+  L26  listCustomers    api      customer(name='Customer 230').resolved
+  M26  createInvoice    api      invoice(customer=$L26.id).exists  after L26  key T11-r1/7fb2c301e5f1c113
+  N26  sendInvoice      api      invoice(id=$M26.id).status='sent'  after M26  key T11-r1/78105c6503f123be
+  O26  listCustomers    api      customer(name='Customer 231').resolved
+  P26  createInvoice    api      invoice(customer=$O26.id).exists  after O26  key T11-r1/3d3353c668c576b5
+  Q26  sendInvoice      api      invoice(id=$P26.id).status='sent'  after P26  key T11-r1/681b4bf298d36e53
+  R26  listCustomers    api      customer(name='Customer 232').resolved
+  S26  createInvoice    api      invoice(customer=$R26.id).exists  after R26  key T11-r1/c3d70b153b3d56b9
+  T26  sendInvoice      api      invoice(id=$S26.id).status='sent'  after S26  key T11-r1/3433b2c0b6a08dcb
+  U26  listCustomers    api      customer(name='Customer 233').resolved
+  V26  createInvoice    api      invoice(customer=$U26.id).exists  after U26  key T11-r1/f1809b8b533e1b91
+  W26  sendInvoice      api      invoice(id=$V26.id).status='sent'  after V26  key T11-r1/8ed8fa382daf8fbd
+  X26  listCustomers    api      customer(name='Customer 234').resolved
+  Y26  createInvoice    api      invoice(customer=$X26.id).exists  after X26  key T11-r1/59ee1ad9a7872866
+  Z26  sendInvoice      api      invoice(id=$Y26.id).status='sent'  after Y26  key T11-r1/623059ea0210d209
+  A27  listCustomers    api      customer(name='Customer 235').resolved
+  B27  createInvoice    api      invoice(customer=$A27.id).exists  after A27  key T11-r1/874efcb9c933ae59
+  C27  sendInvoice      api      invoice(id=$B27.id).status='sent'  after B27  key T11-r1/0baa9dba89933612
+  D27  listCustomers    api      customer(name='Customer 236').resolved
+  E27  createInvoice    api      invoice(customer=$D27.id).exists  after D27  key T11-r1/d5cb1c24f7ed0ce7
+  F27  sendInvoice      api      invoice(id=$E27.id).status='sent'  after E27  key T11-r1/0921b2cfd2a8fbbe
+  G27  listCustomers    api      customer(name='Customer 237').resolved
+  H27  createInvoice    api      invoice(customer=$G27.id).exists  after G27  key T11-r1/446048dcad497cec
+  I27  sendInvoice      api      invoice(id=$H27.id).status='sent'  after H27  key T11-r1/74443af6f481b8e6
+  J27  listCustomers    api      customer(name='Customer 238').resolved
+  K27  createInvoice    api      invoice(customer=$J27.id).exists  after J27  key T11-r1/b6ff78ddb6c9d463
+  L27  sendInvoice      api      invoice(id=$K27.id).status='sent'  after K27  key T11-r1/4be1e330a7941d71
+  M27  listCustomers    api      customer(name='Customer 239').resolved
+  N27  createInvoice    api      invoice(customer=$M27.id).exists  after M27  key T11-r1/f31ec4a6cf531def
+  O27  sendInvoice      api      invoice(id=$N27.id).status='sent'  after N27  key T11-r1/89accdbc2b1e66c6
+  P27  listCustomers    api      customer(name='Customer 240').resolved
+  Q27  createInvoice    api      invoice(customer=$P27.id).exists  after P27  key T11-r1/d1fb4d54a6429dde
+  R27  sendInvoice      api      invoice(id=$Q27.id).status='sent'  after Q27  key T11-r1/e5c663b567a1c8bf
+  S27  listCustomers    api      customer(name='Customer 241').resolved
+  T27  createInvoice    api      invoice(customer=$S27.id).exists  after S27  key T11-r1/13c33d39a94367b0
+  U27  sendInvoice      api      invoice(id=$T27.id).status='sent'  after T27  key T11-r1/76b87ab02e736819
+  V27  listCustomers    api      customer(name='Customer 242').resolved
+  W27  createInvoice    api      invoice(customer=$V27.id).exists  after V27  key T11-r1/af9673fbada377ea
+  X27  sendInvoice      api      invoice(id=$W27.id).status='sent'  after W27  key T11-r1/b5d95d9305131fcf
+  Y27  listCustomers    api      customer(name='Customer 243').resolved
+  Z27  createInvoice    api      invoice(customer=$Y27.id).exists  after Y27  key T11-r1/a7270ad22d2f68fa
+  A28  sendInvoice      api      invoice(id=$Z27.id).status='sent'  after Z27  key T11-r1/b3c1f2472491d72e
+  B28  listCustomers    api      customer(name='Customer 244').resolved
+  C28  createInvoice    api      invoice(customer=$B28.id).exists  after B28  key T11-r1/f625bcdb66e5661d
+  D28  sendInvoice      api      invoice(id=$C28.id).status='sent'  after C28  key T11-r1/60a2324fb4291080
+  E28  listCustomers    api      customer(name='Customer 245').resolved
+  F28  createInvoice    api      invoice(customer=$E28.id).exists  after E28  key T11-r1/0fee6c1d8c491588
+  G28  sendInvoice      api      invoice(id=$F28.id).status='sent'  after F28  key T11-r1/f7c7cc8828e070b2
+  H28  listCustomers    api      customer(name='Customer 246').resolved
+  I28  createInvoice    api      invoice(customer=$H28.id).exists  after H28  key T11-r1/e5cc3b72c8bebef6
+  J28  sendInvoice      api      invoice(id=$I28.id).status='sent'  after I28  key T11-r1/911162b0e47ba83a
+  K28  listCustomers    api      customer(name='Customer 247').resolved
+  L28  createInvoice    api      invoice(customer=$K28.id).exists  after K28  key T11-r1/ce9f483efd22ee2b
+  M28  sendInvoice      api      invoice(id=$L28.id).status='sent'  after L28  key T11-r1/e5be1538dcac864a
+  N28  listCustomers    api      customer(name='Customer 248').resolved
+  O28  createInvoice    api      invoice(customer=$N28.id).exists  after N28  key T11-r1/5ec2aa08e3bbc92d
+  P28  sendInvoice      api      invoice(id=$O28.id).status='sent'  after O28  key T11-r1/43e07f5a30fab227
+  Q28  listCustomers    api      customer(name='Customer 249').resolved
+  R28  createInvoice    api      invoice(customer=$Q28.id).exists  after Q28  key T11-r1/12f3eba619f113f8
+  S28  sendInvoice      api      invoice(id=$R28.id).status='sent'  after R28  key T11-r1/05ad1b07d515880b
+  T28  listCustomers    api      customer(name='Customer 250').resolved
+  U28  createInvoice    api      invoice(customer=$T28.id).exists  after T28  key T11-r1/0f8765d734aea1c3
+  V28  sendInvoice      api      invoice(id=$U28.id).status='sent'  after U28  key T11-r1/04a55e2d71d300d0
+  W28  listCustomers    api      customer(name='Customer 251').resolved
+  X28  createInvoice    api      invoice(customer=$W28.id).exists  after W28  key T11-r1/03accc6ecdd1bb1d
+  Y28  sendInvoice      api      invoice(id=$X28.id).status='sent'  after X28  key T11-r1/04f4ec7c5e118364
+  Z28  listCustomers    api      customer(name='Customer 252').resolved
+  A29  createInvoice    api      invoice(customer=$Z28.id).exists  after Z28  key T11-r1/9412b2b08e25cc5c
+  B29  sendInvoice      api      invoice(id=$A29.id).status='sent'  after A29  key T11-r1/efe8587ba4e1bc57
+  C29  listCustomers    api      customer(name='Customer 253').resolved
+  D29  createInvoice    api      invoice(customer=$C29.id).exists  after C29  key T11-r1/9d53cf9c2ce4310d
+  E29  sendInvoice      api      invoice(id=$D29.id).status='sent'  after D29  key T11-r1/288cbc88de887368
+  F29  listCustomers    api      customer(name='Customer 254').resolved
+  G29  createInvoice    api      invoice(customer=$F29.id).exists  after F29  key T11-r1/f0ea8834ff777ec3
+  H29  sendInvoice      api      invoice(id=$G29.id).status='sent'  after G29  key T11-r1/e594b2f1c9806390
+  I29  listCustomers    api      customer(name='Customer 255').resolved
+  J29  createInvoice    api      invoice(customer=$I29.id).exists  after I29  key T11-r1/9d2d9747b7062f40
+  K29  sendInvoice      api      invoice(id=$J29.id).status='sent'  after J29  key T11-r1/96d4845fbaaeaf1d
+  L29  listCustomers    api      customer(name='Customer 256').resolved
+  M29  createInvoice    api      invoice(customer=$L29.id).exists  after L29  key T11-r1/6e3d3333c0c3c223
+  N29  sendInvoice      api      invoice(id=$M29.id).status='sent'  after M29  key T11-r1/7e251075b2b60da3
+  O29  listCustomers    api      customer(name='Customer 257').resolved
+  P29  createInvoice    api      invoice(customer=$O29.id).exists  after O29  key T11-r1/9674b8a66f026a43
+  Q29  sendInvoice      api      invoice(id=$P29.id).status='sent'  after P29  key T11-r1/db4524cac47964c1
+  R29  listCustomers    api      customer(name='Customer 258').resolved
+  S29  createInvoice    api      invoice(customer=$R29.id).exists  after R29  key T11-r1/42d8f400b46262c2
+  T29  sendInvoice      api      invoice(id=$S29.id).status='sent'  after S29  key T11-r1/fd009b749aef98ef
+  U29  listCustomers    api      customer(name='Customer 259').resolved
+  V29  createInvoice    api      invoice(customer=$U29.id).exists  after U29  key T11-r1/90b378a5a5922791
+  W29  sendInvoice      api      invoice(id=$V29.id).status='sent'  after V29  key T11-r1/f8d4f4933d7ed716
+  X29  listCustomers    api      customer(name='Customer 260').resolved
+  Y29  createInvoice    api      invoice(customer=$X29.id).exists  after X29  key T11-r1/f8dac54c3adb512c
+  Z29  sendInvoice      api      invoice(id=$Y29.id).status='sent'  after Y29  key T11-r1/ba7fa5f4bb3443cf
+  A30  listCustomers    api      customer(name='Customer 261').resolved
+  B30  createInvoice    api      invoice(customer=$A30.id).exists  after A30  key T11-r1/f5ef3a6c5d4e7e4e
+  C30  sendInvoice      api      invoice(id=$B30.id).status='sent'  after B30  key T11-r1/e4094fab344967de
+  D30  listCustomers    api      customer(name='Customer 262').resolved
+  E30  createInvoice    api      invoice(customer=$D30.id).exists  after D30  key T11-r1/eaac782b33766502
+  F30  sendInvoice      api      invoice(id=$E30.id).status='sent'  after E30  key T11-r1/59f4b09117c9314b
+  G30  listCustomers    api      customer(name='Customer 263').resolved
+  H30  createInvoice    api      invoice(customer=$G30.id).exists  after G30  key T11-r1/b735610169e4392e
+  I30  sendInvoice      api      invoice(id=$H30.id).status='sent'  after H30  key T11-r1/cbcd4af128f12092
+  J30  listCustomers    api      customer(name='Customer 264').resolved
+  K30  createInvoice    api      invoice(customer=$J30.id).exists  after J30  key T11-r1/04ed828fcadd49cb
+  L30  sendInvoice      api      invoice(id=$K30.id).status='sent'  after K30  key T11-r1/86e46edd33f830b2
+  M30  listCustomers    api      customer(name='Customer 265').resolved
+  N30  createInvoice    api      invoice(customer=$M30.id).exists  after M30  key T11-r1/4deb2892b9c435e4
+  O30  sendInvoice      api      invoice(id=$N30.id).status='sent'  after N30  key T11-r1/b2c66dfe0866683f
+  P30  listCustomers    api      customer(name='Customer 266').resolved
+  Q30  createInvoice    api      invoice(customer=$P30.id).exists  after P30  key T11-r1/9157e48b9b165478
+  R30  sendInvoice      api      invoice(id=$Q30.id).status='sent'  after Q30  key T11-r1/d322bf73b251e450
+  S30  listCustomers    api      customer(name='Customer 267').resolved
+  T30  createInvoice    api      invoice(customer=$S30.id).exists  after S30  key T11-r1/ee05bcfc7b2d8b91
+  U30  sendInvoice      api      invoice(id=$T30.id).status='sent'  after T30  key T11-r1/efcdb52177c54167
+  V30  listCustomers    api      customer(name='Customer 268').resolved
+  W30  createInvoice    api      invoice(customer=$V30.id).exists  after V30  key T11-r1/1edd9308d9b6e931
+  X30  sendInvoice      api      invoice(id=$W30.id).status='sent'  after W30  key T11-r1/cb0c401e6910391b
+  Y30  listCustomers    api      customer(name='Customer 269').resolved
+  Z30  createInvoice    api      invoice(customer=$Y30.id).exists  after Y30  key T11-r1/cb420d3a26e5f558
+  A31  sendInvoice      api      invoice(id=$Z30.id).status='sent'  after Z30  key T11-r1/ad76fe3fb36fb275
+  B31  listCustomers    api      customer(name='Customer 270').resolved
+  C31  createInvoice    api      invoice(customer=$B31.id).exists  after B31  key T11-r1/12b23be7e15180cc
+  D31  sendInvoice      api      invoice(id=$C31.id).status='sent'  after C31  key T11-r1/67b1778003021bac
+  E31  listCustomers    api      customer(name='Customer 271').resolved
+  F31  createInvoice    api      invoice(customer=$E31.id).exists  after E31  key T11-r1/7e2656692e93da45
+  G31  sendInvoice      api      invoice(id=$F31.id).status='sent'  after F31  key T11-r1/38fb55d57d6cfb11
+  H31  listCustomers    api      customer(name='Customer 272').resolved
+  I31  createInvoice    api      invoice(customer=$H31.id).exists  after H31  key T11-r1/22271b4124a1276a
+  J31  sendInvoice      api      invoice(id=$I31.id).status='sent'  after I31  key T11-r1/9d19aa5c422ec0fc
+  K31  listCustomers    api      customer(name='Customer 273').resolved
+  L31  createInvoice    api      invoice(customer=$K31.id).exists  after K31  key T11-r1/f36b42548d27d73a
+  M31  sendInvoice      api      invoice(id=$L31.id).status='sent'  after L31  key T11-r1/e088d167c5678132
+  N31  listCustomers    api      customer(name='Customer 274').resolved
+  O31  createInvoice    api      invoice(customer=$N31.id).exists  after N31  key T11-r1/ab91ee7757c6b52b
+  P31  sendInvoice      api      invoice(id=$O31.id).status='sent'  after O31  key T11-r1/80de34dc52a0afaa
+  Q31  listCustomers    api      customer(name='Customer 275').resolved
+  R31  createInvoice    api      invoice(customer=$Q31.id).exists  after Q31  key T11-r1/4a66cce19d03413c
+  S31  sendInvoice      api      invoice(id=$R31.id).status='sent'  after R31  key T11-r1/c371f41de7bd251c
+  T31  listCustomers    api      customer(name='Customer 276').resolved
+  U31  createInvoice    api      invoice(customer=$T31.id).exists  after T31  key T11-r1/e393046fde6f3a14
+  V31  sendInvoice      api      invoice(id=$U31.id).status='sent'  after U31  key T11-r1/0e6830945f5f3658
+  W31  listCustomers    api      customer(name='Customer 277').resolved
+  X31  createInvoice    api      invoice(customer=$W31.id).exists  after W31  key T11-r1/939da14bd7323dc0
+  Y31  sendInvoice      api      invoice(id=$X31.id).status='sent'  after X31  key T11-r1/f40cdc4844e7b742
+  Z31  listCustomers    api      customer(name='Customer 278').resolved
+  A32  createInvoice    api      invoice(customer=$Z31.id).exists  after Z31  key T11-r1/d21dcc3a457b5fbd
+  B32  sendInvoice      api      invoice(id=$A32.id).status='sent'  after A32  key T11-r1/cc8d033c7bab92e9
+  C32  listCustomers    api      customer(name='Customer 279').resolved
+  D32  createInvoice    api      invoice(customer=$C32.id).exists  after C32  key T11-r1/903ad039e5a14a98
+  E32  sendInvoice      api      invoice(id=$D32.id).status='sent'  after D32  key T11-r1/b3cc5dd12d514775
+  F32  listCustomers    api      customer(name='Customer 280').resolved
+  G32  createInvoice    api      invoice(customer=$F32.id).exists  after F32  key T11-r1/3011dd14a6b4e07e
+  H32  sendInvoice      api      invoice(id=$G32.id).status='sent'  after G32  key T11-r1/0352bc7c35c0daed
+  I32  listCustomers    api      customer(name='Customer 281').resolved
+  J32  createInvoice    api      invoice(customer=$I32.id).exists  after I32  key T11-r1/e23012d0ac23f42d
+  K32  sendInvoice      api      invoice(id=$J32.id).status='sent'  after J32  key T11-r1/07c6ae6f8b23fa0a
+  L32  listCustomers    api      customer(name='Customer 282').resolved
+  M32  createInvoice    api      invoice(customer=$L32.id).exists  after L32  key T11-r1/df6d85c5282ee92a
+  N32  sendInvoice      api      invoice(id=$M32.id).status='sent'  after M32  key T11-r1/b206aa684fbeca02
+  O32  listCustomers    api      customer(name='Customer 283').resolved
+  P32  createInvoice    api      invoice(customer=$O32.id).exists  after O32  key T11-r1/b1ae16d2018a9f04
+  Q32  sendInvoice      api      invoice(id=$P32.id).status='sent'  after P32  key T11-r1/8fb2730fdb3b96f0
+  R32  listCustomers    api      customer(name='Customer 284').resolved
+  S32  createInvoice    api      invoice(customer=$R32.id).exists  after R32  key T11-r1/911138882a5e830c
+  T32  sendInvoice      api      invoice(id=$S32.id).status='sent'  after S32  key T11-r1/43474edf51bf2376
+  U32  listCustomers    api      customer(name='Customer 285').resolved
+  V32  createInvoice    api      invoice(customer=$U32.id).exists  after U32  key T11-r1/4e28d1711b2e1660
+  W32  sendInvoice      api      invoice(id=$V32.id).status='sent'  after V32  key T11-r1/3cf19ef993d384a5
+  X32  listCustomers    api      customer(name='Customer 286').resolved
+  Y32  createInvoice    api      invoice(customer=$X32.id).exists  after X32  key T11-r1/2af530b9d7342cc5
+  Z32  sendInvoice      api      invoice(id=$Y32.id).status='sent'  after Y32  key T11-r1/7d55aed460faea94
+  A33  listCustomers    api      customer(name='Customer 287').resolved
+  B33  createInvoice    api      invoice(customer=$A33.id).exists  after A33  key T11-r1/55b6e485ba9dce3b
+  C33  sendInvoice      api      invoice(id=$B33.id).status='sent'  after B33  key T11-r1/8228459360bd022b
+  D33  listCustomers    api      customer(name='Customer 288').resolved
+  E33  createInvoice    api      invoice(customer=$D33.id).exists  after D33  key T11-r1/6c13c49782c5f935
+  F33  sendInvoice      api      invoice(id=$E33.id).status='sent'  after E33  key T11-r1/8b61bac66dbd07d6
+  G33  listCustomers    api      customer(name='Customer 289').resolved
+  H33  createInvoice    api      invoice(customer=$G33.id).exists  after G33  key T11-r1/07ece6781b4a77c9
+  I33  sendInvoice      api      invoice(id=$H33.id).status='sent'  after H33  key T11-r1/04c74d958c2bcdff
+  J33  listCustomers    api      customer(name='Customer 290').resolved
+  K33  createInvoice    api      invoice(customer=$J33.id).exists  after J33  key T11-r1/ddfe83e275c3b853
+  L33  sendInvoice      api      invoice(id=$K33.id).status='sent'  after K33  key T11-r1/9fc7741046a45ecb
+  M33  listCustomers    api      customer(name='Customer 291').resolved
+  N33  createInvoice    api      invoice(customer=$M33.id).exists  after M33  key T11-r1/47f3c2fa06bebd48
+  O33  sendInvoice      api      invoice(id=$N33.id).status='sent'  after N33  key T11-r1/4d06117856e4d62a
+  P33  listCustomers    api      customer(name='Customer 292').resolved
+  Q33  createInvoice    api      invoice(customer=$P33.id).exists  after P33  key T11-r1/a5948cd815a7c0e5
+  R33  sendInvoice      api      invoice(id=$Q33.id).status='sent'  after Q33  key T11-r1/16bc78dca3eca54a
+  S33  listCustomers    api      customer(name='Customer 293').resolved
+  T33  createInvoice    api      invoice(customer=$S33.id).exists  after S33  key T11-r1/7a461600a66d39ff
+  U33  sendInvoice      api      invoice(id=$T33.id).status='sent'  after T33  key T11-r1/366e83518d87a7a0
+  V33  listCustomers    api      customer(name='Customer 294').resolved
+  W33  createInvoice    api      invoice(customer=$V33.id).exists  after V33  key T11-r1/427292bba1b69b9d
+  X33  sendInvoice      api      invoice(id=$W33.id).status='sent'  after W33  key T11-r1/acdde0597dc1cf6c
+  Y33  listCustomers    api      customer(name='Customer 295').resolved
+  Z33  createInvoice    api      invoice(customer=$Y33.id).exists  after Y33  key T11-r1/f037e37295c1803c
+  A34  sendInvoice      api      invoice(id=$Z33.id).status='sent'  after Z33  key T11-r1/4ea16e2e798af798
+  B34  listCustomers    api      customer(name='Customer 296').resolved
+  C34  createInvoice    api      invoice(customer=$B34.id).exists  after B34  key T11-r1/a7c40d2c2c39f142
+  D34  sendInvoice      api      invoice(id=$C34.id).status='sent'  after C34  key T11-r1/4f32b0022a60b2a6
+  E34  listCustomers    api      customer(name='Customer 297').resolved
+  F34  createInvoice    api      invoice(customer=$E34.id).exists  after E34  key T11-r1/f025d53bc271c361
+  G34  sendInvoice      api      invoice(id=$F34.id).status='sent'  after F34  key T11-r1/0aa9692291b1f551
+  H34  listCustomers    api      customer(name='Customer 298').resolved
+  I34  createInvoice    api      invoice(customer=$H34.id).exists  after H34  key T11-r1/67711b8f683949e0
+  J34  sendInvoice      api      invoice(id=$I34.id).status='sent'  after I34  key T11-r1/4b1e6e9ad61bca50
+  K34  listCustomers    api      customer(name='Customer 299').resolved
+  L34  createInvoice    api      invoice(customer=$K34.id).exists  after K34  key T11-r1/c25415c3e4273a3d
+  M34  sendInvoice      api      invoice(id=$L34.id).status='sent'  after L34  key T11-r1/6a1c22ec924a0b28
+  N34  listCustomers    api      customer(name='Customer 300').resolved
+  O34  createInvoice    api      invoice(customer=$N34.id).exists  after N34  key T11-r1/a6654800029f1c05
+  P34  sendInvoice      api      invoice(id=$O34.id).status='sent'  after O34  key T11-r1/0bda96260370ac09
+</pre></details><h2>T8 · three invoices: send, get paid, receipt, then one report over all three</h2><table><thead><tr><th>arm</th><th>what</th><th>runs</th><th>correct</th><th>model samples</th><th>tokens</th><th>plan ms</th><th>run ms</th><th>wall ms (median)</th><th>wall p25–p75</th><th>max parallel</th><th>double-sends</th><th>forks</th></tr></thead><tbody><tr><td><b>D</b></td><td>ours: planned graph</td><td>5</td><td class="ok">5/5</td><td>1</td><td>1487</td><td>5910</td><td>688</td><td>6581</td><td>6199–6708</td><td class="hot">3</td><td class="">0</td><td>0</td></tr><tr><td><b>E</b></td><td>script ceiling, no model</td><td>5</td><td class="ok">5/5</td><td>0</td><td>0</td><td>0</td><td>722</td><td>723</td><td>723–735</td><td class="hot">3</td><td class="">0</td><td>0</td></tr></tbody></table><details><summary>plan (arm D, run 1)</summary><pre>plan T8-r1  (16 nodes, depth 5)
+  A    listCustomers    api      customer(name='Acme').resolved
+  B    createInvoice    api      invoice(customer=$A.id).exists  after A  key T8-r1/cac417d575b6be6d
+  C    sendInvoice      api      invoice(id=$B.id).status='sent'  after B  key T8-r1/77c40e9faea35860
+  D    payment.received event    invoice(id=$B.id).status='paid'  after B
+  E    sendReceipt      api      invoice(id=$B.id).receipt_sent=true  after C,D  key T8-r1/69c73fde8085d346
+  F    listCustomers    api      customer(name='Globex').resolved
+  G    createInvoice    api      invoice(customer=$F.id).exists  after F  key T8-r1/7a6db2d29bc0aee0
+  H    sendInvoice      api      invoice(id=$G.id).status='sent'  after G  key T8-r1/016b5803a0d96d9e
+  I    payment.received event    invoice(id=$G.id).status='paid'  after G
+  J    sendReceipt      api      invoice(id=$G.id).receipt_sent=true  after H,I  key T8-r1/5db283aed4ab5578
+  K    listCustomers    api      customer(name='Initech').resolved
+  L    createInvoice    api      invoice(customer=$K.id).exists  after K  key T8-r1/b057c3c06a17db36
+  M    sendInvoice      api      invoice(id=$L.id).status='sent'  after L  key T8-r1/ae9f82a5201f3d5a
+  N    payment.received event    invoice(id=$L.id).status='paid'  after L
+  O    sendReceipt      api      invoice(id=$L.id).receipt_sent=true  after M,N  key T8-r1/026d23c5c05d35e7
+  P    createReport     api      report(invoices=[$B.id,$G.id,$L.id]).exists  after E,J,O  key T8-r1/937a8b8ae4991af4
+</pre></details><h2>T9 · ten invoices: send, get paid, receipt, then one report over all ten</h2><table><thead><tr><th>arm</th><th>what</th><th>runs</th><th>correct</th><th>model samples</th><th>tokens</th><th>plan ms</th><th>run ms</th><th>wall ms (median)</th><th>wall p25–p75</th><th>max parallel</th><th>double-sends</th><th>forks</th></tr></thead><tbody><tr><td><b>D</b></td><td>ours: planned graph</td><td>5</td><td class="ok">5/5</td><td>1</td><td>1897</td><td>11152</td><td>710</td><td>11884</td><td>11549–12360</td><td class="hot">10</td><td class="">0</td><td>0</td></tr><tr><td><b>E</b></td><td>script ceiling, no model</td><td>5</td><td class="ok">5/5</td><td>0</td><td>0</td><td>0</td><td>727</td><td>728</td><td>727–730</td><td class="hot">10</td><td class="">0</td><td>0</td></tr></tbody></table><details><summary>plan (arm D, run 1)</summary><pre>plan T9-r1  (51 nodes, depth 5)
+  A    listCustomers    api      customer(name='Acme').resolved
+  B    createInvoice    api      invoice(customer=$A.id).exists  after A  key T9-r1/cac417d575b6be6d
+  C    sendInvoice      api      invoice(id=$B.id).status='sent'  after B  key T9-r1/77c40e9faea35860
+  D    payment.received event    invoice(id=$B.id).status='paid'  after B
+  E    sendReceipt      api      invoice(id=$B.id).receipt_sent=true  after C,D  key T9-r1/69c73fde8085d346
+  F    listCustomers    api      customer(name='Globex').resolved
+  G    createInvoice    api      invoice(customer=$F.id).exists  after F  key T9-r1/7a6db2d29bc0aee0
+  H    sendInvoice      api      invoice(id=$G.id).status='sent'  after G  key T9-r1/016b5803a0d96d9e
+  I    payment.received event    invoice(id=$G.id).status='paid'  after G
+  J    sendReceipt      api      invoice(id=$G.id).receipt_sent=true  after H,I  key T9-r1/5db283aed4ab5578
+  K    listCustomers    api      customer(name='Initech').resolved
+  L    createInvoice    api      invoice(customer=$K.id).exists  after K  key T9-r1/b057c3c06a17db36
+  M    sendInvoice      api      invoice(id=$L.id).status='sent'  after L  key T9-r1/ae9f82a5201f3d5a
+  N    payment.received event    invoice(id=$L.id).status='paid'  after L
+  O    sendReceipt      api      invoice(id=$L.id).receipt_sent=true  after M,N  key T9-r1/026d23c5c05d35e7
+  P    listCustomers    api      customer(name='Umbrella').resolved
+  Q    createInvoice    api      invoice(customer=$P.id).exists  after P  key T9-r1/3320d467bd0c0bf1
+  R    sendInvoice      api      invoice(id=$Q.id).status='sent'  after Q  key T9-r1/f877c968f4187a29
+  S    payment.received event    invoice(id=$Q.id).status='paid'  after Q
+  T    sendReceipt      api      invoice(id=$Q.id).receipt_sent=true  after R,S  key T9-r1/71b4434cbf56c39f
+  U    listCustomers    api      customer(name='Hooli').resolved
+  V    createInvoice    api      invoice(customer=$U.id).exists  after U  key T9-r1/a6097c3de11d8982
+  W    sendInvoice      api      invoice(id=$V.id).status='sent'  after V  key T9-r1/d1ebc80e74aef832
+  X    payment.received event    invoice(id=$V.id).status='paid'  after V
+  Y    sendReceipt      api      invoice(id=$V.id).receipt_sent=true  after W,X  key T9-r1/7715f90ad4b5512c
+  Z    listCustomers    api      customer(name='Vandelay').resolved
+  A1   createInvoice    api      invoice(customer=$Z.id).exists  after Z  key T9-r1/d4bcc8facea3754b
+  B1   sendInvoice      api      invoice(id=$A1.id).status='sent'  after A1  key T9-r1/42e7d83fc4ba4156
+  C1   payment.received event    invoice(id=$A1.id).status='paid'  after A1
+  D1   sendReceipt      api      invoice(id=$A1.id).receipt_sent=true  after B1,C1  key T9-r1/5731308c98bebc30
+  E1   listCustomers    api      customer(name='Stark').resolved
+  F1   createInvoice    api      invoice(customer=$E1.id).exists  after E1  key T9-r1/264451efa8c7aedb
+  G1   sendInvoice      api      invoice(id=$F1.id).status='sent'  after F1  key T9-r1/d3e2d9af82b485ff
+  H1   payment.received event    invoice(id=$F1.id).status='paid'  after F1
+  I1   sendReceipt      api      invoice(id=$F1.id).receipt_sent=true  after G1,H1  key T9-r1/75c1f3ec9e478faa
+  J1   listCustomers    api      customer(name='Wayne').resolved
+  K1   createInvoice    api      invoice(customer=$J1.id).exists  after J1  key T9-r1/dd5c66f291d3308e
+  L1   sendInvoice      api      invoice(id=$K1.id).status='sent'  after K1  key T9-r1/7b48abbd16c0ff6b
+  M1   payment.received event    invoice(id=$K1.id).status='paid'  after K1
+  N1   sendReceipt      api      invoice(id=$K1.id).receipt_sent=true  after L1,M1  key T9-r1/6c4a90dec288fc9d
+  O1   listCustomers    api      customer(name='Wonka').resolved
+  P1   createInvoice    api      invoice(customer=$O1.id).exists  after O1  key T9-r1/9b505552264c5cef
+  Q1   sendInvoice      api      invoice(id=$P1.id).status='sent'  after P1  key T9-r1/bb129b1cbfb7706d
+  R1   payment.received event    invoice(id=$P1.id).status='paid'  after P1
+  S1   sendReceipt      api      invoice(id=$P1.id).receipt_sent=true  after Q1,R1  key T9-r1/c83167edf1b29338
+  T1   listCustomers    api      customer(name='Tyrell').resolved
+  U1   createInvoice    api      invoice(customer=$T1.id).exists  after T1  key T9-r1/29497bfea7cec28f
+  V1   sendInvoice      api      invoice(id=$U1.id).status='sent'  after U1  key T9-r1/458b94bcc57fb8b5
+  W1   payment.received event    invoice(id=$U1.id).status='paid'  after U1
+  X1   sendReceipt      api      invoice(id=$U1.id).receipt_sent=true  after V1,W1  key T9-r1/271b75314ba8819c
+  Y1   createReport     api      report(invoices=[$B.id,$G.id,$L.id,$Q.id,$V.id,$A1.id,$F1.id,$K1.id,$P1.id,$U1.id]).exists  after E,J,O,T,Y,D1,I1,N1,S1,X1  key T9-r1/9e645a993041e0c9
+</pre></details><h2>samples against depth</h2><p>A loop pays a thought per dependency level. A plan pays one thought regardless. This is the column that separates the arms.</p><pre>task depth  D samples  E samples
+T11      3          1          0
+T10      6          1          0
+T8       6          1          0
+T9       6          1          0
+</pre></body></html>

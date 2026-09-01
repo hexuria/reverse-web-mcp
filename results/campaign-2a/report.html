@@ -1,0 +1,91 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><title>chiffon bench</title><style>body{font:15px/1.5 system-ui,sans-serif;margin:0;padding:32px;background:#f3f5f2;color:#1a2321;max-width:1100px}h1{font-size:26px;margin:0 0 4px}h2{font-size:18px;margin:32px 0 8px}p{color:#4b5955;max-width:70ch}table{border-collapse:collapse;width:100%;background:#fff;font-variant-numeric:tabular-nums;font-size:14px}th,td{padding:7px 10px;border-bottom:1px solid #d5dcd7;text-align:left}th{font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:#4b5955;background:#e9eeea}td.ok{color:#2f7d4f;font-weight:600}td.bad{color:#b23a2e;font-weight:600}td.hot{background:#dceef0;font-weight:600}code{font-family:ui-monospace,monospace;background:#eef2ef;padding:1px 5px;border-radius:4px}details{margin-top:10px}pre{font-size:12px;background:#eef2ef;padding:10px;overflow-x:auto;border-radius:6px}</style></head><body><h1>chiffon bench</h1><p>run directory <code>results/campaign-2a</code>. Every figure is recomputed from the stored ledgers and oracle snapshots. The decisive column is <b>max parallel</b>: the largest number of effects in flight at one instant.</p><h2>T1 · one invoice, sent</h2><table><thead><tr><th>arm</th><th>what</th><th>runs</th><th>correct</th><th>model samples</th><th>tokens</th><th>plan ms</th><th>run ms</th><th>wall ms (median)</th><th>wall p25–p75</th><th>max parallel</th><th>double-sends</th><th>forks</th></tr></thead><tbody><tr><td><b>B2</b></td><td>MCP loop, parallel tool calls</td><td>5</td><td class="ok">5/5</td><td>4</td><td>4732</td><td>6563</td><td>3486</td><td>6620</td><td>6501–6860</td><td class="">1</td><td class="">0</td><td>0</td></tr><tr><td><b>C</b></td><td>WebMCP loop</td><td>5</td><td class="ok">5/5</td><td>4</td><td>4508</td><td>7567</td><td>3888</td><td>7639</td><td>7017–7877</td><td class="">1</td><td class="">0</td><td>0</td></tr><tr><td><b>D</b></td><td>ours: planned graph</td><td>5</td><td class="ok">5/5</td><td>1</td><td>1311</td><td>2457</td><td>64</td><td>2521</td><td>2326–2633</td><td class="">1</td><td class="">0</td><td>0</td></tr><tr><td><b>E</b></td><td>script ceiling, no model</td><td>5</td><td class="ok">5/5</td><td>0</td><td>0</td><td>0</td><td>59</td><td>60</td><td>59–66</td><td class="">1</td><td class="">0</td><td>0</td></tr></tbody></table><details><summary>plan (arm D, run 1)</summary><pre>plan T1-r1  (3 nodes, depth 3)
+  A    listCustomers    api      customer(name='Acme').resolved
+  B    createInvoice    api      invoice(customer=$A.id).exists  after A  key T1-r1/cac417d575b6be6d
+  C    sendInvoice      api      invoice(id=$B.id).status='sent'  after B  key T1-r1/77c40e9faea35860
+</pre></details><h2>T2 · invoice and send for 10 customers</h2><table><thead><tr><th>arm</th><th>what</th><th>runs</th><th>correct</th><th>model samples</th><th>tokens</th><th>plan ms</th><th>run ms</th><th>wall ms (median)</th><th>wall p25–p75</th><th>max parallel</th><th>double-sends</th><th>forks</th></tr></thead><tbody><tr><td><b>B2</b></td><td>MCP loop, parallel tool calls</td><td>5</td><td class="ok">5/5</td><td>4</td><td>8821</td><td>14220</td><td>8093</td><td>14339</td><td>13998–14460</td><td class="hot">11</td><td class="">0</td><td>0</td></tr><tr><td><b>C</b></td><td>WebMCP loop</td><td>5</td><td class="ok">5/5</td><td>6</td><td>13508</td><td>24328</td><td>18520</td><td>24634</td><td>24540–30096</td><td class="hot">10</td><td class="">0</td><td>0</td></tr><tr><td><b>D</b></td><td>ours: planned graph</td><td>5</td><td class="ok">5/5</td><td>1</td><td>1583</td><td>6247</td><td>67</td><td>6315</td><td>6270–6362</td><td class="hot">10</td><td class="">0</td><td>0</td></tr><tr><td><b>E</b></td><td>script ceiling, no model</td><td>5</td><td class="ok">5/5</td><td>0</td><td>0</td><td>0</td><td>60</td><td>61</td><td>60–68</td><td class="hot">10</td><td class="">0</td><td>0</td></tr></tbody></table><details><summary>plan (arm D, run 1)</summary><pre>plan T2-r1  (30 nodes, depth 3)
+  A    listCustomers    api      customer(name='Acme').resolved
+  B    createInvoice    api      invoice(customer=$A.id).exists  after A  key T2-r1/cac417d575b6be6d
+  C    sendInvoice      api      invoice(id=$B.id).status='sent'  after B  key T2-r1/77c40e9faea35860
+  D    listCustomers    api      customer(name='Globex').resolved
+  E    createInvoice    api      invoice(customer=$D.id).exists  after D  key T2-r1/7a6db2d29bc0aee0
+  F    sendInvoice      api      invoice(id=$E.id).status='sent'  after E  key T2-r1/016b5803a0d96d9e
+  G    listCustomers    api      customer(name='Initech').resolved
+  H    createInvoice    api      invoice(customer=$G.id).exists  after G  key T2-r1/b057c3c06a17db36
+  I    sendInvoice      api      invoice(id=$H.id).status='sent'  after H  key T2-r1/ae9f82a5201f3d5a
+  J    listCustomers    api      customer(name='Umbrella').resolved
+  K    createInvoice    api      invoice(customer=$J.id).exists  after J  key T2-r1/3320d467bd0c0bf1
+  L    sendInvoice      api      invoice(id=$K.id).status='sent'  after K  key T2-r1/f877c968f4187a29
+  M    listCustomers    api      customer(name='Hooli').resolved
+  N    createInvoice    api      invoice(customer=$M.id).exists  after M  key T2-r1/a6097c3de11d8982
+  O    sendInvoice      api      invoice(id=$N.id).status='sent'  after N  key T2-r1/d1ebc80e74aef832
+  P    listCustomers    api      customer(name='Vandelay').resolved
+  Q    createInvoice    api      invoice(customer=$P.id).exists  after P  key T2-r1/d4bcc8facea3754b
+  R    sendInvoice      api      invoice(id=$Q.id).status='sent'  after Q  key T2-r1/42e7d83fc4ba4156
+  S    listCustomers    api      customer(name='Stark').resolved
+  T    createInvoice    api      invoice(customer=$S.id).exists  after S  key T2-r1/264451efa8c7aedb
+  U    sendInvoice      api      invoice(id=$T.id).status='sent'  after T  key T2-r1/d3e2d9af82b485ff
+  V    listCustomers    api      customer(name='Wayne').resolved
+  W    createInvoice    api      invoice(customer=$V.id).exists  after V  key T2-r1/dd5c66f291d3308e
+  X    sendInvoice      api      invoice(id=$W.id).status='sent'  after W  key T2-r1/7b48abbd16c0ff6b
+  Y    listCustomers    api      customer(name='Wonka').resolved
+  Z    createInvoice    api      invoice(customer=$Y.id).exists  after Y  key T2-r1/9b505552264c5cef
+  A1   sendInvoice      api      invoice(id=$Z.id).status='sent'  after Z  key T2-r1/bb129b1cbfb7706d
+  B1   listCustomers    api      customer(name='Tyrell').resolved
+  C1   createInvoice    api      invoice(customer=$B1.id).exists  after B1  key T2-r1/29497bfea7cec28f
+  D1   sendInvoice      api      invoice(id=$C1.id).status='sent'  after C1  key T2-r1/458b94bcc57fb8b5
+</pre></details><h2>T3 · three invoices, email each, one report over all three</h2><table><thead><tr><th>arm</th><th>what</th><th>runs</th><th>correct</th><th>model samples</th><th>tokens</th><th>plan ms</th><th>run ms</th><th>wall ms (median)</th><th>wall p25–p75</th><th>max parallel</th><th>double-sends</th><th>forks</th></tr></thead><tbody><tr><td><b>B2</b></td><td>MCP loop, parallel tool calls</td><td>5</td><td class="bad">4/5</td><td>5</td><td>7203</td><td>9830</td><td>6333</td><td>9915</td><td>9821–10275</td><td class="hot">3</td><td class="">0</td><td>0</td></tr><tr><td><b>C</b></td><td>WebMCP loop</td><td>5</td><td class="bad">4/5</td><td>5</td><td>6923</td><td>19334</td><td>14360</td><td>19486</td><td>11017–20377</td><td class="hot">3</td><td class="">0</td><td>0</td></tr><tr><td><b>D</b></td><td>ours: planned graph</td><td>5</td><td class="bad">4/5</td><td>1</td><td>1449</td><td>4927</td><td>83</td><td>5015</td><td>4565–6478</td><td class="hot">3</td><td class="">0</td><td>0</td></tr><tr><td><b>E</b></td><td>script ceiling, no model</td><td>5</td><td class="ok">5/5</td><td>0</td><td>0</td><td>0</td><td>83</td><td>83</td><td>83–84</td><td class="hot">3</td><td class="">0</td><td>0</td></tr></tbody></table><details><summary>errors</summary><pre>planner: intent still wrong after one re-ask: intent has no wants; every goal needs at least one fact that must become true
+</pre></details><details><summary>plan (arm D, run 1)</summary><pre>plan T3-r1  (0 nodes, depth 0)
+</pre></details><h2>T4 · send the receipt only after the payment arrives</h2><table><thead><tr><th>arm</th><th>what</th><th>runs</th><th>correct</th><th>model samples</th><th>tokens</th><th>plan ms</th><th>run ms</th><th>wall ms (median)</th><th>wall p25–p75</th><th>max parallel</th><th>double-sends</th><th>forks</th></tr></thead><tbody><tr><td><b>B2</b></td><td>MCP loop, parallel tool calls</td><td>5</td><td class="bad">0/5</td><td>40</td><td>82843</td><td>58472</td><td>55192</td><td>58544</td><td>16951–64035</td><td class="">1</td><td class="">0</td><td>1</td></tr><tr><td><b>C</b></td><td>WebMCP loop</td><td>5</td><td class="bad">0/5</td><td>12</td><td>18163</td><td>27416</td><td>21106</td><td>27522</td><td>17439–73214</td><td class="">1</td><td class="">0</td><td>0</td></tr><tr><td><b>D</b></td><td>ours: planned graph</td><td>5</td><td class="ok">5/5</td><td>1</td><td>1334</td><td>3503</td><td>658</td><td>4162</td><td>3952–4675</td><td class="">1</td><td class="">0</td><td>0</td></tr><tr><td><b>E</b></td><td>script ceiling, no model</td><td>5</td><td class="ok">5/5</td><td>0</td><td>0</td><td>0</td><td>694</td><td>694</td><td>692–694</td><td class="">1</td><td class="">0</td><td>0</td></tr></tbody></table><details><summary>errors</summary><pre>gave up after 40 turns
+gave up after 40 turns
+gave up after 40 turns
+gave up after 40 turns
+gave up after 40 turns
+</pre></details><details><summary>plan (arm D, run 1)</summary><pre>plan T4-r1  (5 nodes, depth 4)
+  A    listCustomers    api      customer(name='Acme').resolved
+  B    createInvoice    api      invoice(customer=$A.id).exists  after A  key T4-r1/cac417d575b6be6d
+  C    sendInvoice      api      invoice(id=$B.id).status='sent'  after B  key T4-r1/77c40e9faea35860
+  D    payment.received event    invoice(id=$B.id).status='paid'  after B
+  E    sendReceipt      api      invoice(id=$B.id).receipt_sent=true  after C,D  key T4-r1/69c73fde8085d346
+</pre></details><h2>T5 · ten invoices with a 30% send failure rate</h2><table><thead><tr><th>arm</th><th>what</th><th>runs</th><th>correct</th><th>model samples</th><th>tokens</th><th>plan ms</th><th>run ms</th><th>wall ms (median)</th><th>wall p25–p75</th><th>max parallel</th><th>double-sends</th><th>forks</th></tr></thead><tbody><tr><td><b>B2</b></td><td>MCP loop, parallel tool calls</td><td>5</td><td class="ok">5/5</td><td>5</td><td>11005</td><td>17583</td><td>11474</td><td>17675</td><td>17503–18060</td><td class="hot">10</td><td class="">0</td><td>0</td></tr><tr><td><b>C</b></td><td>WebMCP loop</td><td>5</td><td class="ok">5/5</td><td>7</td><td>17540</td><td>34125</td><td>25231</td><td>34446</td><td>33009–37664</td><td class="hot">10</td><td class="">0</td><td>0</td></tr><tr><td><b>D</b></td><td>ours: planned graph</td><td>5</td><td class="ok">5/5</td><td>1</td><td>1587</td><td>6709</td><td>99</td><td>6808</td><td>6599–6939</td><td class="hot">10</td><td class="">0</td><td>0</td></tr><tr><td><b>E</b></td><td>script ceiling, no model</td><td>5</td><td class="ok">5/5</td><td>0</td><td>0</td><td>0</td><td>102</td><td>102</td><td>100–103</td><td class="hot">10</td><td class="">0</td><td>0</td></tr></tbody></table><details><summary>plan (arm D, run 1)</summary><pre>plan T5-r1  (30 nodes, depth 3)
+  A    listCustomers    api      customer(name='Acme').resolved
+  B    createInvoice    api      invoice(customer=$A.id).exists  after A  key T5-r1/cac417d575b6be6d
+  C    sendInvoice      api      invoice(id=$B.id).status='sent'  after B  key T5-r1/77c40e9faea35860
+  D    listCustomers    api      customer(name='Globex').resolved
+  E    createInvoice    api      invoice(customer=$D.id).exists  after D  key T5-r1/7a6db2d29bc0aee0
+  F    sendInvoice      api      invoice(id=$E.id).status='sent'  after E  key T5-r1/016b5803a0d96d9e
+  G    listCustomers    api      customer(name='Initech').resolved
+  H    createInvoice    api      invoice(customer=$G.id).exists  after G  key T5-r1/b057c3c06a17db36
+  I    sendInvoice      api      invoice(id=$H.id).status='sent'  after H  key T5-r1/ae9f82a5201f3d5a
+  J    listCustomers    api      customer(name='Umbrella').resolved
+  K    createInvoice    api      invoice(customer=$J.id).exists  after J  key T5-r1/3320d467bd0c0bf1
+  L    sendInvoice      api      invoice(id=$K.id).status='sent'  after K  key T5-r1/f877c968f4187a29
+  M    listCustomers    api      customer(name='Hooli').resolved
+  N    createInvoice    api      invoice(customer=$M.id).exists  after M  key T5-r1/a6097c3de11d8982
+  O    sendInvoice      api      invoice(id=$N.id).status='sent'  after N  key T5-r1/d1ebc80e74aef832
+  P    listCustomers    api      customer(name='Vandelay').resolved
+  Q    createInvoice    api      invoice(customer=$P.id).exists  after P  key T5-r1/d4bcc8facea3754b
+  R    sendInvoice      api      invoice(id=$Q.id).status='sent'  after Q  key T5-r1/42e7d83fc4ba4156
+  S    listCustomers    api      customer(name='Stark').resolved
+  T    createInvoice    api      invoice(customer=$S.id).exists  after S  key T5-r1/264451efa8c7aedb
+  U    sendInvoice      api      invoice(id=$T.id).status='sent'  after T  key T5-r1/d3e2d9af82b485ff
+  V    listCustomers    api      customer(name='Wayne').resolved
+  W    createInvoice    api      invoice(customer=$V.id).exists  after V  key T5-r1/dd5c66f291d3308e
+  X    sendInvoice      api      invoice(id=$W.id).status='sent'  after W  key T5-r1/7b48abbd16c0ff6b
+  Y    listCustomers    api      customer(name='Wonka').resolved
+  Z    createInvoice    api      invoice(customer=$Y.id).exists  after Y  key T5-r1/9b505552264c5cef
+  A1   sendInvoice      api      invoice(id=$Z.id).status='sent'  after Z  key T5-r1/bb129b1cbfb7706d
+  B1   listCustomers    api      customer(name='Tyrell').resolved
+  C1   createInvoice    api      invoice(customer=$B1.id).exists  after B1  key T5-r1/29497bfea7cec28f
+  D1   sendInvoice      api      invoice(id=$C1.id).status='sent'  after C1  key T5-r1/458b94bcc57fb8b5
+</pre></details><h2>T6 · invoice Acme when two customers are named Acme</h2><table><thead><tr><th>arm</th><th>what</th><th>runs</th><th>correct</th><th>model samples</th><th>tokens</th><th>plan ms</th><th>run ms</th><th>wall ms (median)</th><th>wall p25–p75</th><th>max parallel</th><th>double-sends</th><th>forks</th></tr></thead><tbody><tr><td><b>B2</b></td><td>MCP loop, parallel tool calls</td><td>5</td><td class="ok">5/5</td><td>2</td><td>2324</td><td>5851</td><td>10</td><td>5855</td><td>5470–9023</td><td class="">1</td><td class="">0</td><td>5</td></tr><tr><td><b>C</b></td><td>WebMCP loop</td><td>5</td><td class="ok">5/5</td><td>2</td><td>2179</td><td>5156</td><td>6</td><td>5163</td><td>4729–7052</td><td class="">1</td><td class="">0</td><td>5</td></tr><tr><td><b>D</b></td><td>ours: planned graph</td><td>5</td><td class="bad">4/5</td><td>2</td><td>2857</td><td>6294</td><td>2531</td><td>6358</td><td>6031–7755</td><td class="">1</td><td class="">0</td><td>5</td></tr><tr><td><b>E</b></td><td>script ceiling, no model</td><td>5</td><td class="ok">5/5</td><td>0</td><td>0</td><td>0</td><td>2</td><td>3</td><td>2–3</td><td class="">1</td><td class="">0</td><td>5</td></tr></tbody></table><details><summary>errors</summary><pre>fork answer failed: fork answer rejected: intent has no wants; every goal needs at least one fact that must become true
+</pre></details><details><summary>plan (arm D, run 1)</summary><pre>plan T6-r1  (2 nodes, depth 2)
+  A    createInvoice    api      invoice(customer=1).exists  key T6-r1/e17bede9ece141fe
+  B    sendInvoice      api      invoice(id=$A.id).status='sent'  after A  key T6-r1/586942f21e0a3182
+</pre></details><h2>samples against depth</h2><p>A loop pays a thought per dependency level. A plan pays one thought regardless. This is the column that separates the arms.</p><pre>task depth B2 samples  C samples  D samples  E samples
+T1       3          4          4          1          0
+T2       3          4          6          1          0
+T5       3          5          7          1          0
+T6       3          2          2          2          0
+T3       4          5          5          1          0
+T4       5         40         12          1          0
+</pre></body></html>

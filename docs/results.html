@@ -75,7 +75,7 @@ details summary{cursor:pointer;color:var(--teal);font-size:15px}
     <div class="tile"><span class="n">1</span><span class="l">samples per task for ours, every task without a question, depth 3 to 6, width 1 to 300</span></div>
     <div class="tile"><span class="n">4–14</span><span class="l">samples for the parallel MCP loop, rising with depth and width</span></div>
     <div class="tile"><span class="n">0</span><span class="l">double-sends, every arm, every task, from the app's own effect log</span></div>
-    <div class="tile"><span class="n">0</span><span class="l">verify problems across 318 result files in six run directories</span></div>
+    <div class="tile"><span class="n">0</span><span class="l">verify problems across 330 result files in seven run directories</span></div>
   </div>
 </section>
 
@@ -122,7 +122,7 @@ details summary{cursor:pointer;color:var(--teal);font-size:15px}
   <div class="callout"><b>A retraction.</b> The first campaign showed both loops at 0/5 on the wait task, and the README said the wait "separates the arms completely". That was a bug in our target app: a send arriving after the payment webhook overwrote "paid" with "sent", and only the slow arms ever sent late. Fixed, pinned by a test, and every loop cell on a wait task was rerun. The corrected cells are the ones on this page.</div>
   <div class="note"><b>Arm A</b>, the pixel loop, is smoke-only: 40 clicks per task, about 760k tokens, nothing finished, no coaching parity. Its screenshots are in the repo. It is the straw the design exists to avoid, and it is reported as the straw.</div>
   <details><summary>Provenance</summary>
-    <p style="margin-top:8px">Repo <code>/Volumes/goldcoders/chiffon</code>, 38 commits, each through <code>make gate</code>. Cells come from <code>results/campaign-2a</code> (T1–T6, four arms, 5 runs), <code>campaign-2b-ours</code> (T8–T11, ours and ceiling, 5 runs), <code>campaign-2c-wait</code> and <code>campaign-2c-deep</code> (loop arms on wait tasks after the fix, 5 and 2 runs), <code>campaign-2b-loops</code> (T11 loops, 2 runs), and <code>campaign-1</code> for arm B. Every directory verifies clean. Reproduce with <code>make bench-ocx ARMS=D,E,B2,C PLANNER=model RUNS=5</code>.</p>
+    <p style="margin-top:8px">Repo <code>/Volumes/goldcoders/chiffon</code>, 38 commits, each through <code>make gate</code>. Cells come from <code>results/campaign-2a</code> (T1–T6, four arms, 5 runs), <code>campaign-2b-ours</code> (T8–T11, ours and ceiling, 5 runs), <code>campaign-2c-wait</code> and <code>campaign-2c-deep</code> (loop arms on wait tasks after the fix, 5 and 2 runs), <code>campaign-2b-loops</code> (T11 loops, 2 runs), <code>campaign-2d-ratelimit</code> (T12, four arms, 3 runs), and <code>campaign-1</code> for arm B. Every directory verifies clean. Reproduce with <code>make bench-ocx ARMS=D,E,B2,C PLANNER=model RUNS=5</code>.</p>
   </details>
 </section>
 </div>
@@ -174,11 +174,15 @@ const CELLS = [
 {"task":"T11","arm":"B2","depth":3,"runs":2,"correct":2,"samples":14,"plan":197691,"run":192328,"par":50,"src":"campaign-2b-loops"},
 {"task":"T11","arm":"C","depth":3,"runs":2,"correct":0,"samples":30,"plan":274985,"run":216472,"par":50,"src":"campaign-2b-loops"},
 {"task":"T11","arm":"D","depth":3,"runs":5,"correct":5,"samples":1,"plan":111532,"run":1179,"par":16,"src":"campaign-2b-ours"},
-{"task":"T11","arm":"E","depth":3,"runs":5,"correct":5,"samples":0,"plan":0,"run":291,"par":300,"src":"campaign-2b-ours"}
+{"task":"T11","arm":"E","depth":3,"runs":5,"correct":5,"samples":0,"plan":0,"run":291,"par":300,"src":"campaign-2b-ours"},
+{"task":"T12","arm":"B2","depth":3,"runs":3,"correct":3,"samples":5,"plan":23350,"run":14260,"par":8,"src":"campaign-2d-ratelimit"},
+{"task":"T12","arm":"C","depth":3,"runs":3,"correct":3,"samples":7,"plan":34100,"run":27694,"par":8,"src":"campaign-2d-ratelimit"},
+{"task":"T12","arm":"D","depth":3,"runs":3,"correct":3,"samples":1,"plan":6433,"run":2058,"par":10,"src":"campaign-2d-ratelimit"},
+{"task":"T12","arm":"E","depth":3,"runs":3,"correct":3,"samples":0,"plan":0,"run":2059,"par":10,"src":"campaign-2d-ratelimit"}
 ];
-const TITLES = {T1:"one invoice",T2:"ten invoices",T3:"three + report",T4:"wait for payment",T5:"ten, 30% failures",T6:"two Acmes",T8:"3 chains, 6 deep",T9:"10 chains, 6 deep",T10:"10 chains + 11 reports",T11:"300 from one want"};
-const SHORT = {T1:"one",T2:"ten",T3:"3 + report",T4:"wait",T5:"ten, 30% fail",T6:"two Acmes",T8:"3 × 6 deep",T9:"10 × 6 deep",T10:"10 × 6 + reports",T11:"300 rows"};
-const ORDER = ["T1","T2","T5","T6","T3","T4","T8","T9","T10","T11"];
+const TITLES = {T1:"one invoice",T2:"ten invoices",T3:"three + report",T4:"wait for payment",T5:"ten, 30% failures",T6:"two Acmes",T8:"3 chains, 6 deep",T9:"10 chains, 6 deep",T10:"10 chains + 11 reports",T11:"300 from one want",T12:"ten under a rate limit"};
+const SHORT = {T1:"one",T2:"ten",T3:"3 + report",T4:"wait",T5:"ten, 30% fail",T6:"two Acmes",T8:"3 × 6 deep",T9:"10 × 6 deep",T10:"10 × 6 + reports",T11:"300 rows",T12:"ten, 8 writes/s"};
+const ORDER = ["T1","T2","T5","T12","T6","T3","T4","T8","T9","T10","T11"];
 const ARMS = {D:{c:"var(--s1)",l:"D ours"},B2:{c:"var(--s2)",l:"B2 parallel MCP"},C:{c:"var(--s3)",l:"C WebMCP"},B:{c:"var(--s4)",l:"B sequential MCP"}};
 const NS = "http://www.w3.org/2000/svg";
 function el(n,a,t){const e=document.createElementNS(NS,n);for(const k in a)e.setAttribute(k,a[k]);if(t!=null)e.textContent=t;return e;}

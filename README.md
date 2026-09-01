@@ -192,6 +192,7 @@ Medians; samples is the column that matters.
 | T9 ten deep chains (2c) | 6 | 5/5 · 1 · 11.2 s | 2/2 · 6 · 29.8 s | 2/2 · 10 · 33.0 s | 5/5 |
 | T10 ten chains + 11 reports (2c) | 6 | 4/5 · 1 · 13.5 s | 2/2 · 6 · 28.2 s · 20 wide | 2/2 · 11.5 · 42.7 s | 5/5 |
 | T11 three hundred from one want | 3 | 5/5 · 1 · 111.5 s · 16 wide | 2/2 · 14 · 197.7 s · 50 wide | 0/2 · 30 (cap) | 5/5 · 300 wide |
+| T12 ten under 8 writes/s (2d, 3 runs) | 3 | 3/3 · 1 · 6.4 s + 2.1 s kitchen | 3/3 · 5 · 23.4 s | 3/3 · 7 · 34.1 s | 3/3 · 2.1 s |
 
 Reading it honestly:
 
@@ -208,6 +209,9 @@ Reading it honestly:
 - **Wall time is the planner's.** Our kitchen time is 60 ms to 1.2 s everywhere; the sample is
   the rest, and on T11 grok spent 111 s emitting three hundred names at low effort. B2's clock is
   its own thinking between calls.
+- **T12 is where server-directed backoff pays.** The app answers a 429 with how long to wait and
+  every door honours it, so twenty keyed writes land in the two seconds the limit allows with
+  nothing doubled, for every arm.
 - **T11 is where fan-out pays.** One want, one sample, three hundred invoices. B2 needed 14
   samples and C hit the turn cap at a third of the rows.
 - **Arm A** is in `results/screens-smoke` only: 40 clicks per task, ~760k tokens, nothing

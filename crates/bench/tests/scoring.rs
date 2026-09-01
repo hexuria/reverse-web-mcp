@@ -55,6 +55,11 @@ fn result(task: &str, arm: &str, run: u32, wall_ms: u128, max_parallel: usize, c
         snapshot: json!({}),
         receipt: json!({}),
         intent: Value::Null,
+        model: String::new(),
+        effort: String::new(),
+        base_url: String::new(),
+        latency_ms: 25,
+        surfaces: "api".into(),
     }
 }
 

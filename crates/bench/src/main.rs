@@ -2,6 +2,7 @@
 //! `bench report` turns a run directory into summary.json and report.html.
 //! `bench verify` recomputes every number in a run directory from the raw ledgers.
 
+use bench::config::RunOpts;
 use bench::{arms, loops, oracle, report, tasks};
 
 use std::collections::BTreeMap;
@@ -25,60 +26,10 @@ struct Cli {
     cmd: Cmd,
 }
 
-// Run carries every knob until S5 folds them into one config struct.
-#[allow(clippy::large_enum_variant)]
 #[derive(Subcommand)]
 enum Cmd {
     /// Run arms × tasks × runs and write results.
-    Run {
-        /// Target app base URL. Ignored with --spawn.
-        #[arg(long, default_value = "http://127.0.0.1:47310")]
-        app: String,
-        /// Start the app binary next to this one on a free port, and stop it at the end.
-        #[arg(long)]
-        spawn: bool,
-        #[arg(long, default_value = "tasks")]
-        tasks_dir: PathBuf,
-        /// Comma-separated task ids. Default: every task at or below --phase.
-        #[arg(long)]
-        tasks: Option<String>,
-        /// Comma-separated arms: A, B, B2, C, D, E.
-        #[arg(long, default_value = "D,E")]
-        arms: String,
-        #[arg(long, default_value_t = 5)]
-        runs: u32,
-        /// Only tasks whose phase is at or below this.
-        #[arg(long, default_value_t = 3)]
-        phase: u32,
-        /// Surfaces arm D may compile to.
-        #[arg(long, default_value = "api")]
-        surfaces: String,
-        /// Added to every write by the app, so the target behaves like a real network service.
-        /// Merged into each task's chaos block unless the task sets its own latency.
-        #[arg(long, default_value_t = 25)]
-        latency_ms: u64,
-        /// Where arm D's intent comes from: `handwritten` (the task file) or `model` (one planner sample).
-        #[arg(long, default_value = "handwritten")]
-        planner: String,
-        /// Model for the planner and the model-driven arms.
-        #[arg(long, default_value = "claude-opus-5")]
-        model: String,
-        /// Effort for every model call: low | medium | high | xhigh | max.
-        #[arg(long, default_value = "medium")]
-        effort: String,
-        /// Disable the server-side refusal fallback.
-        #[arg(long)]
-        no_fallbacks: bool,
-        /// Messages-API base URL. Default ANTHROPIC_BASE_URL or https://api.anthropic.com.
-        /// A local gateway such as opencodex (http://localhost:8080) works as-is.
-        #[arg(long)]
-        base_url: Option<String>,
-        /// API key. Default ANTHROPIC_API_KEY; a local gateway needs none.
-        #[arg(long)]
-        api_key: Option<String>,
-        #[arg(long)]
-        out: Option<PathBuf>,
-    },
+    Run(Box<RunOpts>),
     /// Summarize a run directory.
     Report {
         #[arg(long)]
@@ -99,27 +50,7 @@ enum Cmd {
 async fn main() -> anyhow::Result<()> {
     tracing_subscriber::fmt().with_env_filter(tracing_subscriber::EnvFilter::from_default_env()).init();
     match Cli::parse().cmd {
-        Cmd::Run { app, spawn, tasks_dir, tasks, arms, runs, phase, surfaces, latency_ms, planner, model, effort, no_fallbacks, base_url, api_key, out } => {
-            let opts = RunOpts {
-                app,
-                spawn,
-                tasks_dir,
-                tasks,
-                arms,
-                runs,
-                phase,
-                surfaces,
-                latency_ms,
-                planner,
-                model,
-                effort,
-                fallbacks: !no_fallbacks,
-                base_url,
-                api_key,
-                out,
-            };
-            run(opts).await
-        }
+        Cmd::Run(opts) => run(*opts).await,
         Cmd::Report { run, tasks_dir } => {
             let titles = titles(&tasks_dir)?;
             let results = report::load_results(&run)?;
@@ -166,29 +97,15 @@ async fn spawn_app(out: &Path) -> anyhow::Result<(tokio::process::Child, String)
     Err(last_err.unwrap())
 }
 
-struct RunOpts {
-    app: String,
-    spawn: bool,
-    tasks_dir: PathBuf,
-    tasks: Option<String>,
-    arms: String,
-    runs: u32,
-    phase: u32,
-    surfaces: String,
-    latency_ms: u64,
-    planner: String,
-    model: String,
-    effort: String,
-    fallbacks: bool,
-    base_url: Option<String>,
-    api_key: Option<String>,
-    out: Option<PathBuf>,
-}
-
-async fn run(o: RunOpts) -> anyhow::Result<()> {
-    let RunOpts { app, spawn, tasks_dir, tasks, arms, runs, phase, surfaces, latency_ms, planner, model, effort, fallbacks, base_url, api_key, out } = o;
-    let out = out.unwrap_or_else(|| PathBuf::from("results").join(chrono::Local::now().format("%Y-%m-%dT%H-%M-%S").to_string()));
+async fn run(opts: RunOpts) -> anyhow::Result<()> {
+    let out = opts.out_dir();
     std::fs::create_dir_all(&out)?;
+    std::fs::write(out.join("config.json"), serde_json::to_string_pretty(&opts)?)?;
+    let arms = opts.arm_list();
+    let surfaces = opts.surface_list();
+    let wanted = opts.task_filter();
+    let RunOpts { app, spawn, tasks_dir, runs, phase, latency_ms, planner, model, effort, no_fallbacks, base_url, api_key, .. } = opts.clone();
+    let fallbacks = !no_fallbacks;
     let (_child, base) = if spawn {
         let (c, b) = spawn_app(&out).await?;
         (Some(c), b)
@@ -198,14 +115,11 @@ async fn run(o: RunOpts) -> anyhow::Result<()> {
     let oracle = Oracle::new(&base);
     oracle.wait_healthy(Duration::from_secs(10)).await?;
 
-    let wanted: Option<Vec<String>> = tasks.map(|t| t.split(',').map(|s| s.trim().to_string()).collect());
     let all = Task::load_dir(&tasks_dir)?;
     let tasks: Vec<Task> = all.into_iter().filter(|t| wanted.as_ref().map_or(t.phase <= phase, |w| w.contains(&t.id))).collect();
-    let arms: Vec<String> = arms.split(',').map(|s| s.trim().to_uppercase()).collect();
-    let surfaces: Vec<String> = surfaces.split(',').map(|s| s.trim().to_string()).collect();
 
     let world = Arc::new(zerohuman::world_from(&base).await?);
-    let needs_model = planner == "model" || arms.iter().any(|a| matches!(a.as_str(), "A" | "B" | "B2" | "C"));
+    let needs_model = opts.needs_model();
     let model_client =
         if needs_model { Some(loops::ModelClient::from_env(&model, &effort, fallbacks, base_url.as_deref(), api_key.as_deref())?) } else { None };
     println!(
@@ -313,6 +227,11 @@ async fn run(o: RunOpts) -> anyhow::Result<()> {
                     snapshot,
                     receipt: serde_json::to_value(&receipt)?,
                     intent: used_intent,
+                    model: if arm == "E" || (arm == "D" && planner != "model") { String::new() } else { model.clone() },
+                    effort: if arm == "E" || (arm == "D" && planner != "model") { String::new() } else { effort.clone() },
+                    base_url: model_client.as_ref().map(|m| m.base_url.clone()).unwrap_or_default(),
+                    latency_ms,
+                    surfaces: surfaces.join(","),
                 };
                 let file = out.join(format!("{}-{}-{}.json", task.id, arm, run));
                 std::fs::write(&file, serde_json::to_string_pretty(&result)?)?;

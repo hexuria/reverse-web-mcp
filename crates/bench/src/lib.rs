@@ -2,6 +2,7 @@
 //! The binary in main.rs is only the CLI.
 
 pub mod arms;
+pub mod config;
 pub mod loops;
 pub mod oracle;
 pub mod report;

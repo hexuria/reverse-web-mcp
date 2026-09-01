@@ -45,8 +45,9 @@ make bench ARMS=D,E,B,B2 RUNS=5                       # baselines + ours, claude
 ./target/release/bench run --spawn --arms D --planner model --tasks T2,T3   # ours with one real planner sample
 ```
 
-The base URL, model and effort are recorded in every result file, so a report always says which
-model produced it. Pin one model for a whole comparison; never mix providers across arms.
+Every run directory gets a `config.json` with the exact options used (the API key is never
+written), and every result file records model, effort, base URL, latency and surfaces. Pin one
+model for a whole comparison; never mix providers across arms.
 
 Every knob is on `bench run --help`: `--latency-ms` (default 25, added to every write so the app
 behaves like a network service), `--surfaces`, `--model`, `--effort`, `--planner`.

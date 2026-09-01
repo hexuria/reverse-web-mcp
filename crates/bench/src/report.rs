@@ -35,6 +35,17 @@ pub struct RunResult {
     /// The intent arm D compiled, whether hand-written or a planner sample.
     #[serde(default)]
     pub intent: Value,
+    /// How this run was produced. Empty model/effort means no model was involved.
+    #[serde(default)]
+    pub model: String,
+    #[serde(default)]
+    pub effort: String,
+    #[serde(default)]
+    pub base_url: String,
+    #[serde(default)]
+    pub latency_ms: u64,
+    #[serde(default)]
+    pub surfaces: String,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]

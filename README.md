@@ -149,8 +149,11 @@ What the table says:
   level (4 at depth 3, 5 at depth 4, 6 at depth 5); B pays a turn per action.
 - **Wall time.** Ours is dominated by the one planner sample; the kitchen itself runs in tens of
   milliseconds. B2's run time is its own thinking between tool calls.
-- **Waiting.** T4 separates the arms completely: the wait is an edge for us and a thing to
-  remember for a loop. Neither loop managed it in five tries.
+- **Waiting, corrected.** This campaign showed both loops at 0/5 on T4. That was a bug in the
+  target app, not in the models: a send arriving after the payment hook overwrote "paid" with
+  "sent", and only the slow arms ever sent late. Fixed in `fix(app): sending a paid invoice no
+  longer regresses it to sent`; campaign-2c below reruns those cells. Treat every loop-arm
+  wait-task number in campaign-1 as void.
 - **The honest losses.** T6: two of our five runs returned an empty fork answer that was compiled
   as-is; that is fixed in the commit after this campaign (fork answers are linted). T1: the planner
   needed a lint re-ask in three of five runs, which is why its median is 2 samples. T3, arm D,
@@ -167,6 +170,48 @@ its ledger, snapshot and intent.
 Arm A (pixels) clicked 40 times on each task, spent ~760k tokens, and finished neither; its
 screenshots are under `shots/`. That is the straw the whole design is built to avoid, with no
 parity coaching, and it is reported as such.
+
+## Second campaign, 2026-09-02, all six arms wired
+
+Same model and settings. `results/campaign-2a` is T1-T6 with D, E, B2 and C at five runs;
+`results/campaign-2b-ours` is T8-T11 with D and E at five runs; `results/campaign-2b-loops` is
+T8-T11 with B2 and C at two runs. The loop cells on the wait tasks (T4, T8, T9, T10) in those
+directories predate the paid-then-sent fix and are void; `results/campaign-2c-wait` and
+`results/campaign-2c-deep` are their reruns against the fixed app. Every directory verifies clean.
+Medians; samples is the column that matters.
+
+| task | depth | D ours | B2 parallel MCP | C WebMCP | E ceiling |
+|---|---|---|---|---|---|
+| T1 one invoice | 3 | 5/5 · 1 sample · 2.5 s | 5/5 · 4 · 6.6 s | 5/5 · 4 · 7.6 s | 5/5 |
+| T2 ten invoices | 3 | 5/5 · 1 · 6.2 s · 10 wide | 5/5 · 4 · 14.2 s · 11 wide | 5/5 · 6 · 24.3 s · 10 wide | 5/5 |
+| T3 three + report | 4 | 4/5 · 1 · 4.9 s | 4/5 · 5 · 9.8 s | 4/5 · 5 · 19.3 s | 5/5 |
+| T4 wait for payment (2c) | 5 | 5/5 · 1 · 3.5 s | 5/5 · 5 · 9.4 s | 2/5 · 4 · 10.3 s | 5/5 |
+| T5 ten, 30% failures | 3 | 5/5 · 1 · 6.7 s · 0 doubled | 5/5 · 5 · 17.6 s · 0 doubled | 5/5 · 7 · 34.1 s · 0 doubled | 5/5 |
+| T6 two Acmes | 3 | 4/5 · 2 (plan + answer) | 5/5 · 2 (asked) | 5/5 · 2 (asked) | 5/5 |
+| T8 three deep chains (2c) | 6 | 5/5 · 1 · 5.9 s | 1/2 · 5.5 · 10.8 s | 2/2 · 6 · 11.9 s | 5/5 |
+| T9 ten deep chains (2c) | 6 | 5/5 · 1 · 11.2 s | 2/2 · 6 · 29.8 s | 2/2 · 10 · 33.0 s | 5/5 |
+| T10 ten chains + 11 reports (2c) | 6 | 4/5 · 1 · 13.5 s | 2/2 · 6 · 28.2 s · 20 wide | 2/2 · 11.5 · 42.7 s | 5/5 |
+| T11 three hundred from one want | 3 | 5/5 · 1 · 111.5 s · 16 wide | 2/2 · 14 · 197.7 s · 50 wide | 0/2 · 30 (cap) | 5/5 · 300 wide |
+
+Reading it honestly:
+
+- **Samples are the structural difference.** Ours is one sample on every task without a
+  question, at every depth and every width. B2 pays roughly one sample per dependency level
+  (4 at depth 3, 5 at depth 4 and 5, 6 at depth 6) and C pays a little more. That is the claim
+  the depth tasks were built to test, and it holds.
+- **Correctness is close once the harness is fair.** B2 is 5/5 on T4 and mostly right on the
+  deep tasks. Our misses are the planner's: one empty intent on T3 and one empty fork answer on
+  T6, both now scored as errors, plus one payment-event timeout on T10.
+- **Width is not ours to claim.** B2 went 20 wide on T10 and 50 wide on T11; the API pool caps us
+  at 16. Parallel tool calls parallelise fine. What they cannot do is stop paying a thought per
+  level.
+- **Wall time is the planner's.** Our kitchen time is 60 ms to 1.2 s everywhere; the sample is
+  the rest, and on T11 grok spent 111 s emitting three hundred names at low effort. B2's clock is
+  its own thinking between calls.
+- **T11 is where fan-out pays.** One want, one sample, three hundred invoices. B2 needed 14
+  samples and C hit the turn cap at a third of the rows.
+- **Arm A** is in `results/screens-smoke` only: 40 clicks per task, ~760k tokens, nothing
+  finished. It is the straw, reported as the straw.
 
 ## What a result contains
 

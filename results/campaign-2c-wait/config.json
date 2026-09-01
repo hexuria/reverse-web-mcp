@@ -1,0 +1,20 @@
+{
+  "app": "http://127.0.0.1:47310",
+  "spawn": true,
+  "tasks_dir": "tasks",
+  "tasks": "T4",
+  "arms": "B2,C",
+  "runs": 5,
+  "phase": 3,
+  "surfaces": "api",
+  "latency_ms": 25,
+  "planner": "handwritten",
+  "model": "grok-4.6",
+  "effort": "medium",
+  "planner_effort": "low",
+  "no_fallbacks": false,
+  "base_url": "http://localhost:8080",
+  "max_turns": 40,
+  "plan_cache": null,
+  "out": "results/campaign-2c-wait"
+}

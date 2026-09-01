@@ -1,6 +1,7 @@
 id = "T5"
 title = "ten invoices with a 30% send failure rate"
 phase = 3
+depth = 3
 seed = 5
 goal = "Create and send an invoice for each of the ten customers. Sends fail sometimes."
 wants = [

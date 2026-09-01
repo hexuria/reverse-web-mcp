@@ -1,6 +1,7 @@
 id = "T3"
 title = "three invoices, email each, one report over all three"
 phase = 2
+depth = 4
 seed = 3
 goal = "Invoice Acme, Globex and Initech, send each, then produce one report covering all three."
 wants = [

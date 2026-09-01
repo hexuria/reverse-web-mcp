@@ -53,9 +53,12 @@ async fn main() -> anyhow::Result<()> {
         Cmd::Run(opts) => run(*opts).await,
         Cmd::Report { run, tasks_dir } => {
             let titles = titles(&tasks_dir)?;
+            let depths = depths(&tasks_dir)?;
             let results = report::load_results(&run)?;
-            let cells = report::write_report(&run, &results, &titles)?;
+            let cells = report::write_report(&run, &results, &titles, &depths)?;
             print!("{}", report::text_table(&cells));
+            println!();
+            print!("{}", report::depth_table(&cells, &depths));
             println!("wrote {}", run.join("report.html").display());
             Ok(())
         }
@@ -71,6 +74,10 @@ async fn main() -> anyhow::Result<()> {
 
 fn titles(tasks_dir: &Path) -> anyhow::Result<BTreeMap<String, String>> {
     Ok(Task::load_dir(tasks_dir)?.into_iter().map(|t| (t.id, t.title)).collect())
+}
+
+fn depths(tasks_dir: &Path) -> anyhow::Result<BTreeMap<String, u32>> {
+    Ok(Task::load_dir(tasks_dir)?.into_iter().map(|t| (t.id, t.depth)).collect())
 }
 
 async fn spawn_app(out: &Path) -> anyhow::Result<(tokio::process::Child, String)> {
@@ -185,8 +192,10 @@ async fn run(opts: RunOpts) -> anyhow::Result<()> {
                         arms::run_ours(task, &ctx, intent, ledger, planner_arg).await?
                     }
                     "E" => arms::run_script(task, &ctx).await?,
-                    "B" => loops::run_mcp_loop(task, &ctx, model_client.as_ref().unwrap(), false).await?,
-                    "B2" => loops::run_mcp_loop(task, &ctx, model_client.as_ref().unwrap(), true).await?,
+                    "B" | "B2" => {
+                        let facts = planner::world_facts(&base).await?;
+                        loops::run_mcp_loop(task, &ctx, model_client.as_ref().unwrap(), &facts, arm == "B2").await?
+                    }
                     other => {
                         let plan =
                             zerohuman::Plan { plan_id: format!("{}-{other}", task.id), goal: task.goal.clone(), nodes: vec![], edges: vec![], gates: vec![] };
@@ -272,10 +281,13 @@ async fn run(opts: RunOpts) -> anyhow::Result<()> {
     }
 
     let titles = titles(&tasks_dir)?;
+    let depths = depths(&tasks_dir)?;
     let results = report::load_results(&out)?;
-    let cells = report::write_report(&out, &results, &titles)?;
+    let cells = report::write_report(&out, &results, &titles, &depths)?;
     println!();
     print!("{}", report::text_table(&cells));
+    println!();
+    print!("{}", report::depth_table(&cells, &depths));
     println!("wrote {}", out.join("report.html").display());
     Ok(())
 }

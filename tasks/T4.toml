@@ -1,6 +1,7 @@
 id = "T4"
 title = "send the receipt only after the payment arrives"
 phase = 3
+depth = 5
 seed = 4
 goal = "Invoice Acme, send it, and email a receipt once the payment lands."
 wants = [

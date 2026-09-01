@@ -79,6 +79,7 @@ fn summarize_uses_medians_per_task_and_arm() {
     assert_eq!(d.max_parallel_median, 10.0);
     assert_eq!((d.wall_ms_min, d.wall_ms_max), (100, 300));
     assert_eq!(d.tokens_median, 15.0);
+    assert_eq!((d.wall_ms_p25, d.wall_ms_p75), (150.0, 250.0));
 }
 
 #[test]

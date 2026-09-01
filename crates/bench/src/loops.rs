@@ -150,7 +150,11 @@ const APP_SYSTEM: &str = "You operate an invoicing app through the tools provide
 Invoices default to 10000 cents unless told otherwise. Use the idempotency_key argument on every write, with a fresh \
 unique key per intended effect, and reuse the same key if you retry that same effect. Do only what the task asks. \
 If the task is ambiguous in a way that changes what you would do (for example two customers share a name), stop and \
-ask one question instead of guessing. When the task is fully done, reply with the single word: done.";
+ask one question instead of guessing. When the task is fully done, reply with the single word: done.\n\n\
+Worked example. Task: invoice Acme and Globex, send both, then one report over both. A good run: listCustomers for each \
+name to get ids; createInvoice for each id (amount 10000, keys inv-acme and inv-globex); sendInvoice for each invoice id \
+(keys send-acme and send-globex); createReport over both invoice ids (key report-1); reply done. \
+Independent steps may be issued together in one turn.";
 
 fn mcp_tools_as_anthropic(tools: &Value) -> Vec<Value> {
     tools
@@ -160,14 +164,16 @@ fn mcp_tools_as_anthropic(tools: &Value) -> Vec<Value> {
 }
 
 /// Arms B and B2. The model drives the target app's MCP door until it says done.
-pub async fn run_mcp_loop(task: &Task, ctx: &ArmContext, model: &ModelClient, parallel: bool) -> anyhow::Result<Receipt> {
+/// `facts` is the same read of the world the planner gets, so the baseline is coached identically.
+pub async fn run_mcp_loop(task: &Task, ctx: &ArmContext, model: &dyn crate::planner::Sampler, facts: &str, parallel: bool) -> anyhow::Result<Receipt> {
     let mcp = Arc::new(McpEffector::new(&format!("{}/mcp", ctx.base.trim_end_matches('/')), "mcp"));
     let listed: Value = reqwest::Client::new().post(&mcp.url).json(&json!({"jsonrpc":"2.0","id":1,"method":"tools/list"})).send().await?.json().await?;
     let tools = mcp_tools_as_anthropic(&listed["result"]["tools"]);
 
     let mut ledger = Ledger::new();
     let rec = Recorder::new(ctx.world.clone());
-    let mut messages = vec![json!({"role": "user", "content": task.goal.clone()})];
+    let opening = format!("World facts (read just now):\n{facts}\n\nTask: {}", task.goal);
+    let mut messages = vec![json!({"role": "user", "content": opening})];
     let mut status = Status::Error;
     let mut error: Option<String> = None;
     let mut yield_reason: Option<String> = None;
@@ -210,7 +216,9 @@ pub async fn run_mcp_loop(task: &Task, ctx: &ArmContext, model: &ModelClient, pa
                 yield_reason = Some(t.to_string());
                 ledger.forks.push(json!({"ask": t}));
             } else {
-                status = Status::Committed;
+                // Neither done nor a question: the model gave up. That is a failure, not a commit.
+                status = Status::Error;
+                error = Some(format!("gave up: {}", t.chars().take(200).collect::<String>()));
             }
             break;
         }

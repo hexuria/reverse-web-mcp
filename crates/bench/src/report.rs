@@ -65,11 +65,29 @@ pub struct Cell {
     pub wall_ms_max: u128,
     pub plan_ms_median: f64,
     pub run_ms_median: f64,
+    pub samples_p25: f64,
+    pub samples_p75: f64,
+    pub wall_ms_p25: f64,
+    pub wall_ms_p75: f64,
+    pub run_ms_p25: f64,
+    pub run_ms_p75: f64,
     pub max_parallel_median: f64,
     pub max_parallel_max: usize,
     pub double_sends_total: usize,
     pub forks_total: usize,
     pub errors: Vec<String>,
+}
+
+/// Linear-interpolated quantile; q in [0,1].
+fn quantile(mut xs: Vec<f64>, q: f64) -> f64 {
+    if xs.is_empty() {
+        return 0.0;
+    }
+    xs.sort_by(|a, b| a.partial_cmp(b).unwrap());
+    let pos = q * (xs.len() - 1) as f64;
+    let lo = pos.floor() as usize;
+    let hi = pos.ceil() as usize;
+    xs[lo] + (xs[hi] - xs[lo]) * (pos - lo as f64)
 }
 
 fn median(mut xs: Vec<f64>) -> f64 {
@@ -121,6 +139,12 @@ pub fn summarize(results: &[RunResult]) -> Vec<Cell> {
             wall_ms_max: rs.iter().map(|r| r.wall_ms).max().unwrap_or(0),
             plan_ms_median: median(rs.iter().map(|r| r.plan_ms as f64).collect()),
             run_ms_median: median(rs.iter().map(|r| r.run_ms as f64).collect()),
+            samples_p25: quantile(rs.iter().map(|r| r.samples as f64).collect(), 0.25),
+            samples_p75: quantile(rs.iter().map(|r| r.samples as f64).collect(), 0.75),
+            wall_ms_p25: quantile(rs.iter().map(|r| r.wall_ms as f64).collect(), 0.25),
+            wall_ms_p75: quantile(rs.iter().map(|r| r.wall_ms as f64).collect(), 0.75),
+            run_ms_p25: quantile(rs.iter().map(|r| r.run_ms as f64).collect(), 0.25),
+            run_ms_p75: quantile(rs.iter().map(|r| r.run_ms as f64).collect(), 0.75),
             max_parallel_median: median(rs.iter().map(|r| r.max_parallel as f64).collect()),
             max_parallel_max: rs.iter().map(|r| r.max_parallel).max().unwrap_or(0),
             double_sends_total: rs.iter().map(|r| r.double_sends).sum(),
@@ -128,6 +152,33 @@ pub fn summarize(results: &[RunResult]) -> Vec<Cell> {
             errors: rs.iter().filter_map(|r| r.error.clone()).collect(),
         })
         .collect()
+}
+
+/// Samples against task depth: the structural claim. One row per task, one column per arm.
+pub fn depth_table(cells: &[Cell], depths: &BTreeMap<String, u32>) -> String {
+    let mut arms: Vec<String> = cells.iter().map(|c| c.arm.clone()).collect();
+    arms.sort();
+    arms.dedup();
+    let mut tasks: Vec<String> = cells.iter().map(|c| c.task.clone()).collect();
+    tasks.sort();
+    tasks.dedup();
+    tasks.sort_by_key(|t| depths.get(t).copied().unwrap_or(0));
+    let mut s = format!("{:<4} {:>5}", "task", "depth");
+    for a in &arms {
+        s.push_str(&format!(" {:>10}", format!("{a} samples")));
+    }
+    s.push('\n');
+    for t in &tasks {
+        s.push_str(&format!("{:<4} {:>5}", t, depths.get(t).copied().unwrap_or(0)));
+        for a in &arms {
+            match cells.iter().find(|c| &c.task == t && &c.arm == a) {
+                Some(c) => s.push_str(&format!(" {:>10}", c.samples_median)),
+                None => s.push_str(&format!(" {:>10}", "-")),
+            }
+        }
+        s.push('\n');
+    }
+    s
 }
 
 pub fn text_table(cells: &[Cell]) -> String {
@@ -154,7 +205,7 @@ pub fn text_table(cells: &[Cell]) -> String {
     s
 }
 
-pub fn write_report(dir: &Path, results: &[RunResult], titles: &BTreeMap<String, String>) -> anyhow::Result<Vec<Cell>> {
+pub fn write_report(dir: &Path, results: &[RunResult], titles: &BTreeMap<String, String>, depths: &BTreeMap<String, u32>) -> anyhow::Result<Vec<Cell>> {
     let cells = summarize(results);
     std::fs::write(dir.join("summary.json"), serde_json::to_string_pretty(&cells)?)?;
 
@@ -171,7 +222,7 @@ pub fn write_report(dir: &Path, results: &[RunResult], titles: &BTreeMap<String,
     for t in &tasks {
         let title = titles.get(t).cloned().unwrap_or_default();
         html.push_str(&format!("<h2>{t} · {title}</h2>"));
-        html.push_str("<table><thead><tr><th>arm</th><th>what</th><th>runs</th><th>correct</th><th>model samples</th><th>tokens</th><th>plan ms</th><th>run ms</th><th>wall ms (median)</th><th>wall min–max</th><th>max parallel</th><th>double-sends</th><th>forks</th></tr></thead><tbody>");
+        html.push_str("<table><thead><tr><th>arm</th><th>what</th><th>runs</th><th>correct</th><th>model samples</th><th>tokens</th><th>plan ms</th><th>run ms</th><th>wall ms (median)</th><th>wall p25–p75</th><th>max parallel</th><th>double-sends</th><th>forks</th></tr></thead><tbody>");
         for c in cells.iter().filter(|c| &c.task == t) {
             let ok = if c.correct == c.runs && c.runs > 0 { "ok" } else { "bad" };
             let hot = if c.max_parallel_max > 1 { "hot" } else { "" };
@@ -187,8 +238,8 @@ pub fn write_report(dir: &Path, results: &[RunResult], titles: &BTreeMap<String,
                 c.plan_ms_median,
                 c.run_ms_median,
                 c.wall_ms_median,
-                c.wall_ms_min,
-                c.wall_ms_max,
+                c.wall_ms_p25,
+                c.wall_ms_p75,
                 c.max_parallel_median,
                 if c.double_sends_total > 0 { "bad" } else { "" },
                 c.double_sends_total,
@@ -211,7 +262,9 @@ pub fn write_report(dir: &Path, results: &[RunResult], titles: &BTreeMap<String,
             }
         }
     }
-    html.push_str("</body></html>");
+    html.push_str("<h2>samples against depth</h2><p>A loop pays a thought per dependency level. A plan pays one thought regardless. This is the column that separates the arms.</p><pre>");
+    html.push_str(&html_escape(&depth_table(&cells, depths)));
+    html.push_str("</pre></body></html>");
     std::fs::write(dir.join("report.html"), html)?;
     Ok(cells)
 }

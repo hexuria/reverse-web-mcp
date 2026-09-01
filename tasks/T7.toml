@@ -1,6 +1,7 @@
 id = "T7"
 title = "three invoices, approve each in the UI, send each, one report"
 phase = 4
+depth = 5
 seed = 7
 goal = "Invoice Acme, Globex and Initech. Approve each (this only exists as a button), send each, then one report."
 wants = [

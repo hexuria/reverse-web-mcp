@@ -63,6 +63,10 @@ pub struct Task {
     pub title: String,
     #[serde(default = "two")]
     pub phase: u32,
+    /// Length of the longest dependency chain in the task. Ground truth for the samples-vs-depth table,
+    /// because a baseline arm has no plan to measure it from.
+    #[serde(default)]
+    pub depth: u32,
     pub seed: u64,
     pub goal: String,
     #[serde(default)]

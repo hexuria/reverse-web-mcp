@@ -1,6 +1,7 @@
 id = "T6"
 title = "invoice Acme when two customers are named Acme"
 phase = 3
+depth = 3
 seed = 6
 goal = "Create and send an invoice for Acme."
 wants = [

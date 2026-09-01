@@ -98,6 +98,41 @@ async fn t3_joins_on_the_report_and_starts_emails_early() {
 }
 
 #[tokio::test]
+async fn t4_waits_for_the_payment_event_instead_of_polling() {
+    let base = serve(4).await;
+    // The outside world: pay every invoice 300 ms after it appears.
+    let watcher = EventBus::connect(&base).await.unwrap();
+    let payer = {
+        let base = base.clone();
+        tokio::spawn(async move {
+            let client = reqwest::Client::new();
+            let mut paid = std::collections::HashSet::new();
+            loop {
+                for ev in watcher.events() {
+                    if ev.kind == "invoice.created" && paid.insert(ev.id) {
+                        let _ = client.post(format!("{base}/oracle/pay")).json(&json!({"invoice_id": ev.id, "delay_ms": 300})).send().await;
+                    }
+                }
+                tokio::time::sleep(std::time::Duration::from_millis(30)).await;
+            }
+        })
+    };
+    let mut w = wants(&["Acme"], false);
+    w.push("invoice(customer=customer(name='Acme')).receipt_sent=true".into());
+    let (r, effects) = run(&base, w).await;
+    payer.abort();
+    assert_eq!(r.status, Status::Committed, "{:?}", r.error);
+    let wait = r.ledger.rows.iter().find(|x| x.surface == "event").expect("a wait row");
+    assert!(wait.ok);
+    assert!(wait.ended_us - wait.started_us >= 200_000, "the wait really waited");
+    let reads = r.ledger.rows.iter().filter(|x| x.op == "getInvoice").count();
+    assert_eq!(reads, 0, "no polling");
+    assert_eq!(effects["double_sends"], 0);
+    let state: Value = reqwest::get(format!("{base}/oracle/state")).await.unwrap().json().await.unwrap();
+    assert_eq!(state["invoices"][0]["receipt_sent"], true);
+}
+
+#[tokio::test]
 async fn t6_two_acmes_yield_once_without_writing() {
     let base = serve(6).await;
     let (r, effects) = run(&base, wants(&["Acme"], false)).await;

@@ -12,7 +12,7 @@ use tokio::task::JoinSet;
 
 use crate::effectors::{EffectError, Effector};
 use crate::events::EventBus;
-use crate::ledger::{now_ms, now_us, Ledger, Row, Status};
+use crate::ledger::{now_ms, Ledger, Recorder, Status};
 use crate::plan::{Arg, Node, Plan};
 use crate::world::OpKind;
 
@@ -53,6 +53,7 @@ pub struct Scheduler {
     pub bus: Option<Arc<EventBus>>,
     pub pools: Pools,
     pub policy: Policy,
+    pub recorder: Recorder,
 }
 
 #[derive(Clone, Debug)]
@@ -109,7 +110,7 @@ fn fork_fires(when: &str, output: &Value) -> Option<Value> {
 
 impl Scheduler {
     pub async fn run(&self, plan: &Plan, ledger: &mut Ledger) -> Outcome {
-        let rows: Arc<Mutex<Vec<Row>>> = Arc::new(Mutex::new(Vec::new()));
+        let rec = self.recorder.clone();
         let outputs: Arc<Mutex<HashMap<String, Value>>> = Arc::new(Mutex::new(HashMap::new()));
         let sems: HashMap<String, Arc<Semaphore>> = self.pools.per_surface.iter().map(|(s, n)| (s.clone(), Arc::new(Semaphore::new(*n)))).collect();
 
@@ -146,9 +147,9 @@ impl Scheduler {
                     let sem = sems.get(&node.surface).cloned();
                     let bus = self.bus.clone();
                     let policy = self.policy.clone();
-                    let rows2 = rows.clone();
+                    let rec2 = rec.clone();
                     running.spawn(async move {
-                        let r = execute(&node, args, effector, sem, bus, &policy, rows2).await;
+                        let r = execute(&node, args, effector, sem, bus, &policy, rec2).await;
                         (id, r)
                     });
                 }
@@ -196,8 +197,7 @@ impl Scheduler {
             }
         }
 
-        ledger.rows.extend(rows.lock().unwrap().drain(..));
-        ledger.rows.sort_by_key(|r| r.started_us);
+        rec.drain_into(ledger);
         ledger.ended_ms = now_ms();
         if outcome.status == Status::Committed {
             let done = outputs.lock().unwrap().len();
@@ -228,29 +228,16 @@ async fn execute(
     sem: Option<Arc<Semaphore>>,
     bus: Option<Arc<EventBus>>,
     policy: &Policy,
-    rows: Arc<Mutex<Vec<Row>>>,
+    rec: Recorder,
 ) -> Result<Value, Failure> {
     if node.kind == OpKind::Event {
-        let started = now_us();
         let id = args.get("id").and_then(|v| v.as_u64());
-        let res = match &bus {
+        let attempt = rec.start(&node.id, &node.op, "event", None, 1);
+        let res: Result<Value, String> = match &bus {
             Some(b) => b.wait_for(&node.op, id, policy.wait_timeout).await.map(|ev| serde_json::to_value(ev).unwrap()).map_err(|e| e.to_string()),
             None => Err(crate::events::BusError::Missing.to_string()),
         };
-        let ok = res.is_ok();
-        rows.lock().unwrap().push(Row {
-            node: node.id.clone(),
-            op: node.op.clone(),
-            surface: "event".into(),
-            key: None,
-            attempt: 1,
-            started_us: started,
-            ended_us: now_us(),
-            ok,
-            write: false,
-            error: res.as_ref().err().cloned(),
-            observed: res.clone().unwrap_or(Value::Null),
-        });
+        attempt.finish(&res);
         return res.map_err(Failure::Fatal);
     }
 
@@ -264,26 +251,13 @@ async fn execute(
     let mut attempt = 0u32;
     loop {
         attempt += 1;
-        let started = now_us();
+        let recording = rec.start(&node.id, &node.op, &node.surface, node.key.clone(), attempt);
         let res = tokio::time::timeout(policy.node_timeout, effector.execute(node, &args)).await;
         let res: Result<Value, EffectError> = match res {
             Ok(r) => r,
             Err(_) => Err(EffectError::Retryable("node timeout".into())),
         };
-        let ended = now_us();
-        rows.lock().unwrap().push(Row {
-            node: node.id.clone(),
-            op: node.op.clone(),
-            surface: node.surface.clone(),
-            key: node.key.clone(),
-            attempt,
-            started_us: started,
-            ended_us: ended,
-            ok: res.is_ok(),
-            write: !node.writes.is_empty(),
-            error: res.as_ref().err().map(|e| e.to_string()),
-            observed: res.clone().unwrap_or(Value::Null),
-        });
+        recording.finish(&res);
         match res {
             Ok(v) => {
                 if let Some(f) = &node.fork {

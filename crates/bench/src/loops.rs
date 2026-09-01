@@ -13,7 +13,7 @@ use std::time::Duration;
 use serde_json::{json, Value};
 use zerohuman::effectors::{EffectError, McpEffector};
 use zerohuman::intent::Intent;
-use zerohuman::ledger::{now_us, Ledger, Receipt, Row, Status};
+use zerohuman::ledger::{Ledger, Receipt, Recorder, Status};
 use zerohuman::plan::Plan;
 use zerohuman::World;
 
@@ -138,8 +138,6 @@ fn mcp_tools_as_anthropic(tools: &Value) -> Vec<Value> {
         .unwrap_or_default()
 }
 
-const WRITE_TOOLS: [&str; 5] = ["createInvoice", "sendInvoice", "sendReceipt", "createReport", "createCustomer"];
-
 /// Arms B and B2. The model drives the target app's MCP door until it says done.
 pub async fn run_mcp_loop(task: &Task, ctx: &ArmContext, model: &ModelClient, parallel: bool) -> anyhow::Result<Receipt> {
     let mcp = Arc::new(McpEffector::new(&format!("{}/mcp", ctx.base.trim_end_matches('/')), "mcp"));
@@ -147,6 +145,7 @@ pub async fn run_mcp_loop(task: &Task, ctx: &ArmContext, model: &ModelClient, pa
     let tools = mcp_tools_as_anthropic(&listed["result"]["tools"]);
 
     let mut ledger = Ledger::new();
+    let rec = Recorder::new(ctx.world.clone());
     let mut messages = vec![json!({"role": "user", "content": task.goal.clone()})];
     let mut status = Status::Error;
     let mut error: Option<String> = None;
@@ -200,34 +199,17 @@ pub async fn run_mcp_loop(task: &Task, ctx: &ArmContext, model: &ModelClient, pa
         }
 
         // Execute every tool call this turn (concurrently for B2, they arrive one at a time for B).
-        let rows_arc = Arc::new(std::sync::Mutex::new(Vec::<Row>::new()));
         let futs = calls.iter().map(|c| {
             let mcp = mcp.clone();
-            let rows_arc = rows_arc.clone();
+            let rec = rec.clone();
             let name = c["name"].as_str().unwrap_or("").to_string();
             let input = c["input"].clone();
             let id = c["id"].as_str().unwrap_or("").to_string();
             async move {
-                let started = now_us();
+                let key = input.get("idempotency_key").and_then(|k| k.as_str()).map(|s| s.to_string());
+                let recording = rec.start(&rec.next_node_id("t"), &name, "mcp", key, 1);
                 let res = mcp.call(&name, input.clone()).await;
-                let ended = now_us();
-                let (ok, observed, err) = match &res {
-                    Ok(v) => (true, v.clone(), None),
-                    Err(e) => (false, Value::Null, Some(e.to_string())),
-                };
-                rows_arc.lock().unwrap().push(Row {
-                    node: id.clone(),
-                    op: name.clone(),
-                    surface: "mcp".into(),
-                    key: input.get("idempotency_key").and_then(|k| k.as_str()).map(|s| s.to_string()),
-                    attempt: 1,
-                    started_us: started,
-                    ended_us: ended,
-                    ok,
-                    write: WRITE_TOOLS.contains(&name.as_str()),
-                    error: err,
-                    observed,
-                });
+                recording.finish(&res);
                 let content = match res {
                     Ok(v) => v.to_string(),
                     Err(EffectError::Retryable(m)) | Err(EffectError::Fatal(m)) => format!("error: {m}"),
@@ -236,13 +218,12 @@ pub async fn run_mcp_loop(task: &Task, ctx: &ArmContext, model: &ModelClient, pa
             }
         });
         let results: Vec<Value> = futures::future::join_all(futs).await;
-        ledger.rows.extend(rows_arc.lock().unwrap().drain(..));
         messages.push(json!({"role": "user", "content": results}));
     }
     if status == Status::Error && error.is_none() {
         error = Some(format!("gave up after {max_turns} turns"));
     }
-    ledger.rows.sort_by_key(|r| r.started_us);
+    rec.drain_into(&mut ledger);
     ledger.ended_ms = zerohuman::ledger::now_ms();
     let plan = Plan {
         plan_id: format!("{}-{}-{}", task.id, if parallel { "B2" } else { "B" }, ctx.run_id),

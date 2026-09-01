@@ -252,10 +252,7 @@ async fn oracle_pay(State(s): State<Shared>, Json(p): Json<Pay>) -> Result<Json<
 async fn events(State(s): State<Shared>) -> Sse<impl Stream<Item = Result<SseEvent, Infallible>>> {
     let rx = s.events.subscribe();
     let stream = BroadcastStream::new(rx).filter_map(|item| match item {
-        Ok(ev) => Some(Ok(SseEvent::default()
-            .event(ev.kind.clone())
-            .id(ev.seq.to_string())
-            .data(serde_json::to_string(&ev).unwrap_or_default()))),
+        Ok(ev) => Some(Ok(SseEvent::default().event(ev.kind.clone()).id(ev.seq.to_string()).data(serde_json::to_string(&ev).unwrap_or_default()))),
         Err(_) => None,
     });
     Sse::new(stream).keep_alive(KeepAlive::new().interval(Duration::from_secs(10)))

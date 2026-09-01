@@ -55,7 +55,7 @@ pub struct Cell {
     pub errors: Vec<String>,
 }
 
-fn median(xs: &mut Vec<f64>) -> f64 {
+fn median(mut xs: Vec<f64>) -> f64 {
     if xs.is_empty() {
         return 0.0;
     }
@@ -73,14 +73,14 @@ pub fn load_results(dir: &Path) -> anyhow::Result<Vec<RunResult>> {
     for e in std::fs::read_dir(dir)? {
         let p = e?.path();
         let name = p.file_name().and_then(|n| n.to_str()).unwrap_or("");
-        if p.extension().map_or(false, |x| x == "json") && name != "summary.json" {
+        if p.extension().is_some_and(|x| x == "json") && name != "summary.json" {
             let text = std::fs::read_to_string(&p)?;
             if let Ok(r) = serde_json::from_str::<RunResult>(&text) {
                 out.push(r);
             }
         }
     }
-    out.sort_by(|a, b| (a.task.clone(), a.arm.clone(), a.run).cmp(&(b.task.clone(), b.arm.clone(), b.run)));
+    out.sort_by_key(|a| (a.task.clone(), a.arm.clone(), a.run));
     Ok(out)
 }
 
@@ -96,12 +96,12 @@ pub fn summarize(results: &[RunResult]) -> Vec<Cell> {
             arm,
             runs: rs.len(),
             correct: rs.iter().filter(|r| r.correct).count(),
-            samples_median: median(&mut rs.iter().map(|r| r.samples as f64).collect()),
-            tokens_median: median(&mut rs.iter().map(|r| (r.tokens_in + r.tokens_out) as f64).collect()),
-            wall_ms_median: median(&mut rs.iter().map(|r| r.wall_ms as f64).collect()),
+            samples_median: median(rs.iter().map(|r| r.samples as f64).collect()),
+            tokens_median: median(rs.iter().map(|r| (r.tokens_in + r.tokens_out) as f64).collect()),
+            wall_ms_median: median(rs.iter().map(|r| r.wall_ms as f64).collect()),
             wall_ms_min: rs.iter().map(|r| r.wall_ms).min().unwrap_or(0),
             wall_ms_max: rs.iter().map(|r| r.wall_ms).max().unwrap_or(0),
-            max_parallel_median: median(&mut rs.iter().map(|r| r.max_parallel as f64).collect()),
+            max_parallel_median: median(rs.iter().map(|r| r.max_parallel as f64).collect()),
             max_parallel_max: rs.iter().map(|r| r.max_parallel).max().unwrap_or(0),
             double_sends_total: rs.iter().map(|r| r.double_sends).sum(),
             forks_total: rs.iter().map(|r| r.forks).sum(),
@@ -112,7 +112,10 @@ pub fn summarize(results: &[RunResult]) -> Vec<Cell> {
 
 pub fn text_table(cells: &[Cell]) -> String {
     let mut s = String::new();
-    s.push_str(&format!("{:<4} {:<3} {:>5} {:>8} {:>9} {:>12} {:>10} {:>7} {:>6}\n", "task", "arm", "runs", "correct", "samples", "wall_ms(med)", "max_par", "double", "forks"));
+    s.push_str(&format!(
+        "{:<4} {:<3} {:>5} {:>8} {:>9} {:>12} {:>10} {:>7} {:>6}\n",
+        "task", "arm", "runs", "correct", "samples", "wall_ms(med)", "max_par", "double", "forks"
+    ));
     for c in cells {
         s.push_str(&format!(
             "{:<4} {:<3} {:>5} {:>8} {:>9} {:>12} {:>10} {:>7} {:>6}\n",

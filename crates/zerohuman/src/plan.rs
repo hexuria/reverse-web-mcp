@@ -12,7 +12,10 @@ use crate::world::{Fork, OpKind, UiSpec};
 pub enum Arg {
     Lit(Value),
     /// The field of another node's output.
-    Ref { node: String, field: String },
+    Ref {
+        node: String,
+        field: String,
+    },
     List(Vec<Arg>),
 }
 

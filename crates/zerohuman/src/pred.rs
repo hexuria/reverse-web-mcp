@@ -73,16 +73,8 @@ impl Pred {
 impl Val {
     pub fn subst(&self, bind: &dyn Fn(&str) -> Option<Val>) -> Val {
         match self {
-            Val::Var(n, spread) => match bind(n) {
-                Some(v) => {
-                    if *spread {
-                        v
-                    } else {
-                        v
-                    }
-                }
-                None => self.clone(),
-            },
+            // TODO(each): a spread variable should splice a bound list into its parent list.
+            Val::Var(n, _spread) => bind(n).unwrap_or_else(|| self.clone()),
             Val::List(xs) => Val::List(xs.iter().map(|x| x.subst(bind)).collect()),
             Val::Entity(p) => Val::Entity(Box::new(p.subst(bind))),
             other => other.clone(),

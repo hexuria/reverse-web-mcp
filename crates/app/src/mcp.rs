@@ -71,11 +71,7 @@ async fn call(state: &Shared, name: &str, args: &Value) -> Result<Value, ApiErro
             write(state, |w| w.send_receipt(door, key.as_deref(), id)).await
         }
         "createReport" => {
-            let ids: Vec<u64> = args
-                .get("invoice_ids")
-                .and_then(|v| v.as_array())
-                .map(|a| a.iter().filter_map(|x| x.as_u64()).collect())
-                .unwrap_or_default();
+            let ids: Vec<u64> = args.get("invoice_ids").and_then(|v| v.as_array()).map(|a| a.iter().filter_map(|x| x.as_u64()).collect()).unwrap_or_default();
             write(state, |w| w.create_report(door, key.as_deref(), &ids)).await
         }
         other => Err(ApiError(404, format!("unknown tool '{other}'"))),
@@ -86,11 +82,10 @@ pub async fn handle(State(state): State<Shared>, Json(req): Json<Value>) -> Resp
     let id = req.get("id").cloned().unwrap_or(Value::Null);
     let method = req.get("method").and_then(|m| m.as_str()).unwrap_or("");
     match method {
-        "initialize" => Json(rpc_ok(
-            id,
-            json!({"protocolVersion":"2025-06-18","capabilities":{"tools":{}},"serverInfo":{"name":"chiffon-target-app","version":"0.1.0"}}),
-        ))
-        .into_response(),
+        "initialize" => {
+            Json(rpc_ok(id, json!({"protocolVersion":"2025-06-18","capabilities":{"tools":{}},"serverInfo":{"name":"chiffon-target-app","version":"0.1.0"}})))
+                .into_response()
+        }
         "notifications/initialized" | "ping" => {
             if id.is_null() {
                 StatusCode::ACCEPTED.into_response()
@@ -104,16 +99,11 @@ pub async fn handle(State(state): State<Shared>, Json(req): Json<Value>) -> Resp
             let name = params.get("name").and_then(|n| n.as_str()).unwrap_or("");
             let args = params.get("arguments").cloned().unwrap_or(json!({}));
             match call(&state, name, &args).await {
-                Ok(v) => Json(rpc_ok(
-                    id,
-                    json!({"content":[{"type":"text","text":v.to_string()}],"structuredContent":v,"isError":false}),
-                ))
-                .into_response(),
-                Err(ApiError(status, msg)) => Json(rpc_ok(
-                    id,
-                    json!({"content":[{"type":"text","text":format!("error {status}: {msg}")}],"isError":true,"_status":status}),
-                ))
-                .into_response(),
+                Ok(v) => Json(rpc_ok(id, json!({"content":[{"type":"text","text":v.to_string()}],"structuredContent":v,"isError":false}))).into_response(),
+                Err(ApiError(status, msg)) => {
+                    Json(rpc_ok(id, json!({"content":[{"type":"text","text":format!("error {status}: {msg}")}],"isError":true,"_status":status})))
+                        .into_response()
+                }
             }
         }
         other => Json(rpc_err(id, -32601, format!("method not found: {other}"))).into_response(),

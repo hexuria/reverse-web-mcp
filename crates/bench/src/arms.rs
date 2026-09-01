@@ -58,7 +58,12 @@ pub struct Script {
 
 impl Script {
     fn new(base: &str) -> Self {
-        Script { base: base.trim_end_matches('/').to_string(), client: reqwest::Client::new(), rows: Arc::new(Mutex::new(Vec::new())), counter: Arc::new(Mutex::new(0)) }
+        Script {
+            base: base.trim_end_matches('/').to_string(),
+            client: reqwest::Client::new(),
+            rows: Arc::new(Mutex::new(Vec::new())),
+            counter: Arc::new(Mutex::new(0)),
+        }
     }
 
     fn next(&self) -> String {
@@ -98,7 +103,19 @@ impl Script {
                 Ok((s, v)) => (false, v.clone(), Some(format!("{s} {}", v.get("error").and_then(|e| e.as_str()).unwrap_or("")))),
                 Err(e) => (false, Value::Null, Some(e.clone())),
             };
-            self.rows.lock().unwrap().push(Row { node: node.clone(), op: op.into(), surface: "api".into(), key: key.clone(), attempt, started_us: started, ended_us: ended, ok, write, error: err.clone(), observed: observed.clone() });
+            self.rows.lock().unwrap().push(Row {
+                node: node.clone(),
+                op: op.into(),
+                surface: "api".into(),
+                key: key.clone(),
+                attempt,
+                started_us: started,
+                ended_us: ended,
+                ok,
+                write,
+                error: err.clone(),
+                observed: observed.clone(),
+            });
             match res {
                 Ok((s, v)) if (200..300).contains(&s) => return Ok(v),
                 Ok((s, _)) if (s == 429 || s >= 500) && attempt < 4 => {
@@ -123,7 +140,16 @@ impl Script {
     async fn invoice_and_send(&self, name: &str, key_prefix: &str) -> Result<u64, String> {
         let c = self.customer(name).await?;
         let cid = c["id"].as_u64().unwrap();
-        let inv = self.call("createInvoice", "POST", "/api/invoices", Some(json!({"customer_id": cid, "amount_cents": 10000})), Some(format!("{key_prefix}/{name}/create")), true).await?;
+        let inv = self
+            .call(
+                "createInvoice",
+                "POST",
+                "/api/invoices",
+                Some(json!({"customer_id": cid, "amount_cents": 10000})),
+                Some(format!("{key_prefix}/{name}/create")),
+                true,
+            )
+            .await?;
         let id = inv["id"].as_u64().unwrap();
         self.call("sendInvoice", "POST", &format!("/api/invoices/{id}/send"), None, Some(format!("{key_prefix}/{name}/send")), true).await?;
         Ok(id)
@@ -161,7 +187,9 @@ pub async fn run_script(task: &Task, ctx: &ArmContext) -> anyhow::Result<Receipt
         "T3" => {
             let futs = TEN[..3].iter().map(|n| s.invoice_and_send(n, &kp));
             match futures::future::try_join_all(futs).await {
-                Ok(ids) => s.call("createReport", "POST", "/api/reports", Some(json!({"invoice_ids": ids})), Some(format!("{kp}/report")), true).await.map(|_| ()),
+                Ok(ids) => {
+                    s.call("createReport", "POST", "/api/reports", Some(json!({"invoice_ids": ids})), Some(format!("{kp}/report")), true).await.map(|_| ())
+                }
                 Err(e) => Err(e),
             }
         }

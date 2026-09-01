@@ -111,8 +111,7 @@ impl Scheduler {
     pub async fn run(&self, plan: &Plan, ledger: &mut Ledger) -> Outcome {
         let rows: Arc<Mutex<Vec<Row>>> = Arc::new(Mutex::new(Vec::new()));
         let outputs: Arc<Mutex<HashMap<String, Value>>> = Arc::new(Mutex::new(HashMap::new()));
-        let sems: HashMap<String, Arc<Semaphore>> =
-            self.pools.per_surface.iter().map(|(s, n)| (s.clone(), Arc::new(Semaphore::new(*n)))).collect();
+        let sems: HashMap<String, Arc<Semaphore>> = self.pools.per_surface.iter().map(|(s, n)| (s.clone(), Arc::new(Semaphore::new(*n)))).collect();
 
         let mut indeg: HashMap<String, usize> = plan.nodes.iter().map(|n| (n.id.clone(), 0)).collect();
         let mut succ: HashMap<String, Vec<String>> = HashMap::new();
@@ -203,7 +202,12 @@ impl Scheduler {
         if outcome.status == Status::Committed {
             let done = outputs.lock().unwrap().len();
             if done < plan.nodes.len() {
-                outcome = Outcome { status: Status::Error, yield_reason: None, evidence: None, error: Some(format!("{done} of {} nodes completed", plan.nodes.len())) };
+                outcome = Outcome {
+                    status: Status::Error,
+                    yield_reason: None,
+                    evidence: None,
+                    error: Some(format!("{done} of {} nodes completed", plan.nodes.len())),
+                };
             }
         }
         outcome

@@ -55,15 +55,13 @@ impl EventBus {
                     buf.drain(..=nl);
                     if let Some(d) = line.strip_prefix("data:") {
                         data.push_str(d.trim_start());
-                    } else if line.is_empty() {
-                        if !data.is_empty() {
-                            if let Ok(ev) = serde_json::from_str::<AppEvent>(&data) {
-                                let seq = ev.seq;
-                                b2.seen.lock().unwrap().push(ev);
-                                let _ = b2.tx.send(seq);
-                            }
-                            data.clear();
+                    } else if line.is_empty() && !data.is_empty() {
+                        if let Ok(ev) = serde_json::from_str::<AppEvent>(&data) {
+                            let seq = ev.seq;
+                            b2.seen.lock().unwrap().push(ev);
+                            let _ = b2.tx.send(seq);
                         }
+                        data.clear();
                     }
                 }
             }
@@ -82,7 +80,7 @@ impl EventBus {
         let mut rx = self.tx.subscribe();
         loop {
             rx.borrow_and_update();
-            if let Some(ev) = self.seen.lock().unwrap().iter().find(|e| e.kind == kind && id.map_or(true, |i| e.id == i)) {
+            if let Some(ev) = self.seen.lock().unwrap().iter().find(|e| e.kind == kind && id.is_none_or(|i| e.id == i)) {
                 return Ok(ev.clone());
             }
             let remaining = deadline.saturating_duration_since(tokio::time::Instant::now());

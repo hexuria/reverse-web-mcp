@@ -132,11 +132,7 @@ impl McpEffector {
         let result = v.get("result").cloned().unwrap_or(Value::Null);
         if result.get("isError").and_then(|b| b.as_bool()).unwrap_or(false) {
             let status = result.get("_status").and_then(|s| s.as_u64()).unwrap_or(500) as u16;
-            let text = result
-                .pointer("/content/0/text")
-                .and_then(|t| t.as_str())
-                .unwrap_or("tool error")
-                .to_string();
+            let text = result.pointer("/content/0/text").and_then(|t| t.as_str()).unwrap_or("tool error").to_string();
             return Err(if status == 429 || status >= 500 { EffectError::Retryable(text) } else { EffectError::Fatal(text) });
         }
         if let Some(sc) = result.get("structuredContent") {

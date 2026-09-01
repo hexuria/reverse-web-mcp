@@ -59,12 +59,8 @@ pub fn compile(intent: &Intent, world: &World, opts: &CompileOptions) -> Result<
     let mut edges = c.deps.clone();
     edges.extend(footprint_edges(&c.nodes));
     let edges = reduce(dedupe(edges), &c.nodes);
-    let gates = c
-        .nodes
-        .iter()
-        .filter(|n| n.external)
-        .map(|n| Gate { node: n.id.clone(), kind: GateKind::External, allowed: intent.constraints.external_ok })
-        .collect();
+    let gates =
+        c.nodes.iter().filter(|n| n.external).map(|n| Gate { node: n.id.clone(), kind: GateKind::External, allowed: intent.constraints.external_ok }).collect();
     Ok(Plan { plan_id: opts.plan_id.clone(), goal: intent.goal.clone(), nodes: c.nodes, edges, gates })
 }
 
@@ -93,7 +89,10 @@ impl<'a> Compiler<'a> {
             Val::Entity(inner) => {
                 let mut inner = (**inner).clone();
                 if inner.field.is_empty() {
-                    let resolved_exists = self.ops.iter().any(|o| o.produces.as_deref() == Some(&inner.entity) && o.post.as_ref().map(|p| p.field == "resolved").unwrap_or(false));
+                    let resolved_exists = self
+                        .ops
+                        .iter()
+                        .any(|o| o.produces.as_deref() == Some(&inner.entity) && o.post.as_ref().map(|p| p.field == "resolved").unwrap_or(false));
                     inner.field = if resolved_exists { "resolved".into() } else { "exists".into() };
                     inner.value = Val::Bool(true);
                 }
@@ -147,7 +146,12 @@ impl<'a> Compiler<'a> {
             if identified_by_ref {
                 // The op identifies the entity by id; the want identifies it by other args.
                 let target = self.satisfy(&pred.as_exists())?;
-                pred_for_unify = Pred { entity: pred.entity.clone(), args: vec![("id".into(), Val::Ref(target, "id".into()))], field: pred.field.clone(), value: pred.value.clone() };
+                pred_for_unify = Pred {
+                    entity: pred.entity.clone(),
+                    args: vec![("id".into(), Val::Ref(target, "id".into()))],
+                    field: pred.field.clone(),
+                    value: pred.value.clone(),
+                };
             }
             if pred.is_existence() && post.is_existence() && post.field != pred_for_unify.field {
                 pred_for_unify.field = post.field.clone();

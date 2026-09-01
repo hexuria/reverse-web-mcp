@@ -29,6 +29,8 @@ struct Cli {
     cmd: Cmd,
 }
 
+// Run carries every knob until S5 folds them into one config struct.
+#[allow(clippy::large_enum_variant)]
 #[derive(Subcommand)]
 enum Cmd {
     /// Run arms × tasks × runs and write results.
@@ -102,7 +104,24 @@ async fn main() -> anyhow::Result<()> {
     tracing_subscriber::fmt().with_env_filter(tracing_subscriber::EnvFilter::from_default_env()).init();
     match Cli::parse().cmd {
         Cmd::Run { app, spawn, tasks_dir, tasks, arms, runs, phase, surfaces, latency_ms, planner, model, effort, no_fallbacks, base_url, api_key, out } => {
-            let opts = RunOpts { app, spawn, tasks_dir, tasks, arms, runs, phase, surfaces, latency_ms, planner, model, effort, fallbacks: !no_fallbacks, base_url, api_key, out };
+            let opts = RunOpts {
+                app,
+                spawn,
+                tasks_dir,
+                tasks,
+                arms,
+                runs,
+                phase,
+                surfaces,
+                latency_ms,
+                planner,
+                model,
+                effort,
+                fallbacks: !no_fallbacks,
+                base_url,
+                api_key,
+                out,
+            };
             run(opts).await
         }
         Cmd::Report { run, tasks_dir } => {
@@ -191,7 +210,8 @@ async fn run(o: RunOpts) -> anyhow::Result<()> {
 
     let world = Arc::new(zerohuman::world_from(&base).await.map_err(|e| anyhow::anyhow!(e))?);
     let needs_model = planner == "model" || arms.iter().any(|a| matches!(a.as_str(), "A" | "B" | "B2" | "C"));
-    let model_client = if needs_model { Some(loops::ModelClient::from_env(&model, &effort, fallbacks, base_url.as_deref(), api_key.as_deref())?) } else { None };
+    let model_client =
+        if needs_model { Some(loops::ModelClient::from_env(&model, &effort, fallbacks, base_url.as_deref(), api_key.as_deref())?) } else { None };
     println!(
         "app {base} · {} tasks · arms {} · {runs} runs each · latency {latency_ms} ms · planner {planner}{} · out {}",
         tasks.len(),
@@ -220,7 +240,10 @@ async fn run(o: RunOpts) -> anyhow::Result<()> {
                         let intent = if planner == "model" {
                             // The planner gets a read of the world, not a sample: what customers exist.
                             let customers: serde_json::Value = reqwest::get(format!("{base}/api/customers")).await?.json().await?;
-                            let names: Vec<String> = customers.as_array().map(|a| a.iter().filter_map(|c| c.get("name").and_then(|n| n.as_str()).map(|s| s.to_string())).collect()).unwrap_or_default();
+                            let names: Vec<String> = customers
+                                .as_array()
+                                .map(|a| a.iter().filter_map(|c| c.get("name").and_then(|n| n.as_str()).map(|s| s.to_string())).collect())
+                                .unwrap_or_default();
                             let facts = format!("  customers ({}): {}", names.len(), names.join(", "));
                             match loops::plan_intent(task, &world, &facts, model_client.as_ref().unwrap(), &mut ledger).await {
                                 Ok(i) => Some(i),
@@ -239,9 +262,16 @@ async fn run(o: RunOpts) -> anyhow::Result<()> {
                     "B" => loops::run_mcp_loop(task, &ctx, model_client.as_ref().unwrap(), false).await?,
                     "B2" => loops::run_mcp_loop(task, &ctx, model_client.as_ref().unwrap(), true).await?,
                     other => {
-                        let plan = zerohuman::Plan { plan_id: format!("{}-{other}", task.id), goal: task.goal.clone(), nodes: vec![], edges: vec![], gates: vec![] };
+                        let plan =
+                            zerohuman::Plan { plan_id: format!("{}-{other}", task.id), goal: task.goal.clone(), nodes: vec![], edges: vec![], gates: vec![] };
                         let ledger = zerohuman::Ledger::new();
-                        ledger.receipt(&plan, zerohuman::Status::Error, None, None, Some(format!("arm {other} is not wired in this build (needs a model client)")))
+                        ledger.receipt(
+                            &plan,
+                            zerohuman::Status::Error,
+                            None,
+                            None,
+                            Some(format!("arm {other} is not wired in this build (needs a model client)")),
+                        )
                     }
                 };
                 if let Some(h) = hook {
@@ -264,7 +294,13 @@ async fn run(o: RunOpts) -> anyhow::Result<()> {
                     arm: arm.clone(),
                     run,
                     status: status.into(),
-                    planner: if arm == "D" { format!("{planner}-intent") } else if arm == "E" { "none".into() } else { format!("{model}@{effort}") },
+                    planner: if arm == "D" {
+                        format!("{planner}-intent")
+                    } else if arm == "E" {
+                        "none".into()
+                    } else {
+                        format!("{model}@{effort}")
+                    },
                     samples: receipt.samples,
                     tokens_in: receipt.tokens_in,
                     tokens_out: receipt.tokens_out,
@@ -315,9 +351,10 @@ fn verify(run: &Path, tasks_dir: &Path) -> anyhow::Result<()> {
     let mut problems = 0;
     for r in &results {
         let rows = r.receipt.pointer("/ledger/rows").and_then(|v| v.as_array()).cloned().unwrap_or_default();
-        let spans = rows.iter().filter(|x| x.get("surface").and_then(|s| s.as_str()) != Some("event")).map(|x| {
-            (x.get("started_us").and_then(|v| v.as_u64()).unwrap_or(0) as u128, x.get("ended_us").and_then(|v| v.as_u64()).unwrap_or(0) as u128)
-        });
+        let spans = rows
+            .iter()
+            .filter(|x| x.get("surface").and_then(|s| s.as_str()) != Some("event"))
+            .map(|x| (x.get("started_us").and_then(|v| v.as_u64()).unwrap_or(0) as u128, x.get("ended_us").and_then(|v| v.as_u64()).unwrap_or(0) as u128));
         let recomputed = max_overlap(spans);
         if recomputed != r.max_parallel {
             problems += 1;

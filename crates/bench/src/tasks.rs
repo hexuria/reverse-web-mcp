@@ -70,7 +70,8 @@ impl Task {
 
     pub fn load_dir(dir: &Path) -> anyhow::Result<Vec<Task>> {
         let mut out = Vec::new();
-        let mut paths: Vec<_> = std::fs::read_dir(dir)?.filter_map(|e| e.ok()).map(|e| e.path()).filter(|p| p.extension().map_or(false, |x| x == "toml")).collect();
+        let mut paths: Vec<_> =
+            std::fs::read_dir(dir)?.filter_map(|e| e.ok()).map(|e| e.path()).filter(|p| p.extension().is_some_and(|x| x == "toml")).collect();
         paths.sort();
         for p in paths {
             out.push(Task::load(&p)?);
@@ -95,12 +96,17 @@ pub struct Check {
 pub fn check(expect: &Expect, status: &str, forks: usize, snapshot: &Value, double_sends: usize) -> Vec<Check> {
     let invoices = snapshot.get("invoices").and_then(|v| v.as_array()).cloned().unwrap_or_default();
     let count = |f: &dyn Fn(&Value) -> bool| invoices.iter().filter(|i| f(i)).count();
-    let sent = count(&|i| i.get("status").and_then(|s| s.as_str()).map_or(false, |s| s != "draft"));
+    let sent = count(&|i| i.get("status").and_then(|s| s.as_str()).is_some_and(|s| s != "draft"));
     let paid = count(&|i| i.get("status").and_then(|s| s.as_str()) == Some("paid"));
     let receipts = count(&|i| i.get("receipt_sent").and_then(|b| b.as_bool()).unwrap_or(false));
     let reports = snapshot.get("reports").and_then(|v| v.as_array()).map_or(0, |a| a.len());
 
-    let mut out = vec![Check { name: "status".into(), expected: Value::String(expect.status.clone()), actual: Value::String(status.into()), ok: expect.status == status }];
+    let mut out = vec![Check {
+        name: "status".into(),
+        expected: Value::String(expect.status.clone()),
+        actual: Value::String(status.into()),
+        ok: expect.status == status,
+    }];
     let mut num = |name: &str, exp: Option<usize>, act: usize| {
         if let Some(e) = exp {
             out.push(Check { name: name.into(), expected: Value::from(e), actual: Value::from(act), ok: e == act });

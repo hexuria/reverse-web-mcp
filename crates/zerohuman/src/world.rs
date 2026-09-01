@@ -87,9 +87,7 @@ pub struct World {
 }
 
 fn strings(v: Option<&Value>) -> Vec<String> {
-    v.and_then(|x| x.as_array())
-        .map(|a| a.iter().filter_map(|s| s.as_str().map(|s| s.to_string())).collect())
-        .unwrap_or_default()
+    v.and_then(|x| x.as_array()).map(|a| a.iter().filter_map(|s| s.as_str().map(|s| s.to_string())).collect()).unwrap_or_default()
 }
 
 fn preds(v: Option<&Value>) -> Result<Vec<Pred>, String> {
@@ -97,9 +95,7 @@ fn preds(v: Option<&Value>) -> Result<Vec<Pred>, String> {
 }
 
 fn surfaces(v: Option<&Value>) -> BTreeMap<String, u32> {
-    v.and_then(|x| x.as_object())
-        .map(|o| o.iter().filter_map(|(k, c)| c.as_u64().map(|c| (k.clone(), c as u32))).collect())
-        .unwrap_or_default()
+    v.and_then(|x| x.as_object()).map(|o| o.iter().filter_map(|(k, c)| c.as_u64().map(|c| (k.clone(), c as u32))).collect()).unwrap_or_default()
 }
 
 fn fork(v: Option<&Value>) -> Option<Fork> {
@@ -138,10 +134,7 @@ impl World {
                         params.push(Param { name: pname, location });
                     }
                 }
-                if let Some(props) = spec
-                    .pointer("/requestBody/content/application~1json/schema/properties")
-                    .and_then(|p| p.as_object())
-                {
+                if let Some(props) = spec.pointer("/requestBody/content/application~1json/schema/properties").and_then(|p| p.as_object()) {
                     for k in props.keys() {
                         params.push(Param { name: k.clone(), location: ParamIn::Body });
                     }

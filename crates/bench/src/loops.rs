@@ -44,7 +44,8 @@ impl ModelClient {
     /// Credentials: `--api-key`, else ANTHROPIC_API_KEY, else ANTHROPIC_AUTH_TOKEN, else the `ant`
     /// CLI's active profile. A gateway that ignores keys gets a placeholder.
     pub fn from_env(model: &str, effort: &str, fallbacks: bool, base_url: Option<&str>, api_key: Option<&str>) -> anyhow::Result<ModelClient> {
-        let base_url = base_url.map(|s| s.to_string()).or_else(|| std::env::var("ANTHROPIC_BASE_URL").ok()).unwrap_or_else(|| "https://api.anthropic.com".into());
+        let base_url =
+            base_url.map(|s| s.to_string()).or_else(|| std::env::var("ANTHROPIC_BASE_URL").ok()).unwrap_or_else(|| "https://api.anthropic.com".into());
         let is_anthropic = base_url.contains("api.anthropic.com");
         let auth = if let Some(k) = api_key {
             Auth::ApiKey(k.to_string())
@@ -84,7 +85,8 @@ impl ModelClient {
         let mut attempt = 0;
         loop {
             attempt += 1;
-            let mut req = self.client.post(format!("{}/v1/messages", self.base_url)).header("anthropic-version", "2023-06-01").header("content-type", "application/json");
+            let mut req =
+                self.client.post(format!("{}/v1/messages", self.base_url)).header("anthropic-version", "2023-06-01").header("content-type", "application/json");
             let mut betas: Vec<&str> = Vec::new();
             match &self.auth {
                 Auth::ApiKey(k) => req = req.header("x-api-key", k),
@@ -132,11 +134,7 @@ ask one question instead of guessing. When the task is fully done, reply with th
 fn mcp_tools_as_anthropic(tools: &Value) -> Vec<Value> {
     tools
         .as_array()
-        .map(|a| {
-            a.iter()
-                .map(|t| json!({"name": t["name"], "description": t["description"], "input_schema": t["inputSchema"]}))
-                .collect()
-        })
+        .map(|a| a.iter().map(|t| json!({"name": t["name"], "description": t["description"], "input_schema": t["inputSchema"]})).collect())
         .unwrap_or_default()
 }
 
@@ -145,13 +143,7 @@ const WRITE_TOOLS: [&str; 5] = ["createInvoice", "sendInvoice", "sendReceipt", "
 /// Arms B and B2. The model drives the target app's MCP door until it says done.
 pub async fn run_mcp_loop(task: &Task, ctx: &ArmContext, model: &ModelClient, parallel: bool) -> anyhow::Result<Receipt> {
     let mcp = Arc::new(McpEffector::new(&format!("{}/mcp", ctx.base.trim_end_matches('/')), "mcp"));
-    let listed: Value = reqwest::Client::new()
-        .post(&mcp.url)
-        .json(&json!({"jsonrpc":"2.0","id":1,"method":"tools/list"}))
-        .send()
-        .await?
-        .json()
-        .await?;
+    let listed: Value = reqwest::Client::new().post(&mcp.url).json(&json!({"jsonrpc":"2.0","id":1,"method":"tools/list"})).send().await?.json().await?;
     let tools = mcp_tools_as_anthropic(&listed["result"]["tools"]);
 
     let mut ledger = Ledger::new();
@@ -192,7 +184,8 @@ pub async fn run_mcp_loop(task: &Task, ctx: &ArmContext, model: &ModelClient, pa
             break;
         }
         if calls.is_empty() {
-            let text: String = content.as_array().map(|a| a.iter().filter_map(|b| b.get("text").and_then(|t| t.as_str())).collect::<Vec<_>>().join(" ")).unwrap_or_default();
+            let text: String =
+                content.as_array().map(|a| a.iter().filter_map(|b| b.get("text").and_then(|t| t.as_str())).collect::<Vec<_>>().join(" ")).unwrap_or_default();
             let t = text.trim();
             if t.eq_ignore_ascii_case("done") || t.to_lowercase().contains("done") {
                 status = Status::Committed;
@@ -251,7 +244,13 @@ pub async fn run_mcp_loop(task: &Task, ctx: &ArmContext, model: &ModelClient, pa
     }
     ledger.rows.sort_by_key(|r| r.started_us);
     ledger.ended_ms = zerohuman::ledger::now_ms();
-    let plan = Plan { plan_id: format!("{}-{}-{}", task.id, if parallel { "B2" } else { "B" }, ctx.run_id), goal: task.goal.clone(), nodes: vec![], edges: vec![], gates: vec![] };
+    let plan = Plan {
+        plan_id: format!("{}-{}-{}", task.id, if parallel { "B2" } else { "B" }, ctx.run_id),
+        goal: task.goal.clone(),
+        nodes: vec![],
+        edges: vec![],
+        gates: vec![],
+    };
     Ok(ledger.receipt(&plan, status, yield_reason, None, error))
 }
 
@@ -301,7 +300,12 @@ pub async fn plan_intent(task: &Task, world: &World, facts: &str, model: &ModelC
         },
         "strict": true
     });
-    let user = format!("World model:\n{}\nWorld facts (read just now):\n{}\nGoal: {}\n\nEmit the intent graph now with emit_intent.", world.summary(), facts, task.goal);
+    let user = format!(
+        "World model:\n{}\nWorld facts (read just now):\n{}\nGoal: {}\n\nEmit the intent graph now with emit_intent.",
+        world.summary(),
+        facts,
+        task.goal
+    );
     let body = json!({
         "max_tokens": 4096,
         "system": [{"type": "text", "text": PLANNER_SYSTEM, "cache_control": {"type": "ephemeral"}}],
@@ -319,7 +323,8 @@ pub async fn plan_intent(task: &Task, world: &World, facts: &str, model: &ModelC
         Some(c) => c["input"].clone(),
         None => {
             // Fall back to JSON in the text, if the model wrote it that way.
-            let text: String = content.as_array().map(|a| a.iter().filter_map(|b| b.get("text").and_then(|t| t.as_str())).collect::<Vec<_>>().join("\n")).unwrap_or_default();
+            let text: String =
+                content.as_array().map(|a| a.iter().filter_map(|b| b.get("text").and_then(|t| t.as_str())).collect::<Vec<_>>().join("\n")).unwrap_or_default();
             let start = text.find('{').ok_or_else(|| anyhow::anyhow!("planner emitted no intent: {text}"))?;
             let end = text.rfind('}').ok_or_else(|| anyhow::anyhow!("planner emitted no intent"))?;
             serde_json::from_str(&text[start..=end])?

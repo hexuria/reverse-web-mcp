@@ -194,16 +194,10 @@ impl World {
 
     fn seed_customers(&mut self) {
         // Ten customers with distinct names. Seed 6 adds a second "Acme" for the fork task.
-        const NAMES: [&str; 10] = [
-            "Acme", "Globex", "Initech", "Umbrella", "Hooli", "Vandelay", "Stark", "Wayne", "Wonka", "Tyrell",
-        ];
+        const NAMES: [&str; 10] = ["Acme", "Globex", "Initech", "Umbrella", "Hooli", "Vandelay", "Stark", "Wayne", "Wonka", "Tyrell"];
         for name in NAMES {
             let id = self.alloc();
-            self.customers.push(Customer {
-                id,
-                name: name.to_string(),
-                email: format!("billing@{}.example", name.to_lowercase()),
-            });
+            self.customers.push(Customer { id, name: name.to_string(), email: format!("billing@{}.example", name.to_lowercase()) });
         }
         if self.seed % 100 == 6 {
             let id = self.alloc();
@@ -236,15 +230,7 @@ impl World {
 
     fn record_effect(&mut self, op: &str, door: &str, key: Option<&str>, entity: String, replayed: bool) {
         let seq = self.next_seq();
-        self.effects.push(Effect {
-            seq,
-            at_ms: now_ms(),
-            op: op.to_string(),
-            door: door.to_string(),
-            key: key.map(|k| k.to_string()),
-            entity,
-            replayed,
-        });
+        self.effects.push(Effect { seq, at_ms: now_ms(), op: op.to_string(), door: door.to_string(), key: key.map(|k| k.to_string()), entity, replayed });
     }
 
     fn emit(&mut self, kind: &str, entity: &str, id: u64, data: serde_json::Value) -> Event {
@@ -294,7 +280,7 @@ impl World {
     }
 
     pub fn list_invoices(&self, customer_id: Option<u64>) -> Vec<Invoice> {
-        self.invoices.iter().filter(|i| customer_id.map_or(true, |c| i.customer_id == c)).cloned().collect()
+        self.invoices.iter().filter(|i| customer_id.is_none_or(|c| i.customer_id == c)).cloned().collect()
     }
 
     // ---- writes. Each returns (json, latency_ms, events) ----
@@ -386,12 +372,7 @@ impl World {
             return Err(DomainError::NotPaid(id));
         }
         let lat = self.write_gate("sendReceipt")?;
-        let to = self
-            .customers
-            .iter()
-            .find(|c| c.id == self.invoices[idx].customer_id)
-            .map(|c| c.email.clone())
-            .unwrap_or_default();
+        let to = self.customers.iter().find(|c| c.id == self.invoices[idx].customer_id).map(|c| c.email.clone()).unwrap_or_default();
         let mid = self.alloc();
         self.invoices[idx].receipt_sent = true;
         self.outbox.push(OutboxMessage {

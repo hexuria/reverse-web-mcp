@@ -68,19 +68,20 @@ fn median(mut xs: Vec<f64>) -> f64 {
     }
 }
 
+/// Every result file in the directory. A file that cannot be read or parsed is an error, never
+/// a silently smaller sample.
 pub fn load_results(dir: &Path) -> anyhow::Result<Vec<RunResult>> {
     let mut out = Vec::new();
     for e in std::fs::read_dir(dir)? {
         let p = e?.path();
         let name = p.file_name().and_then(|n| n.to_str()).unwrap_or("");
-        if p.extension().is_some_and(|x| x == "json") && name != "summary.json" {
+        if p.extension().is_some_and(|x| x == "json") && name != "summary.json" && name != "config.json" {
             let text = std::fs::read_to_string(&p)?;
-            if let Ok(r) = serde_json::from_str::<RunResult>(&text) {
-                out.push(r);
-            }
+            let r: RunResult = serde_json::from_str(&text).map_err(|e| anyhow::anyhow!("{}: {e}", p.display()))?;
+            out.push(r);
         }
     }
-    out.sort_by_key(|a| (a.task.clone(), a.arm.clone(), a.run));
+    out.sort_by_key(|r| (r.task.clone(), r.arm.clone(), r.run));
     Ok(out)
 }
 

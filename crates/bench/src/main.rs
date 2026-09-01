@@ -2,11 +2,7 @@
 //! `bench report` turns a run directory into summary.json and report.html.
 //! `bench verify` recomputes every number in a run directory from the raw ledgers.
 
-mod arms;
-mod loops;
-mod oracle;
-mod report;
-mod tasks;
+use bench::{arms, loops, oracle, report, tasks};
 
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};

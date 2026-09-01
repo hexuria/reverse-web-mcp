@@ -74,6 +74,9 @@ pub struct Ledger {
     pub rows: Vec<Row>,
     pub samples: Vec<Sample>,
     pub forks: Vec<Value>,
+    /// Anything worth reading later that is not an effect or a sample: lint errors, rejected answers.
+    #[serde(default)]
+    pub notes: Vec<Value>,
     pub started_ms: u128,
     pub ended_ms: u128,
 }

@@ -84,11 +84,13 @@ pub async fn plan_with_lint(
     if errs.is_empty() {
         return Ok(first);
     }
+    ledger.notes.push(json!({"lint": errs.iter().map(|e| e.to_string()).collect::<Vec<_>>(), "wants": first.wants}));
     let second = replan(task, world, facts, &first, &errs, sampler, ledger).await?;
     let errs = lint(&second, world, opts);
     if errs.is_empty() {
         return Ok(second);
     }
+    ledger.notes.push(json!({"lint": errs.iter().map(|e| e.to_string()).collect::<Vec<_>>(), "wants": second.wants}));
     anyhow::bail!("intent still wrong after one re-ask: {}", errs.iter().map(|e| e.to_string()).collect::<Vec<_>>().join("; "))
 }
 
@@ -206,7 +208,13 @@ if the goal gives no basis to choose, choose the lowest id and say nothing else.
         "messages": [{"role": "user", "content": user}],
     });
     let resp = sampler.sample(ledger, SampleKind::ForkAnswer, body).await?;
-    intent_from(&resp, task)
+    let answered = intent_from(&resp, task)?;
+    let errs = lint(&answered, world, &CompileOptions::default());
+    if !errs.is_empty() {
+        ledger.notes.push(json!({"fork_answer_rejected": errs.iter().map(|e| e.to_string()).collect::<Vec<_>>(), "wants": answered.wants}));
+        anyhow::bail!("fork answer rejected: {}", errs.iter().map(|e| e.to_string()).collect::<Vec<_>>().join("; "));
+    }
+    Ok(answered)
 }
 
 /// A cache of planner output keyed by what the planner saw: goal, world facts, and the surfaces

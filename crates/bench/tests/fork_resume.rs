@@ -69,3 +69,42 @@ async fn a_fork_is_answered_once_and_the_plan_resumes() {
     assert_eq!(task.expect.applicable(true).status, "committed");
     assert_eq!(task.expect.applicable(false).status, "need_think");
 }
+
+struct EmptyAnswer;
+
+#[async_trait]
+impl Sampler for EmptyAnswer {
+    async fn sample(&self, ledger: &mut Ledger, kind: SampleKind, _body: Value) -> anyhow::Result<Value> {
+        ledger.record_sample(Sample { seq: 0, kind, started_us: 0, ended_us: 1, tokens_in: 1, tokens_out: 1, model: "stub".into(), effort: "low".into() });
+        Ok(json!({"content": [{"type": "tool_use", "name": "emit_intent", "input": {"wants": []}}]}))
+    }
+}
+
+#[tokio::test]
+async fn an_empty_fork_answer_leaves_the_question_open() {
+    let (tx, _) = broadcast::channel(1024);
+    let state = Arc::new(AppState { world: Mutex::new(AppWorld::seeded(6)), events: tx });
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let addr = listener.local_addr().unwrap();
+    tokio::spawn(async move {
+        axum::serve(listener, router(state)).await.unwrap();
+    });
+    let base = format!("http://{addr}");
+    let task = Task::load(std::path::Path::new(concat!(env!("CARGO_MANIFEST_DIR"), "/../../tasks/T6.toml"))).unwrap();
+    let world = Arc::new(zerohuman::world_from(&base).await.unwrap());
+    let ctx = ArmContext {
+        base: base.clone(),
+        world,
+        bus: EventBus::connect(&base).await.unwrap(),
+        surfaces: vec!["api".into()],
+        run_id: "r1".into(),
+        browser: None,
+        shots_dir: None,
+    };
+    let receipt = run_ours(&task, &ctx, None, Ledger::new(), Some(Planner { sampler: &EmptyAnswer, facts: String::new() })).await.unwrap();
+    assert_eq!(receipt.status, Status::NeedThink);
+    assert!(receipt.error.as_deref().unwrap_or("").contains("fork answer"), "{:?}", receipt.error);
+    assert!(!receipt.ledger.notes.is_empty());
+    let state: Value = reqwest::get(format!("{base}/oracle/state")).await.unwrap().json().await.unwrap();
+    assert_eq!(state["invoices"].as_array().unwrap().len(), 0);
+}

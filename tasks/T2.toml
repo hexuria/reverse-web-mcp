@@ -27,6 +27,10 @@ wants = [
   "invoice(customer=customer(name='Tyrell')).status='sent'",
 ]
 
+[script]
+customers = ["Acme", "Globex", "Initech", "Umbrella", "Hooli", "Vandelay", "Stark", "Wayne", "Wonka", "Tyrell"]
+send = true
+
 [expect]
 status = "committed"
 invoices = 10

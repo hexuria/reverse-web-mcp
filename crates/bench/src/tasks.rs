@@ -51,6 +51,28 @@ fn committed() -> String {
     "committed".into()
 }
 
+/// What the script ceiling (arm E) does for this task. A hand-written parallel program,
+/// declared rather than coded, so adding a task never adds a match arm.
+#[derive(Clone, Debug, Serialize, Deserialize, Default)]
+pub struct ScriptSpec {
+    /// Customers to invoice, each in its own lane.
+    #[serde(default)]
+    pub customers: Vec<String>,
+    #[serde(default)]
+    pub send: bool,
+    /// Poll the invoice until paid. The ceiling may poll; it is the speed of light, not the claim.
+    #[serde(default)]
+    pub wait_paid: bool,
+    #[serde(default)]
+    pub receipt: bool,
+    /// One report per invoice, after that lane's last step.
+    #[serde(default)]
+    pub report_each: bool,
+    /// One report over every invoice, after every lane.
+    #[serde(default)]
+    pub report_all: bool,
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize, Default)]
 pub struct Hooks {
     #[serde(default)]
@@ -79,6 +101,8 @@ pub struct Task {
     pub chaos: Value,
     #[serde(default)]
     pub hooks: Hooks,
+    #[serde(default)]
+    pub script: Option<ScriptSpec>,
     #[serde(default)]
     pub expect: Expect,
 }

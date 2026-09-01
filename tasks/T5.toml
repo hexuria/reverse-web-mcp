@@ -30,6 +30,10 @@ wants = [
 [chaos]
 send_fail_rate = 0.3
 
+[script]
+customers = ["Acme", "Globex", "Initech", "Umbrella", "Hooli", "Vandelay", "Stark", "Wayne", "Wonka", "Tyrell"]
+send = true
+
 [expect]
 status = "committed"
 invoices = 10

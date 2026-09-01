@@ -1,27 +1,37 @@
-id = "T3"
-title = "three invoices, email each, one report over all three"
-phase = 2
-depth = 4
-seed = 3
-goal = "Invoice Acme, Globex and Initech, send each, then produce one report covering all three."
+id = "T8"
+title = "three invoices: send, get paid, receipt, then one report over all three"
+phase = 3
+depth = 6
+seed = 8
+goal = "Invoice Acme, Globex and Initech, send each, email a receipt for each once it is paid, then produce one report covering all three."
 wants = [
   "invoice(customer=customer(name='Acme')).exists",
   "invoice(customer=customer(name='Acme')).status='sent'",
+  "invoice(customer=customer(name='Acme')).receipt_sent=true",
   "invoice(customer=customer(name='Globex')).exists",
   "invoice(customer=customer(name='Globex')).status='sent'",
+  "invoice(customer=customer(name='Globex')).receipt_sent=true",
   "invoice(customer=customer(name='Initech')).exists",
   "invoice(customer=customer(name='Initech')).status='sent'",
+  "invoice(customer=customer(name='Initech')).receipt_sent=true",
   "report(invoices=[invoice(customer=customer(name='Acme')),invoice(customer=customer(name='Globex')),invoice(customer=customer(name='Initech'))]).exists",
 ]
+
+[hooks]
+pay_after_create_ms = 600
 
 [script]
 customers = ["Acme", "Globex", "Initech"]
 send = true
+wait_paid = true
+receipt = true
 report_all = true
 
 [expect]
 status = "committed"
 invoices = 3
 sent = 3
+paid = 3
+receipts = 3
 reports = 1
 double_sends = 0

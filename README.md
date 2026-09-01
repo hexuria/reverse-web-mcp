@@ -101,6 +101,13 @@ The compiler derives everything from that file. It is never hand-authored anywhe
 | T5 | T2 with a 30% send failure rate | retries with the same key, zero double-sends | 3 |
 | T6 | invoice Acme when two customers are named Acme | a declared fork, exactly one yield | 3 |
 | T7 | T3 plus Approve on each invoice, UI-only | one screen node per invoice in a mixed plan | 4 |
+| T8 | 3 invoices: send, paid, receipt, one report | six deep and three wide | 3 |
+| T9 | 10 invoices: send, paid, receipt, one report | six deep and ten wide | 3 |
+| T10 | T9 plus a report per invoice | six deep, ten wide, eleven joins | 3 |
+
+Each task declares its `depth` (the longest dependency chain) so the report can plot samples
+against depth for every arm, and a `[script]` block that arm E interprets as its hand-written
+parallel program: customers, send, wait for payment, receipt, a report per invoice, a report over all.
 
 ## What a result contains
 

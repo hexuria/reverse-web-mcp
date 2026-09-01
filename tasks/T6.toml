@@ -13,6 +13,10 @@ wants = [
 when = "result.count != 1"
 ask = "Two customers are named Acme. Which one?"
 
+[script]
+customers = ["Acme"]
+send = true
+
 [expect]
 status = "need_think"
 invoices = 0

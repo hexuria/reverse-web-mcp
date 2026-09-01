@@ -1,0 +1,69 @@
+id = "T10"
+title = "ten invoices: send, get paid, receipt, a report per invoice, then one report over all ten"
+phase = 3
+depth = 6
+seed = 10
+goal = "Invoice each of the ten customers, send each, email a receipt for each once it is paid, produce a report for each invoice, then one report covering all ten."
+wants = [
+  "invoice(customer=customer(name='Acme')).exists",
+  "invoice(customer=customer(name='Acme')).status='sent'",
+  "invoice(customer=customer(name='Acme')).receipt_sent=true",
+  "report(invoices=[invoice(customer=customer(name='Acme'))]).exists",
+  "invoice(customer=customer(name='Globex')).exists",
+  "invoice(customer=customer(name='Globex')).status='sent'",
+  "invoice(customer=customer(name='Globex')).receipt_sent=true",
+  "report(invoices=[invoice(customer=customer(name='Globex'))]).exists",
+  "invoice(customer=customer(name='Initech')).exists",
+  "invoice(customer=customer(name='Initech')).status='sent'",
+  "invoice(customer=customer(name='Initech')).receipt_sent=true",
+  "report(invoices=[invoice(customer=customer(name='Initech'))]).exists",
+  "invoice(customer=customer(name='Umbrella')).exists",
+  "invoice(customer=customer(name='Umbrella')).status='sent'",
+  "invoice(customer=customer(name='Umbrella')).receipt_sent=true",
+  "report(invoices=[invoice(customer=customer(name='Umbrella'))]).exists",
+  "invoice(customer=customer(name='Hooli')).exists",
+  "invoice(customer=customer(name='Hooli')).status='sent'",
+  "invoice(customer=customer(name='Hooli')).receipt_sent=true",
+  "report(invoices=[invoice(customer=customer(name='Hooli'))]).exists",
+  "invoice(customer=customer(name='Vandelay')).exists",
+  "invoice(customer=customer(name='Vandelay')).status='sent'",
+  "invoice(customer=customer(name='Vandelay')).receipt_sent=true",
+  "report(invoices=[invoice(customer=customer(name='Vandelay'))]).exists",
+  "invoice(customer=customer(name='Stark')).exists",
+  "invoice(customer=customer(name='Stark')).status='sent'",
+  "invoice(customer=customer(name='Stark')).receipt_sent=true",
+  "report(invoices=[invoice(customer=customer(name='Stark'))]).exists",
+  "invoice(customer=customer(name='Wayne')).exists",
+  "invoice(customer=customer(name='Wayne')).status='sent'",
+  "invoice(customer=customer(name='Wayne')).receipt_sent=true",
+  "report(invoices=[invoice(customer=customer(name='Wayne'))]).exists",
+  "invoice(customer=customer(name='Wonka')).exists",
+  "invoice(customer=customer(name='Wonka')).status='sent'",
+  "invoice(customer=customer(name='Wonka')).receipt_sent=true",
+  "report(invoices=[invoice(customer=customer(name='Wonka'))]).exists",
+  "invoice(customer=customer(name='Tyrell')).exists",
+  "invoice(customer=customer(name='Tyrell')).status='sent'",
+  "invoice(customer=customer(name='Tyrell')).receipt_sent=true",
+  "report(invoices=[invoice(customer=customer(name='Tyrell'))]).exists",
+  "report(invoices=[invoice(customer=customer(name='Acme')),invoice(customer=customer(name='Globex')),invoice(customer=customer(name='Initech')),invoice(customer=customer(name='Umbrella')),invoice(customer=customer(name='Hooli')),invoice(customer=customer(name='Vandelay')),invoice(customer=customer(name='Stark')),invoice(customer=customer(name='Wayne')),invoice(customer=customer(name='Wonka')),invoice(customer=customer(name='Tyrell'))]).exists",
+]
+
+[hooks]
+pay_after_create_ms = 600
+
+[script]
+customers = ["Acme", "Globex", "Initech", "Umbrella", "Hooli", "Vandelay", "Stark", "Wayne", "Wonka", "Tyrell"]
+send = true
+wait_paid = true
+receipt = true
+report_each = true
+report_all = true
+
+[expect]
+status = "committed"
+invoices = 10
+sent = 10
+paid = 10
+receipts = 10
+reports = 11
+double_sends = 0

@@ -9,6 +9,10 @@ wants = [
   "invoice(customer=customer(name='Acme')).status='sent'",
 ]
 
+[script]
+customers = ["Acme"]
+send = true
+
 [expect]
 status = "committed"
 invoices = 1

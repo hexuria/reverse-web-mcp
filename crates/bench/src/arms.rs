@@ -14,7 +14,7 @@ use zerohuman::ledger::{now_ms, Ledger, Receipt, Recorder, Status};
 use zerohuman::plan::Plan;
 use zerohuman::{compile, CompileOptions, Scheduler, World};
 
-use crate::tasks::Task;
+use crate::tasks::{ScriptSpec, Task};
 
 pub struct ArmContext {
     pub base: String,
@@ -150,64 +150,57 @@ impl Script {
         }
         Ok(arr[0].clone())
     }
-
-    async fn invoice_and_send(&self, name: &str, key_prefix: &str) -> Result<u64, String> {
-        let c = self.customer(name).await?;
-        let cid = c["id"].as_u64().unwrap();
-        let inv = self
-            .call(
-                "createInvoice",
-                "POST",
-                "/api/invoices",
-                Some(json!({"customer_id": cid, "amount_cents": 10000})),
-                Some(format!("{key_prefix}/{name}/create")),
-            )
-            .await?;
-        let id = inv["id"].as_u64().unwrap();
-        self.call("sendInvoice", "POST", &format!("/api/invoices/{id}/send"), None, Some(format!("{key_prefix}/{name}/send"))).await?;
-        Ok(id)
-    }
 }
 
-async fn t4(s: &Script, kp: &str) -> Result<(), String> {
-    let id = s.invoice_and_send("Acme", kp).await?;
-    // The ceiling is allowed to poll: it is the speed of light, not the claim.
-    let deadline = tokio::time::Instant::now() + Duration::from_secs(30);
-    while tokio::time::Instant::now() < deadline {
-        let inv = s.call("getInvoice", "GET", &format!("/api/invoices/{id}"), None, None).await?;
-        if inv["status"] == "paid" {
-            s.call("sendReceipt", "POST", &format!("/api/invoices/{id}/receipt"), None, Some(format!("{kp}/receipt"))).await?;
-            return Ok(());
+/// One customer's lane of the script: lookup, create, then whatever the spec asks for.
+async fn lane(s: &Script, spec: &ScriptSpec, name: &str, kp: &str) -> Result<u64, String> {
+    let c = s.customer(name).await?;
+    let cid = c["id"].as_u64().unwrap();
+    let inv =
+        s.call("createInvoice", "POST", "/api/invoices", Some(json!({"customer_id": cid, "amount_cents": 10000})), Some(format!("{kp}/{name}/create"))).await?;
+    let id = inv["id"].as_u64().unwrap();
+    if spec.send {
+        s.call("sendInvoice", "POST", &format!("/api/invoices/{id}/send"), None, Some(format!("{kp}/{name}/send"))).await?;
+    }
+    if spec.wait_paid {
+        let deadline = tokio::time::Instant::now() + Duration::from_secs(30);
+        loop {
+            let inv = s.call("getInvoice", "GET", &format!("/api/invoices/{id}"), None, None).await?;
+            if inv["status"] == "paid" {
+                break;
+            }
+            if tokio::time::Instant::now() >= deadline {
+                return Err(format!("invoice {id} never paid"));
+            }
+            tokio::time::sleep(Duration::from_millis(100)).await;
         }
-        tokio::time::sleep(Duration::from_millis(100)).await;
     }
-    Err("never paid".into())
+    if spec.receipt {
+        s.call("sendReceipt", "POST", &format!("/api/invoices/{id}/receipt"), None, Some(format!("{kp}/{name}/receipt"))).await?;
+    }
+    if spec.report_each {
+        s.call("createReport", "POST", "/api/reports", Some(json!({"invoice_ids": [id]})), Some(format!("{kp}/{name}/report"))).await?;
+    }
+    Ok(id)
 }
-
-const TEN: [&str; 10] = ["Acme", "Globex", "Initech", "Umbrella", "Hooli", "Vandelay", "Stark", "Wayne", "Wonka", "Tyrell"];
 
 pub async fn run_script(task: &Task, ctx: &ArmContext) -> anyhow::Result<Receipt> {
     let rec = Recorder::new(ctx.world.clone());
     let s = Script::new(&ctx.base, rec.clone());
     let mut ledger = Ledger::new();
     let kp = format!("E-{}-{}", task.id, ctx.run_id);
-    let result: Result<(), String> = match task.id.as_str() {
-        "T1" => s.invoice_and_send("Acme", &kp).await.map(|_| ()),
-        "T2" | "T5" => {
-            let futs = TEN.iter().map(|n| s.invoice_and_send(n, &kp));
-            futures::future::try_join_all(futs).await.map(|_| ())
-        }
-        "T3" => {
-            let futs = TEN[..3].iter().map(|n| s.invoice_and_send(n, &kp));
+    let result: Result<(), String> = match &task.script {
+        None => Err(format!("{} has no [script] block; the ceiling cannot do it (a UI-only step, most likely)", task.id)),
+        Some(spec) => {
+            let futs = spec.customers.iter().map(|n| lane(&s, spec, n, &kp));
             match futures::future::try_join_all(futs).await {
-                Ok(ids) => s.call("createReport", "POST", "/api/reports", Some(json!({"invoice_ids": ids})), Some(format!("{kp}/report"))).await.map(|_| ()),
+                Ok(ids) if spec.report_all => {
+                    s.call("createReport", "POST", "/api/reports", Some(json!({"invoice_ids": ids})), Some(format!("{kp}/report"))).await.map(|_| ())
+                }
+                Ok(_) => Ok(()),
                 Err(e) => Err(e),
             }
         }
-        "T4" => t4(&s, &kp).await,
-        "T6" => s.invoice_and_send("Acme", &kp).await.map(|_| ()),
-        "T7" => Err("T7 needs the UI-only approve; the script has no screen".into()),
-        other => Err(format!("no script for {other}")),
     };
     rec.drain_into(&mut ledger);
     ledger.ended_ms = now_ms();

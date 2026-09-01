@@ -152,7 +152,11 @@ What the table says:
   remember for a loop. Neither loop managed it in five tries.
 - **The honest losses.** T6: two of our five runs returned an empty fork answer that was compiled
   as-is; that is fixed in the commit after this campaign (fork answers are linted). T1: the planner
-  needed a lint re-ask in three of five runs, which is why its median is 2 samples.
+  needed a lint re-ask in three of five runs, which is why its median is 2 samples. T3, arm D,
+  run 2: the gateway returned the planner's tool call as garbled text, the planner failed, and the
+  runner of that build silently fell back to the task file's wants, so that one run is not
+  model-planned. Read T3 D as 4/5 model-planned. That fallback no longer exists: a planner
+  failure is now an error for arm D.
 
 `results/campaign-1/report.html` has the full table with spread, and every result file carries
 its ledger, snapshot and intent.

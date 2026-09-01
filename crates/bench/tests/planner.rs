@@ -89,3 +89,21 @@ async fn a_repeat_goal_costs_zero_samples() {
     assert!(cache.get(&task().goal, "facts", &["api".to_string(), "mcp".to_string()]).is_none());
     let _ = std::fs::remove_dir_all(&dir);
 }
+
+#[tokio::test]
+async fn a_tool_call_rendered_as_text_is_still_an_intent() {
+    struct Garbled;
+    #[async_trait]
+    impl Sampler for Garbled {
+        async fn sample(&self, ledger: &mut Ledger, kind: SampleKind, _body: Value) -> anyhow::Result<Value> {
+            ledger.record_sample(Sample { seq: 0, kind, started_us: 0, ended_us: 1, tokens_in: 1, tokens_out: 1, model: "stub".into(), effort: "low".into() });
+            Ok(
+                json!({"content": [{"type": "text", "text": "```0eemit_intentcallwants=[\"invoice(customer=customer(name='Acme')).exists\", \"invoice(customer=customer(name='Acme')).status='sent'\"]"}]}),
+            )
+        }
+    }
+    let mut ledger = Ledger::new();
+    let intent = plan_with_lint(&task(), &world(), "", &Garbled, &mut ledger, &CompileOptions::default()).await.unwrap();
+    assert_eq!(intent.wants.len(), 2);
+    assert_eq!(ledger.sample_count(), 1);
+}

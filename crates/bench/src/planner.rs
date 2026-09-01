@@ -57,9 +57,14 @@ fn intent_from(resp: &Value, task: &Task) -> anyhow::Result<Intent> {
         None => {
             let text: String =
                 content.as_array().map(|a| a.iter().filter_map(|b| b.get("text").and_then(|t| t.as_str())).collect::<Vec<_>>().join("\n")).unwrap_or_default();
-            let start = text.find('{').ok_or_else(|| anyhow::anyhow!("planner emitted no intent: {text}"))?;
-            let end = text.rfind('}').ok_or_else(|| anyhow::anyhow!("planner emitted no intent"))?;
-            serde_json::from_str(&text[start..=end])?
+            match (text.find('{'), text.rfind('}')) {
+                (Some(start), Some(end)) if end > start => serde_json::from_str(&text[start..=end])?,
+                // Some routes render a tool call as text: `emit_intentcallwants=[...]`. Recover the list.
+                _ => match (text.find("wants=["), text.rfind(']')) {
+                    (Some(start), Some(end)) if end > start + 6 => json!({"wants": serde_json::from_str::<Value>(&text[start + 6..=end])?}),
+                    _ => anyhow::bail!("planner emitted no intent: {text}"),
+                },
+            }
         }
     };
     let wants: Vec<String> = input["wants"].as_array().map(|a| a.iter().filter_map(|w| w.as_str().map(|s| s.to_string())).collect()).unwrap_or_default();

@@ -178,12 +178,22 @@ turn under `results/<run>/shots/`, which is the recording. Point `BASE_URL` at
 
 ## Where this is on the road
 
-- Phase 0, the app and oracle: done.
-- Phase 1, baselines: B and B2 wired and run through opencodex. B2 with parallel tool calls matches our max parallel on fan-out (T2: 10 wide in 4 samples) and is the bar to beat; it lost T3 (no report) and T4 (did not wait for payment) in the smoke run. A and C wait on the sandbox's browser driver.
-- Phase 2, compiler and scheduler on the API door: done. T2 and T3 run wide and match the ceiling.
-- Phase 3, planner sample, event edges, retries with keys, forks: done. With `--planner model` through opencodex and grok-4.6, arm D passes T1 to T6 on exactly one sample each. The planner gets the world model plus one read of current facts (the customer list); it never sees actions.
-- Phase 4, mixed surfaces: the compiler already places `approveInvoice` on `a11y`; the effector that drives the page is the next piece. A driver that speaks MCP can plug straight into `McpEffector`.
-- Phase 5, harden and publish: not started.
+- Phase 0, the app and oracle: done, with in-process door tests.
+- Phase 1, baselines: B, B2, C and A all run through one `run_tool_loop` or the pixel loop, get the same
+  world facts and worked example as the planner, and a bail-out is scored as an error.
+- Phase 2, compiler and scheduler: done. Content-addressed keys, a resumable scheduler, one
+  Recorder for every arm, samples as rows, and `verify` recomputing every headline number.
+- Phase 3, planner: done. Lint with one re-ask, fork answers linted and resumed, an intent cache,
+  `each(...)` fan-out, depth tasks T8-T11. Campaign-1 above is the first 5-run evidence.
+- Phase 4, screens: done. The driver crate leases headless pages; the accessibility effector makes
+  T7 green with one screen lane inside a wide API plan; arm C runs WebMCP in a page; arm A is a
+  pixel loop on screenshots, saved per turn.
+- Phase 5, harden and publish: the gate (`make gate`) runs fmt, clippy and every test; CI does the
+  same on push. Still open: a campaign over T1-T11 with all six arms, and a cold reproduction on a
+  second machine.
+
+Not built, on purpose: a stdio MCP client for a desktop computer-use driver. The a11y door drives
+the page through CDP instead, which works identically on the Mac and in the container.
 
 ## Tests
 

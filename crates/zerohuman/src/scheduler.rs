@@ -44,7 +44,8 @@ pub struct Policy {
 
 impl Default for Policy {
     fn default() -> Self {
-        Policy { max_attempts: 4, backoff_ms: 40, wait_timeout: Duration::from_secs(30), node_timeout: Duration::from_secs(20) }
+        // Six attempts at 40·2^n ms is ~1.3 s of backoff: enough to outlast a one-second rate-limit window.
+        Policy { max_attempts: 6, backoff_ms: 40, wait_timeout: Duration::from_secs(30), node_timeout: Duration::from_secs(20) }
     }
 }
 
@@ -315,6 +316,15 @@ async fn execute(
                 }
                 let backoff = policy.backoff_ms * (1u64 << (attempt - 1));
                 tokio::time::sleep(Duration::from_millis(backoff)).await;
+            }
+            Err(EffectError::Throttled(after_ms, msg)) => {
+                // Server-directed backoff does not count against the attempt budget the same
+                // way: wait what it asked plus a little spread, so lanes do not all return at once.
+                if attempt >= policy.max_attempts * 2 {
+                    return Err(Failure::Fatal(format!("gave up after {attempt} attempts: {msg}")));
+                }
+                let spread = (attempt as u64 * 7) % 50;
+                tokio::time::sleep(Duration::from_millis(after_ms + spread)).await;
             }
             Err(EffectError::Fatal(msg)) => return Err(Failure::Fatal(msg)),
         }

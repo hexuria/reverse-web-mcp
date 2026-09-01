@@ -16,6 +16,9 @@ pub enum EffectError {
     /// The plan's assumption is wrong: 4xx other than 429.
     #[error("fatal: {0}")]
     Fatal(String),
+    /// The server said when to come back. Wait that long, then retry with the same key.
+    #[error("throttled for {0} ms: {1}")]
+    Throttled(u64, String),
 }
 
 #[async_trait]
@@ -25,10 +28,12 @@ pub trait Effector: Send + Sync {
 }
 
 fn classify(status: u16, body: &str) -> EffectError {
-    let msg: String = serde_json::from_str::<Value>(body)
-        .ok()
-        .and_then(|v| v.get("error").and_then(|e| e.as_str()).map(|s| s.to_string()))
-        .unwrap_or_else(|| body.chars().take(200).collect());
+    let parsed = serde_json::from_str::<Value>(body).ok();
+    let msg: String =
+        parsed.as_ref().and_then(|v| v.get("error").and_then(|e| e.as_str()).map(|s| s.to_string())).unwrap_or_else(|| body.chars().take(200).collect());
+    if let Some(ms) = parsed.as_ref().and_then(|v| v.get("retry_after_ms")).and_then(|v| v.as_u64()) {
+        return EffectError::Throttled(ms, format!("{status} {msg}"));
+    }
     if status == 429 || status >= 500 {
         EffectError::Retryable(format!("{status} {msg}"))
     } else {
@@ -126,6 +131,9 @@ impl McpEffector {
         if result.get("isError").and_then(|b| b.as_bool()).unwrap_or(false) {
             let status = result.get("_status").and_then(|s| s.as_u64()).unwrap_or(500) as u16;
             let text = result.pointer("/content/0/text").and_then(|t| t.as_str()).unwrap_or("tool error").to_string();
+            if let Some(ms) = result.get("_retry_after_ms").and_then(|v| v.as_u64()) {
+                return Err(EffectError::Throttled(ms, text));
+            }
             return Err(if status == 429 || status >= 500 { EffectError::Retryable(text) } else { EffectError::Fatal(text) });
         }
         if let Some(sc) = result.get("structuredContent") {

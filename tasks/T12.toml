@@ -1,0 +1,41 @@
+id = "T12"
+title = "ten invoices under a rate limit of eight writes per second"
+phase = 2
+depth = 3
+seed = 12
+goal = "Create and send an invoice for each of the ten customers. The app allows eight writes per second."
+wants = [
+  "invoice(customer=customer(name='Acme')).exists",
+  "invoice(customer=customer(name='Acme')).status='sent'",
+  "invoice(customer=customer(name='Globex')).exists",
+  "invoice(customer=customer(name='Globex')).status='sent'",
+  "invoice(customer=customer(name='Initech')).exists",
+  "invoice(customer=customer(name='Initech')).status='sent'",
+  "invoice(customer=customer(name='Umbrella')).exists",
+  "invoice(customer=customer(name='Umbrella')).status='sent'",
+  "invoice(customer=customer(name='Hooli')).exists",
+  "invoice(customer=customer(name='Hooli')).status='sent'",
+  "invoice(customer=customer(name='Vandelay')).exists",
+  "invoice(customer=customer(name='Vandelay')).status='sent'",
+  "invoice(customer=customer(name='Stark')).exists",
+  "invoice(customer=customer(name='Stark')).status='sent'",
+  "invoice(customer=customer(name='Wayne')).exists",
+  "invoice(customer=customer(name='Wayne')).status='sent'",
+  "invoice(customer=customer(name='Wonka')).exists",
+  "invoice(customer=customer(name='Wonka')).status='sent'",
+  "invoice(customer=customer(name='Tyrell')).exists",
+  "invoice(customer=customer(name='Tyrell')).status='sent'",
+]
+
+[chaos]
+rate_limit_per_sec = 8
+
+[script]
+customers = ["Acme", "Globex", "Initech", "Umbrella", "Hooli", "Vandelay", "Stark", "Wayne", "Wonka", "Tyrell"]
+send = true
+
+[expect]
+status = "committed"
+invoices = 10
+sent = 10
+double_sends = 0

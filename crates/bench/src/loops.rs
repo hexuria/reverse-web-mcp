@@ -310,6 +310,7 @@ pub async fn run_tool_loop(
                 let content = match res {
                     Ok(v) => v.to_string(),
                     Err(EffectError::Retryable(m)) | Err(EffectError::Fatal(m)) => format!("error: {m}"),
+                    Err(EffectError::Throttled(ms, m)) => format!("error: {m} (retry after {ms} ms)"),
                 };
                 json!({"type": "tool_result", "tool_use_id": id, "content": content})
             }

@@ -35,18 +35,37 @@ pub struct AppState {
 
 pub type Shared = Arc<AppState>;
 
-pub struct ApiError(pub u16, pub String);
+pub struct ApiError(pub u16, pub String, pub Option<u64>);
+
+impl ApiError {
+    pub fn new(status: u16, msg: impl Into<String>) -> Self {
+        ApiError(status, msg.into(), None)
+    }
+}
 
 impl From<DomainError> for ApiError {
     fn from(e: DomainError) -> Self {
-        ApiError(e.status(), e.message())
+        ApiError(e.status(), e.message(), e.retry_after_ms())
     }
 }
 
 impl IntoResponse for ApiError {
     fn into_response(self) -> Response {
         let status = StatusCode::from_u16(self.0).unwrap_or(StatusCode::INTERNAL_SERVER_ERROR);
-        (status, Json(json!({"error": self.1, "status": self.0}))).into_response()
+        let mut body = json!({"error": self.1, "status": self.0});
+        let mut resp = match self.2 {
+            Some(ms) => {
+                body["retry_after_ms"] = json!(ms);
+                (status, Json(body)).into_response()
+            }
+            None => (status, Json(body)).into_response(),
+        };
+        if let Some(ms) = self.2 {
+            // Retry-After is whole seconds; the ms header is the precise one.
+            resp.headers_mut().insert("retry-after", (ms.div_ceil(1000)).to_string().parse().unwrap());
+            resp.headers_mut().insert("retry-after-ms", ms.to_string().parse().unwrap());
+        }
+        resp
     }
 }
 
@@ -162,7 +181,7 @@ async fn get_report(State(s): State<Shared>, Path(id): Path<u64>) -> Result<Json
 /// Approve has no API. The UI sends `X-UI: 1`; anything else is refused so no arm can cheat.
 async fn ui_approve(State(s): State<Shared>, headers: HeaderMap, Path(id): Path<u64>) -> Result<Json<Value>, ApiError> {
     if headers.get("x-ui").is_none() {
-        return Err(ApiError(403, "approve is UI-only; use the page".into()));
+        return Err(ApiError::new(403, "approve is UI-only; use the page"));
     }
     let (v, evs) = {
         let mut w = s.world.lock().unwrap();

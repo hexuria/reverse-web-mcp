@@ -32,6 +32,8 @@ pub struct AppEvent {
 
 pub struct EventBus {
     seen: Mutex<Vec<AppEvent>>,
+    /// (kind, id) → index into `seen`, so a wait on one entity is a lookup, not a scan.
+    index: Mutex<std::collections::HashMap<(String, u64), usize>>,
     tx: watch::Sender<u64>,
     connected: watch::Sender<bool>,
 }
@@ -41,7 +43,7 @@ impl EventBus {
     pub async fn connect(base: &str) -> Result<Arc<EventBus>, BusError> {
         let (tx, _) = watch::channel(0u64);
         let (ctx, mut crx) = watch::channel(false);
-        let bus = Arc::new(EventBus { seen: Mutex::new(Vec::new()), tx, connected: ctx });
+        let bus = Arc::new(EventBus { seen: Mutex::new(Vec::new()), index: Mutex::new(std::collections::HashMap::new()), tx, connected: ctx });
         let url = format!("{}/events", base.trim_end_matches('/'));
         let b2 = bus.clone();
         tokio::spawn(async move {
@@ -69,7 +71,11 @@ impl EventBus {
                     } else if line.is_empty() && !data.is_empty() {
                         if let Ok(ev) = serde_json::from_str::<AppEvent>(&data) {
                             let seq = ev.seq;
-                            b2.seen.lock().unwrap().push(ev);
+                            {
+                                let mut seen = b2.seen.lock().unwrap();
+                                b2.index.lock().unwrap().entry((ev.kind.clone(), ev.id)).or_insert(seen.len());
+                                seen.push(ev);
+                            }
                             let _ = b2.tx.send(seq);
                         }
                         data.clear();
@@ -91,8 +97,15 @@ impl EventBus {
         let mut rx = self.tx.subscribe();
         loop {
             rx.borrow_and_update();
-            if let Some(ev) = self.seen.lock().unwrap().iter().find(|e| e.kind == kind && id.is_none_or(|i| e.id == i)) {
-                return Ok(ev.clone());
+            let found = match id {
+                Some(i) => {
+                    let ix = self.index.lock().unwrap().get(&(kind.to_string(), i)).copied();
+                    ix.map(|ix| self.seen.lock().unwrap()[ix].clone())
+                }
+                None => self.seen.lock().unwrap().iter().find(|e| e.kind == kind).cloned(),
+            };
+            if let Some(ev) = found {
+                return Ok(ev);
             }
             let remaining = deadline.saturating_duration_since(tokio::time::Instant::now());
             if remaining.is_zero() {

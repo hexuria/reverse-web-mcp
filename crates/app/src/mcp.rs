@@ -37,7 +37,7 @@ fn rpc_err(id: Value, code: i64, msg: String) -> Value {
 }
 
 fn u64_arg(args: &Value, k: &str) -> Result<u64, ApiError> {
-    args.get(k).and_then(|v| v.as_u64()).ok_or_else(|| ApiError(400, format!("missing integer argument '{k}'")))
+    args.get(k).and_then(|v| v.as_u64()).ok_or_else(|| ApiError::new(400, format!("missing integer argument '{k}'")))
 }
 
 async fn call(state: &Shared, name: &str, args: &Value) -> Result<Value, ApiError> {
@@ -74,7 +74,7 @@ async fn call(state: &Shared, name: &str, args: &Value) -> Result<Value, ApiErro
             let ids: Vec<u64> = args.get("invoice_ids").and_then(|v| v.as_array()).map(|a| a.iter().filter_map(|x| x.as_u64()).collect()).unwrap_or_default();
             write(state, |w| w.create_report(door, key.as_deref(), &ids)).await
         }
-        other => Err(ApiError(404, format!("unknown tool '{other}'"))),
+        other => Err(ApiError::new(404, format!("unknown tool '{other}'"))),
     }
 }
 
@@ -100,9 +100,12 @@ pub async fn handle(State(state): State<Shared>, Json(req): Json<Value>) -> Resp
             let args = params.get("arguments").cloned().unwrap_or(json!({}));
             match call(&state, name, &args).await {
                 Ok(v) => Json(rpc_ok(id, json!({"content":[{"type":"text","text":v.to_string()}],"structuredContent":v,"isError":false}))).into_response(),
-                Err(ApiError(status, msg)) => {
-                    Json(rpc_ok(id, json!({"content":[{"type":"text","text":format!("error {status}: {msg}")}],"isError":true,"_status":status})))
-                        .into_response()
+                Err(ApiError(status, msg, after)) => {
+                    let mut result = json!({"content":[{"type":"text","text":format!("error {status}: {msg}")}],"isError":true,"_status":status});
+                    if let Some(ms) = after {
+                        result["_retry_after_ms"] = json!(ms);
+                    }
+                    Json(rpc_ok(id, result)).into_response()
                 }
             }
         }

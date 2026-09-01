@@ -105,6 +105,7 @@ The compiler derives everything from that file. It is never hand-authored anywhe
 | T9 | 10 invoices: send, paid, receipt, one report | six deep and ten wide | 3 |
 | T10 | T9 plus a report per invoice | six deep, ten wide, eleven joins | 3 |
 | T11 | three hundred invoices, all sent, from one `each(...)` want | fan-out without naming every row | 3 |
+| T12 | T2 under a limit of eight writes per second | 429s, backoff, keys: twenty writes, none doubled | 3 |
 
 A want may contain `each([...])`; the compiler unrolls it into one want per element before
 compiling, so three hundred rows are still one sample. Keys are identical to the written-out form.

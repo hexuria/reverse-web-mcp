@@ -196,11 +196,13 @@ impl Script {
             recording.finish(&outcome);
             match res {
                 Ok((s, v)) if (200..300).contains(&s) => return Ok(v),
-                Ok((s, _)) if (s == 429 || s >= 500) && attempt < 4 => {
-                    tokio::time::sleep(Duration::from_millis(40 * (1 << (attempt - 1)))).await;
+                Ok((s, v)) if (s == 429 || s >= 500) && attempt < 12 => {
+                    // The ceiling honours the server's retry-after like ours does.
+                    let wait = v.get("retry_after_ms").and_then(|x| x.as_u64()).unwrap_or(40 * (1 << (attempt - 1).min(5)));
+                    tokio::time::sleep(Duration::from_millis(wait + (attempt as u64 * 7) % 50)).await;
                 }
                 Ok(_) => return outcome,
-                Err(_) if attempt < 4 => tokio::time::sleep(Duration::from_millis(40)).await,
+                Err(_) if attempt < 6 => tokio::time::sleep(Duration::from_millis(40)).await,
                 Err(e) => return Err(e),
             }
         }

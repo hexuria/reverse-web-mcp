@@ -118,17 +118,25 @@ pub enum DomainError {
     NotPaid(u64),
     Ambiguous(String, usize),
     ChaosFail,
-    RateLimited,
+    RateLimited { retry_after_ms: u64 },
 }
 
 impl DomainError {
+    /// How long a caller should wait before trying again, when the server knows.
+    pub fn retry_after_ms(&self) -> Option<u64> {
+        match self {
+            DomainError::RateLimited { retry_after_ms } => Some(*retry_after_ms),
+            _ => None,
+        }
+    }
+
     pub fn status(&self) -> u16 {
         match self {
             DomainError::NotFound(..) => 404,
             DomainError::NotApproved(_) | DomainError::NotPaid(_) => 409,
             DomainError::Ambiguous(..) => 409,
             DomainError::ChaosFail => 500,
-            DomainError::RateLimited => 429,
+            DomainError::RateLimited { .. } => 429,
         }
     }
     pub fn message(&self) -> String {
@@ -138,7 +146,7 @@ impl DomainError {
             DomainError::NotPaid(id) => format!("invoice {id} has no payment yet"),
             DomainError::Ambiguous(name, n) => format!("{n} customers match '{name}'"),
             DomainError::ChaosFail => "chaos: send failed before doing anything".to_string(),
-            DomainError::RateLimited => "chaos: rate limited".to_string(),
+            DomainError::RateLimited { retry_after_ms } => format!("chaos: rate limited, retry after {retry_after_ms} ms"),
         }
     }
 }
@@ -258,7 +266,8 @@ impl World {
             self.rate_window_count += 1;
             if self.rate_window_count > self.chaos.rate_limit_per_sec {
                 self.record_effect(op, "chaos", None, "rate_limited".into(), false);
-                return Err(DomainError::RateLimited);
+                let remaining = 1000u128.saturating_sub(now.saturating_sub(self.rate_window_start_ms)) as u64;
+                return Err(DomainError::RateLimited { retry_after_ms: remaining.max(1) });
             }
         }
         Ok(self.chaos.latency_ms)

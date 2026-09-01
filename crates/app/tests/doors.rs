@@ -113,3 +113,16 @@ async fn reset_reseeds_and_seed_six_has_two_acmes() {
     let acmes = state["customers"].as_array().unwrap().iter().filter(|x| x["name"] == "Acme").count();
     assert_eq!(acmes, 2);
 }
+
+#[tokio::test]
+async fn a_rate_limited_write_says_when_to_come_back() {
+    let (base, c) = serve(1).await;
+    c.post(format!("{base}/oracle/chaos")).json(&json!({"rate_limit_per_sec": 1})).send().await.unwrap();
+    assert_eq!(create_invoice(&c, &base, None).await.0, 200);
+    let r = c.post(format!("{base}/api/invoices")).json(&json!({"customer_id": 1, "amount_cents": 1})).send().await.unwrap();
+    assert_eq!(r.status().as_u16(), 429);
+    let after = r.headers().get("retry-after-ms").unwrap().to_str().unwrap().parse::<u64>().unwrap();
+    assert!((1..=1000).contains(&after), "{after}");
+    let body: Value = r.json().await.unwrap();
+    assert_eq!(body["retry_after_ms"].as_u64().unwrap(), after);
+}

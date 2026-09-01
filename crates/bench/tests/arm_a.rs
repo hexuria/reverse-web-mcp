@@ -64,6 +64,7 @@ async fn the_pixel_loop_sees_only_screenshots_and_records_pixel_rows() {
         run_id: "r1".into(),
         browser: Some(pool.clone()),
         shots_dir: None,
+        max_turns: 40,
     };
 
     let r = run_cua_loop(&task, &ctx, &Clicks(Mutex::new(0)), "  customers (10): Acme, ...").await.unwrap();

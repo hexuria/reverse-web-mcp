@@ -45,6 +45,7 @@ async fn ctx() -> ArmContext {
         run_id: "r1".into(),
         browser: None,
         shots_dir: None,
+        max_turns: 40,
     }
 }
 

@@ -74,6 +74,7 @@ async fn the_webmcp_loop_runs_in_a_real_page() {
         run_id: "r1".into(),
         browser: Some(pool.clone()),
         shots_dir: None,
+        max_turns: 40,
     };
 
     let r = run_webmcp_loop(&task, &ctx, &Script(Mutex::new(0)), "  customers (10): Acme, ...").await.unwrap();

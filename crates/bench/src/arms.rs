@@ -26,6 +26,8 @@ pub struct ArmContext {
     pub browser: Option<Arc<driver::BrowserPool>>,
     /// Where a pixel arm saves what it saw, one PNG per turn. None means do not save.
     pub shots_dir: Option<std::path::PathBuf>,
+    /// Turn cap for the model-driven loops.
+    pub max_turns: u32,
 }
 
 /// The effectors for this run: the API and MCP doors from zerohuman, plus the accessibility door

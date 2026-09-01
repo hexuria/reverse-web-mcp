@@ -58,6 +58,9 @@ pub struct RunOpts {
     #[arg(long)]
     #[serde(skip)]
     pub api_key: Option<String>,
+    /// Turn cap for the model-driven loops (B, B2, C, A). A run that hits it is an error.
+    #[arg(long, default_value_t = 40)]
+    pub max_turns: u32,
     /// Directory for the planner's intent cache. A repeat goal against the same facts costs zero samples.
     #[arg(long)]
     pub plan_cache: Option<PathBuf>,

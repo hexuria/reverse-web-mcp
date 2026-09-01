@@ -171,6 +171,7 @@ async fn run(opts: RunOpts) -> anyhow::Result<()> {
                     run_id: format!("r{run}"),
                     browser: browser.clone(),
                     shots_dir: Some(out.join("shots")),
+                    max_turns: opts.max_turns,
                 };
 
                 let mut used_intent = serde_json::Value::Null;

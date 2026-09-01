@@ -51,6 +51,7 @@ async fn a_fork_is_answered_once_and_the_plan_resumes() {
         run_id: "r1".into(),
         browser: None,
         shots_dir: None,
+        max_turns: 40,
     };
 
     let receipt =
@@ -100,6 +101,7 @@ async fn an_empty_fork_answer_leaves_the_question_open() {
         run_id: "r1".into(),
         browser: None,
         shots_dir: None,
+        max_turns: 40,
     };
     let receipt = run_ours(&task, &ctx, None, Ledger::new(), Some(Planner { sampler: &EmptyAnswer, facts: String::new() })).await.unwrap();
     assert_eq!(receipt.status, Status::NeedThink);

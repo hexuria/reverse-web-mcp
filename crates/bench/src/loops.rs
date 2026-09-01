@@ -240,6 +240,7 @@ pub async fn run_tool_loop(
 ) -> anyhow::Result<Receipt> {
     let tools = backend.list().await?;
     let surface = backend.surface().to_string();
+    let max_turns = ctx.max_turns.max(1);
 
     let mut ledger = Ledger::new();
     let rec = Recorder::new(ctx.world.clone());
@@ -248,7 +249,6 @@ pub async fn run_tool_loop(
     let mut status = Status::Error;
     let mut error: Option<String> = None;
     let mut yield_reason: Option<String> = None;
-    let max_turns = 60;
 
     for _turn in 0..max_turns {
         let mut body = json!({
@@ -376,7 +376,7 @@ pub async fn run_cua_loop(task: &Task, ctx: &ArmContext, model: &dyn crate::plan
     let mut status = Status::Error;
     let mut error: Option<String> = None;
     let mut yield_reason: Option<String> = None;
-    let max_turns = 40;
+    let max_turns = ctx.max_turns.max(1);
     let opening = format!("World facts (read just now):\n{facts}\n\nTask: {}\n\nHere is the screen.", task.goal);
     let mut messages: Vec<Value> = Vec::new();
 

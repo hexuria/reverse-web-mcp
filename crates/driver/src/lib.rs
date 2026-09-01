@@ -13,8 +13,13 @@ use tokio::sync::{Mutex, Semaphore};
 pub const SCREEN_W: u32 = 1280;
 pub const SCREEN_H: u32 = 800;
 
+fn now_nanos() -> u128 {
+    std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_nanos()).unwrap_or(0)
+}
+
 pub struct BrowserPool {
     browser: Mutex<Browser>,
+    profile: std::path::PathBuf,
     pages: Mutex<Vec<Page>>,
     slots: Arc<Semaphore>,
     _handler: tokio::task::JoinHandle<()>,
@@ -37,7 +42,11 @@ impl BrowserPool {
         if let Some(path) = chrome {
             cfg = cfg.chrome_executable(path);
         }
-        cfg = cfg.no_sandbox().window_size(SCREEN_W, SCREEN_H).viewport(None);
+        // One profile directory per pool: two browsers on one machine must never share Chrome's
+        // singleton lock, and two lanes must never share a profile.
+        let profile = std::env::temp_dir().join(format!("chiffon-chrome-{}-{}", std::process::id(), now_nanos()));
+        std::fs::create_dir_all(&profile)?;
+        cfg = cfg.no_sandbox().window_size(SCREEN_W, SCREEN_H).viewport(None).user_data_dir(&profile);
         let cfg = cfg.build().map_err(|e| anyhow::anyhow!(e))?;
         let (browser, mut handler) = Browser::launch(cfg).await?;
         let handle = tokio::spawn(async move {
@@ -51,7 +60,7 @@ impl BrowserPool {
         for _ in 0..n {
             pages.push(browser.new_page("about:blank").await?);
         }
-        Ok(Arc::new(BrowserPool { browser: Mutex::new(browser), pages: Mutex::new(pages), slots: Arc::new(Semaphore::new(n)), _handler: handle }))
+        Ok(Arc::new(BrowserPool { browser: Mutex::new(browser), profile, pages: Mutex::new(pages), slots: Arc::new(Semaphore::new(n)), _handler: handle }))
     }
 
     pub async fn lease(self: &Arc<Self>) -> anyhow::Result<Lease> {
@@ -62,6 +71,7 @@ impl BrowserPool {
 
     pub async fn close(&self) -> anyhow::Result<()> {
         self.browser.lock().await.close().await?;
+        let _ = std::fs::remove_dir_all(&self.profile);
         Ok(())
     }
 }

@@ -203,6 +203,13 @@ impl World {
             let id = self.alloc();
             self.customers.push(Customer { id, name: "Acme".into(), email: "ap@acme-holdings.example".into() });
         }
+        // Seed 11: three hundred more, for the fan-out task.
+        if self.seed % 100 == 11 {
+            for i in 1..=300 {
+                let id = self.alloc();
+                self.customers.push(Customer { id, name: format!("Customer {i:03}"), email: format!("ap{i:03}@bulk.example") });
+            }
+        }
     }
 
     fn alloc(&mut self) -> u64 {

@@ -40,6 +40,8 @@ pub enum Val {
     Ref(String, String),
     /// `entity(args)` used as a value: something to resolve to an id.
     Entity(Box<Pred>),
+    /// `each([a,b,c])`: the want is unrolled once per element before compiling.
+    Each(Vec<Val>),
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -75,6 +77,27 @@ impl Pred {
         Pred { entity: self.entity.clone(), args: self.args.clone(), field: "exists".into(), value: Val::Bool(true) }
     }
 
+    pub fn pick(&self, i: usize) -> Pred {
+        Pred {
+            entity: self.entity.clone(),
+            args: self.args.iter().map(|(k, v)| (k.clone(), v.pick(i))).collect(),
+            field: self.field.clone(),
+            value: self.value.pick(i),
+        }
+    }
+
+    pub fn each_len(&self) -> Option<usize> {
+        self.args.iter().find_map(|(_, v)| v.each_len()).or_else(|| self.value.each_len())
+    }
+
+    /// One predicate per element of the `each(...)` inside, or just this one.
+    pub fn unroll(&self) -> Vec<Pred> {
+        match self.each_len() {
+            Some(n) => (0..n).map(|i| self.pick(i)).collect(),
+            None => vec![self.clone()],
+        }
+    }
+
     /// Substitute bound variables. Unbound variables stay as they are.
     pub fn subst(&self, bind: &dyn Fn(&str) -> Option<Val>) -> Pred {
         Pred {
@@ -93,7 +116,28 @@ impl Val {
             Val::Var(n, _spread) => bind(n).unwrap_or_else(|| self.clone()),
             Val::List(xs) => Val::List(xs.iter().map(|x| x.subst(bind)).collect()),
             Val::Entity(p) => Val::Entity(Box::new(p.subst(bind))),
+            Val::Each(xs) => Val::Each(xs.iter().map(|x| x.subst(bind)).collect()),
             other => other.clone(),
+        }
+    }
+
+    /// Replace every `each(...)` with its i-th element.
+    pub fn pick(&self, i: usize) -> Val {
+        match self {
+            Val::Each(xs) => xs.get(i).cloned().unwrap_or(Val::Bool(false)),
+            Val::List(xs) => Val::List(xs.iter().map(|x| x.pick(i)).collect()),
+            Val::Entity(p) => Val::Entity(Box::new(p.pick(i))),
+            other => other.clone(),
+        }
+    }
+
+    /// The length of the first `each(...)` found, if any.
+    pub fn each_len(&self) -> Option<usize> {
+        match self {
+            Val::Each(xs) => Some(xs.len()),
+            Val::List(xs) => xs.iter().find_map(|x| x.each_len()),
+            Val::Entity(p) => p.each_len(),
+            _ => None,
         }
     }
 
@@ -123,6 +167,16 @@ impl fmt::Display for Val {
                 write!(f, "]")
             }
             Val::Var(n, spread) => write!(f, "${n}{}", if *spread { "[]" } else { "" }),
+            Val::Each(xs) => {
+                write!(f, "each([")?;
+                for (i, x) in xs.iter().enumerate() {
+                    if i > 0 {
+                        write!(f, ",")?;
+                    }
+                    write!(f, "{x}")?;
+                }
+                write!(f, "])")
+            }
             Val::Ref(n, field) => write!(f, "${n}.{field}"),
             Val::Entity(p) => write!(f, "{p}"),
         }
@@ -293,6 +347,15 @@ impl<'a> Parser<'a> {
                 match word.as_str() {
                     "true" => Ok(Val::Bool(true)),
                     "false" => Ok(Val::Bool(false)),
+                    "each" => {
+                        self.expect(b'(')?;
+                        let inner = self.value()?;
+                        self.expect(b')')?;
+                        match inner {
+                            Val::List(xs) => Ok(Val::Each(xs)),
+                            other => Ok(Val::Each(vec![other])),
+                        }
+                    }
                     _ => {
                         self.i = save;
                         let p = self.pred()?;
@@ -322,6 +385,16 @@ mod tests {
             let p = Pred::parse(src).unwrap();
             assert_eq!(p.to_string(), src, "round trip");
         }
+    }
+
+    #[test]
+    fn each_unrolls_one_predicate_per_element() {
+        let p = Pred::parse("invoice(customer=customer(name=each(['Acme','Globex','Initech']))).status='sent'").unwrap();
+        assert_eq!(p.to_string(), "invoice(customer=customer(name=each(['Acme','Globex','Initech']))).status='sent'");
+        let rolled = p.unroll();
+        assert_eq!(rolled.len(), 3);
+        assert_eq!(rolled[1].to_string(), "invoice(customer=customer(name='Globex')).status='sent'");
+        assert_eq!(Pred::parse("invoice(id=3).exists").unwrap().unroll().len(), 1);
     }
 
     #[test]

@@ -65,7 +65,7 @@ pub enum LintError {
 fn has_var(v: &Val) -> bool {
     match v {
         Val::Var(..) => true,
-        Val::List(xs) => xs.iter().any(has_var),
+        Val::List(xs) | Val::Each(xs) => xs.iter().any(has_var),
         Val::Entity(p) => p.args.iter().any(|(_, v)| has_var(v)) || has_var(&p.value),
         _ => false,
     }
@@ -81,7 +81,7 @@ fn walk_entities<'a>(p: &'a Pred, out: &mut Vec<&'a Pred>) {
 fn walk_vals<'a>(v: &'a Val, out: &mut Vec<&'a Pred>) {
     match v {
         Val::Entity(p) => walk_entities(p, out),
-        Val::List(xs) => xs.iter().for_each(|x| walk_vals(x, out)),
+        Val::List(xs) | Val::Each(xs) => xs.iter().for_each(|x| walk_vals(x, out)),
         _ => {}
     }
 }

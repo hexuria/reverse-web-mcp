@@ -57,7 +57,9 @@ pub fn compile(intent: &Intent, world: &World, opts: &CompileOptions) -> Result<
     let mut c = Compiler { ops: world.ops.clone(), intent, opts, nodes: Vec::new(), memo: HashMap::new(), deps: Vec::new(), canon: HashMap::new() };
     for w in &intent.wants {
         let pred = Pred::parse(w).map_err(|e| CompileError::Parse(w.clone(), e))?;
-        c.satisfy(&pred)?;
+        for one in pred.unroll() {
+            c.satisfy(&one)?;
+        }
     }
     let mut edges = c.deps.clone();
     edges.extend(footprint_edges(&c.nodes));
@@ -99,7 +101,7 @@ impl<'a> Compiler<'a> {
     fn expand_val(&self, v: &Val) -> String {
         match v {
             Val::Ref(n, f) => format!("@({}).{f}", self.canon.get(n).cloned().unwrap_or_else(|| n.clone())),
-            Val::List(xs) => format!("[{}]", xs.iter().map(|x| self.expand_val(x)).collect::<Vec<_>>().join(",")),
+            Val::List(xs) | Val::Each(xs) => format!("[{}]", xs.iter().map(|x| self.expand_val(x)).collect::<Vec<_>>().join(",")),
             Val::Entity(p) => self.expand(p),
             other => other.to_string(),
         }
@@ -372,6 +374,7 @@ fn val_to_arg(v: &Val) -> Result<Arg, String> {
         Val::Ref(n, f) => Arg::Ref { node: n.clone(), field: f.clone() },
         Val::Var(n, _) => return Err(n.clone()),
         Val::Entity(p) => return Err(p.to_string()),
+        Val::Each(_) => return Err("each(...) survived unrolling".into()),
     })
 }
 
@@ -518,6 +521,61 @@ mod tests {
             let next = cur.args.values().flat_map(|a| a.refs()).next().expect("a ref back to the lookup");
             cur = plan.node(&next).unwrap();
         }
+    }
+
+    #[test]
+    fn each_fans_out_into_independent_lanes() {
+        let plan = compile(
+            &intent(&[
+                "invoice(customer=customer(name=each(['Acme','Globex','Initech']))).exists",
+                "invoice(customer=customer(name=each(['Acme','Globex','Initech']))).status='sent'",
+            ]),
+            &world(),
+            &CompileOptions::default(),
+        )
+        .unwrap();
+        assert_eq!(plan.nodes.len(), 9, "{}", plan.render());
+        assert_eq!(plan.depth(), 3);
+        assert_eq!(plan.nodes.iter().filter(|n| n.op == "sendInvoice").count(), 3);
+        // Same keys as the fully written-out form.
+        let long = compile(
+            &intent(&[
+                "invoice(customer=customer(name='Acme')).exists",
+                "invoice(customer=customer(name='Globex')).exists",
+                "invoice(customer=customer(name='Initech')).exists",
+                "invoice(customer=customer(name='Acme')).status='sent'",
+                "invoice(customer=customer(name='Globex')).status='sent'",
+                "invoice(customer=customer(name='Initech')).status='sent'",
+            ]),
+            &world(),
+            &CompileOptions::default(),
+        )
+        .unwrap();
+        let mut k1: Vec<_> = plan.nodes.iter().filter_map(|n| n.key.clone()).collect();
+        let mut k2: Vec<_> = long.nodes.iter().filter_map(|n| n.key.clone()).collect();
+        k1.sort();
+        k2.sort();
+        assert_eq!(k1, k2);
+    }
+
+    #[test]
+    fn three_hundred_lanes_compile_fast() {
+        let names: Vec<String> = (1..=300).map(|i| format!("'Customer {i:03}'")).collect();
+        let list = names.join(",");
+        let t0 = std::time::Instant::now();
+        let plan = compile(
+            &intent(&[
+                &format!("invoice(customer=customer(name=each([{list}]))).exists"),
+                &format!("invoice(customer=customer(name=each([{list}]))).status='sent'"),
+            ]),
+            &world(),
+            &CompileOptions::default(),
+        )
+        .unwrap();
+        let took = t0.elapsed();
+        assert_eq!(plan.nodes.len(), 900);
+        assert_eq!(plan.depth(), 3);
+        assert!(took < std::time::Duration::from_secs(2), "compile took {took:?}");
     }
 
     #[test]

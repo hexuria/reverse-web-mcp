@@ -12,10 +12,8 @@ use std::time::Duration;
 
 use serde_json::{json, Value};
 use zerohuman::effectors::{EffectError, McpEffector};
-use zerohuman::intent::Intent;
 use zerohuman::ledger::{now_us, Ledger, Receipt, Recorder, Sample, SampleKind, Status};
 use zerohuman::plan::Plan;
-use zerohuman::World;
 
 use crate::arms::ArmContext;
 use crate::tasks::Task;
@@ -252,88 +250,4 @@ pub async fn run_mcp_loop(task: &Task, ctx: &ArmContext, model: &ModelClient, pa
         gates: vec![],
     };
     Ok(ledger.receipt(&plan, status, yield_reason, None, error))
-}
-
-const PLANNER_SYSTEM: &str = "You are the planner for an execution engine. You never emit actions. You emit an intent graph: \
-a list of wants, each a predicate that must be true when the work is done, plus forks: conditions under which \
-you agree to be woken and asked. The engine compiles wants into a parallel plan and runs it without you.\n\n\
-Predicate language:\n\
-  entity(arg=value, ...).field=value\n\
-  entity(arg=value, ...).exists\n\
-  A nested entity(...) as a value refers to that entity, e.g. customer(name='Acme').\n\
-  Strings use single quotes. Lists use [a,b].\n\n\
-Rules:\n\
-- One want per fact that must be true at the end. Never emit wants for reads or lookups; the engine derives those.\n\
-- Customers already exist. Never want a customer to exist; refer to them by name inside other predicates.\n\
-- Identify invoices by their customer, never by an id you invent.\n\
-- Do not assume order. The compiler derives order from data dependencies.\n\
-- If a fact depends on something the outside world does (a payment arriving), still want the final fact; \
-  the engine waits for the event. Forks are only for genuine ambiguity, not for waiting or retrying.\n\
-- Use the real names from the world facts. Never use variables like $name.\n\n\
-Example goal: Invoice Acme and Globex, send both, then one report over both.\n\
-Example wants:\n\
-  invoice(customer=customer(name='Acme')).exists\n\
-  invoice(customer=customer(name='Acme')).status='sent'\n\
-  invoice(customer=customer(name='Globex')).exists\n\
-  invoice(customer=customer(name='Globex')).status='sent'\n\
-  report(invoices=[invoice(customer=customer(name='Acme')),invoice(customer=customer(name='Globex'))]).exists\n\
-Example goal: Invoice Acme, send it, and email a receipt once it is paid.\n\
-Example wants:\n\
-  invoice(customer=customer(name='Acme')).exists\n\
-  invoice(customer=customer(name='Acme')).status='sent'\n\
-  invoice(customer=customer(name='Acme')).receipt_sent=true\n\n\
-Reply with the emit_intent tool.";
-
-/// One sample: goal + world summary → Intent. This is the only model call on the happy path.
-pub async fn plan_intent(task: &Task, world: &World, facts: &str, model: &ModelClient, ledger: &mut Ledger) -> anyhow::Result<Intent> {
-    let tool = json!({
-        "name": "emit_intent",
-        "description": "Emit the intent graph for the goal.",
-        "input_schema": {
-            "type": "object",
-            "properties": {
-                "wants": {"type": "array", "items": {"type": "string"}, "description": "Predicates in the shared language."},
-                "forks": {"type": "array", "items": {"type": "object", "properties": {"when": {"type": "string"}, "ask": {"type": "string"}}, "required": ["when", "ask"]}}
-            },
-            "required": ["wants"],
-            "additionalProperties": false
-        },
-        "strict": true
-    });
-    let user = format!(
-        "World model:\n{}\nWorld facts (read just now):\n{}\nGoal: {}\n\nEmit the intent graph now with emit_intent.",
-        world.summary(),
-        facts,
-        task.goal
-    );
-    let body = json!({
-        "max_tokens": 4096,
-        "system": [{"type": "text", "text": PLANNER_SYSTEM, "cache_control": {"type": "ephemeral"}}],
-        "tools": [tool],
-        "messages": [{"role": "user", "content": user}],
-    });
-    let resp = model.sample(ledger, SampleKind::Plan, body).await?;
-    let content = resp.get("content").cloned().unwrap_or(json!([]));
-    let call = content.as_array().and_then(|a| a.iter().find(|b| b["type"] == "tool_use" && b["name"] == "emit_intent")).cloned();
-    let input = match call {
-        Some(c) => c["input"].clone(),
-        None => {
-            // Fall back to JSON in the text, if the model wrote it that way.
-            let text: String =
-                content.as_array().map(|a| a.iter().filter_map(|b| b.get("text").and_then(|t| t.as_str())).collect::<Vec<_>>().join("\n")).unwrap_or_default();
-            let start = text.find('{').ok_or_else(|| anyhow::anyhow!("planner emitted no intent: {text}"))?;
-            let end = text.rfind('}').ok_or_else(|| anyhow::anyhow!("planner emitted no intent"))?;
-            serde_json::from_str(&text[start..=end])?
-        }
-    };
-    let wants: Vec<String> = input["wants"].as_array().map(|a| a.iter().filter_map(|w| w.as_str().map(|s| s.to_string())).collect()).unwrap_or_default();
-    let forks = input["forks"]
-        .as_array()
-        .map(|a| {
-            a.iter()
-                .map(|f| zerohuman::intent::IntentFork { when: f["when"].as_str().unwrap_or("").into(), ask: f["ask"].as_str().unwrap_or("").into() })
-                .collect()
-        })
-        .unwrap_or_default();
-    Ok(Intent { goal: task.goal.clone(), wants, constraints: task.constraints.clone(), forks })
 }

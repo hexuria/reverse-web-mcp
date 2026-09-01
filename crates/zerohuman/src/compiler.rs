@@ -117,6 +117,12 @@ impl<'a> Compiler<'a> {
     fn resolve_val(&mut self, v: &Val) -> Result<Val, CompileError> {
         Ok(match v {
             Val::Entity(inner) => {
+                // `customer(id=11)` already identifies the entity: no lookup, no fork.
+                if let Some(Val::Num(n)) = inner.arg("id") {
+                    if inner.args.len() == 1 {
+                        return Ok(Val::Num(*n));
+                    }
+                }
                 let mut inner = (**inner).clone();
                 if inner.field.is_empty() {
                     let resolved_exists = self
@@ -207,6 +213,10 @@ impl<'a> Compiler<'a> {
                 let refs = refs_in(&r);
                 if !refs.is_empty() {
                     deps.extend(refs);
+                    continue;
+                }
+                // Identified by a literal id: the entity is known, nothing to resolve.
+                if r.args.len() == 1 && matches!(r.arg("id"), Some(Val::Num(_))) {
                     continue;
                 }
             }
@@ -529,6 +539,19 @@ mod tests {
         assert_ne!(send(&p1, "Acme").key, send(&p1, "Globex").key);
         assert!(s1.key.as_deref().unwrap().starts_with("plan/"));
         assert_eq!(s1.key.as_deref().unwrap().len(), "plan/".len() + 16);
+    }
+
+    #[test]
+    fn a_literal_id_needs_no_lookup_and_no_fork() {
+        let plan = compile(
+            &intent(&["invoice(customer=customer(id=11)).exists", "invoice(customer=customer(id=11)).status='sent'"]),
+            &world(),
+            &CompileOptions::default(),
+        )
+        .unwrap();
+        assert_eq!(plan.nodes.len(), 2, "{}", plan.render());
+        assert!(plan.nodes.iter().all(|n| n.op != "listCustomers"));
+        assert_eq!(plan.node("A").unwrap().args.get("customer_id"), Some(&Arg::Lit(json!(11))));
     }
 
     #[test]

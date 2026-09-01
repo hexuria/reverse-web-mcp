@@ -3,7 +3,8 @@
 //! `bench verify` recomputes every number in a run directory from the raw ledgers.
 
 use bench::config::RunOpts;
-use bench::{arms, loops, oracle, report, tasks};
+use bench::{arms, loops, oracle, planner, report, tasks};
+use zerohuman::CompileOptions;
 
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
@@ -153,14 +154,16 @@ async fn run(opts: RunOpts) -> anyhow::Result<()> {
                     "D" => {
                         let mut ledger = zerohuman::Ledger::new();
                         let intent = if planner == "model" {
-                            // The planner gets a read of the world, not a sample: what customers exist.
-                            let customers: serde_json::Value = reqwest::get(format!("{base}/api/customers")).await?.json().await?;
-                            let names: Vec<String> = customers
-                                .as_array()
-                                .map(|a| a.iter().filter_map(|c| c.get("name").and_then(|n| n.as_str()).map(|s| s.to_string())).collect())
-                                .unwrap_or_default();
-                            let facts = format!("  customers ({}): {}", names.len(), names.join(", "));
-                            match loops::plan_intent(task, &world, &facts, &model_client.as_ref().unwrap().with_effort(&opts.planner_effort), &mut ledger).await
+                            let facts = planner::world_facts(&base).await?;
+                            match planner::plan_with_lint(
+                                task,
+                                &world,
+                                &facts,
+                                &model_client.as_ref().unwrap().with_effort(&opts.planner_effort),
+                                &mut ledger,
+                                &CompileOptions { plan_id: format!("{}-r{run}", task.id), surfaces: surfaces.clone() },
+                            )
+                            .await
                             {
                                 Ok(i) => Some(i),
                                 Err(e) => {

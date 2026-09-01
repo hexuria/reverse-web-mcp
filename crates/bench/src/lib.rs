@@ -5,6 +5,7 @@ pub mod arms;
 pub mod config;
 pub mod loops;
 pub mod oracle;
+pub mod planner;
 pub mod report;
 pub mod tasks;
 pub mod verify;

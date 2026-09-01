@@ -126,3 +126,17 @@ async fn a_rate_limited_write_says_when_to_come_back() {
     let body: Value = r.json().await.unwrap();
     assert_eq!(body["retry_after_ms"].as_u64().unwrap(), after);
 }
+
+#[tokio::test]
+async fn sending_a_paid_invoice_keeps_it_paid() {
+    let (base, c) = serve(1).await;
+    let (_, inv) = create_invoice(&c, &base, None).await;
+    let id = inv["id"].as_u64().unwrap();
+    c.post(format!("{base}/oracle/pay")).json(&json!({"invoice_id": id})).send().await.unwrap();
+    assert_eq!(send(&c, &base, id, None).await.0, 200);
+    let v: Value = c.get(format!("{base}/api/invoices/{id}")).send().await.unwrap().json().await.unwrap();
+    assert_eq!(v["status"], "paid", "a late send must not erase the payment");
+    // And a receipt still works afterwards.
+    let r = c.post(format!("{base}/api/invoices/{id}/receipt")).send().await.unwrap();
+    assert_eq!(r.status().as_u16(), 200);
+}

@@ -360,7 +360,10 @@ impl World {
         let customer = self.customers.iter().find(|c| c.id == self.invoices[idx].customer_id).cloned();
         let to = customer.map(|c| c.email).unwrap_or_default();
         let mid = self.alloc();
-        self.invoices[idx].status = InvoiceStatus::Sent;
+        // Sending never regresses a paid invoice to "sent"; payment is the later fact.
+        if self.invoices[idx].status == InvoiceStatus::Draft {
+            self.invoices[idx].status = InvoiceStatus::Sent;
+        }
         self.outbox.push(OutboxMessage {
             id: mid,
             to,

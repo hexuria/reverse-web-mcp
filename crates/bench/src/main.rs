@@ -4,7 +4,6 @@
 
 use bench::config::RunOpts;
 use bench::{arms, loops, oracle, planner, report, tasks};
-use zerohuman::CompileOptions;
 
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
@@ -178,41 +177,22 @@ async fn run(opts: RunOpts) -> anyhow::Result<()> {
                 let mut cache_hit = false;
                 let receipt = match arm.as_str() {
                     "D" => {
-                        let mut ledger = zerohuman::Ledger::new();
-                        let intent = if planner == "model" {
-                            let facts = planner::world_facts(&base).await?;
-                            let copts = CompileOptions { plan_id: format!("{}-r{run}", task.id), surfaces: surfaces.clone() };
-                            let sampler = model_client.as_ref().unwrap().with_effort(&opts.planner_effort);
-                            let planned = match &opts.plan_cache {
-                                Some(dir) => planner::plan_cached(&planner::IntentCache::new(dir), task, &world, &facts, &sampler, &mut ledger, &copts)
-                                    .await
-                                    .map(|(i, hit)| {
-                                        if hit {
-                                            cache_hit = true;
-                                        }
-                                        i
-                                    }),
-                                None => planner::plan_with_lint(task, &world, &facts, &sampler, &mut ledger, &copts).await,
-                            };
-                            match planned {
-                                Ok(i) => Some(i),
-                                Err(e) => {
-                                    eprintln!("planner failed: {e}");
-                                    None
-                                }
-                            }
-                        } else {
-                            None
-                        };
-                        used_intent = serde_json::to_value(intent.clone().unwrap_or_else(|| task.intent()))?;
-                        let planner_ref = if planner == "model" {
+                        let req = if planner == "model" {
                             let facts = planner::world_facts(&base).await?;
                             Some((model_client.as_ref().unwrap().with_effort(&opts.planner_effort), facts))
                         } else {
                             None
                         };
-                        let planner_arg = planner_ref.as_ref().map(|(m, facts)| arms::Planner { sampler: m, facts: facts.clone() });
-                        arms::run_ours(task, &ctx, intent, ledger, planner_arg).await?
+                        let cache = opts.plan_cache.as_ref().map(planner::IntentCache::new);
+                        let outcome = arms::run_ours_planned(
+                            task,
+                            &ctx,
+                            req.as_ref().map(|(m, facts)| arms::PlanRequest { sampler: m, facts: facts.clone(), cache: cache.as_ref() }),
+                        )
+                        .await?;
+                        used_intent = serde_json::to_value(&outcome.intent)?;
+                        cache_hit = outcome.cache_hit;
+                        outcome.receipt
                     }
                     "E" => arms::run_script(task, &ctx).await?,
                     "B" | "B2" => {

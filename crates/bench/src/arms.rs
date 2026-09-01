@@ -96,6 +96,52 @@ pub async fn run_ours(
     Ok(ledger.receipt(&plan, outcome.status, outcome.yield_reason, outcome.evidence, outcome.error))
 }
 
+/// Everything arm D needs to plan with a model.
+pub struct PlanRequest<'a> {
+    pub sampler: &'a dyn crate::planner::Sampler,
+    pub facts: String,
+    pub cache: Option<&'a crate::planner::IntentCache>,
+}
+
+pub struct OursOutcome {
+    pub receipt: Receipt,
+    /// The intent that was compiled, or the planner's last attempt when planning failed.
+    pub intent: zerohuman::Intent,
+    pub cache_hit: bool,
+}
+
+/// Arm D end to end: plan (or take the task file's wants), then run. A planner that fails is an
+/// error for this arm. It never falls back to the hand-written intent, which would score a model
+/// failure as a model success.
+pub async fn run_ours_planned(task: &Task, ctx: &ArmContext, req: Option<PlanRequest<'_>>) -> anyhow::Result<OursOutcome> {
+    let Some(req) = req else {
+        let receipt = run_ours(task, ctx, None, Ledger::new(), None).await?;
+        return Ok(OursOutcome { receipt, intent: task.intent(), cache_hit: false });
+    };
+    let mut ledger = Ledger::new();
+    let opts = CompileOptions { plan_id: format!("{}-{}", task.id, ctx.run_id), surfaces: ctx.surfaces.clone() };
+    let mut cache_hit = false;
+    let planned = match req.cache {
+        Some(cache) => crate::planner::plan_cached(cache, task, &ctx.world, &req.facts, req.sampler, &mut ledger, &opts).await.map(|(i, hit)| {
+            cache_hit = hit;
+            i
+        }),
+        None => crate::planner::plan_with_lint(task, &ctx.world, &req.facts, req.sampler, &mut ledger, &opts).await,
+    };
+    match planned {
+        Ok(intent) => {
+            let receipt = run_ours(task, ctx, Some(intent.clone()), ledger, Some(Planner { sampler: req.sampler, facts: req.facts })).await?;
+            Ok(OursOutcome { receipt, intent, cache_hit })
+        }
+        Err(e) => {
+            let empty = Plan { plan_id: opts.plan_id.clone(), goal: task.goal.clone(), nodes: vec![], edges: vec![], gates: vec![] };
+            ledger.ended_ms = now_ms();
+            let receipt = ledger.receipt(&empty, Status::Error, None, None, Some(format!("planner: {e}")));
+            Ok(OursOutcome { receipt, intent: zerohuman::Intent { goal: task.goal.clone(), ..Default::default() }, cache_hit })
+        }
+    }
+}
+
 fn compile_failed(opts: &CompileOptions, intent: &zerohuman::Intent, mut ledger: Ledger, e: zerohuman::compiler::CompileError) -> Receipt {
     let empty = Plan { plan_id: opts.plan_id.clone(), goal: intent.goal.clone(), nodes: vec![], edges: vec![], gates: vec![] };
     ledger.ended_ms = now_ms();

@@ -1,0 +1,247 @@
+<title>One Sample Deep</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Familjen+Grotesk:wght@500;700&family=Source+Sans+3:ital,wght@0,400;0,600;1,400&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+:root{
+  --ground:#F3F5F2; --sheet:#FCFCFB; --ink:#1A2321; --ink-2:#4B5955; --ink-3:#7A8783; --line:#D5DCD7; --line-2:#E9EEEA;
+  --teal:#0F6E7A; --teal-soft:#DCEEF0; --amber:#B7791F; --amber-soft:#F7ECD6; --code:#EEF2EF;
+  --s1:#2a78d6; --s2:#eb6834; --s3:#1baf7a; --s4:#eda100; --s1b:#0d366b; --s1l:#9ec5f4;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --ground:#12171A; --sheet:#1a1a19; --ink:#E7ECE8; --ink-2:#A7B3AD; --ink-3:#7F8B87; --line:#2E3A3B; --line-2:#242E30;
+    --teal:#63C1CC; --teal-soft:#153338; --amber:#E2AC4E; --amber-soft:#3A2D14; --code:#222B2E;
+    --s1:#3987e5; --s2:#d95926; --s3:#199e70; --s4:#c98500; --s1b:#9ec5f4; --s1l:#1c5cab;
+  }
+}
+:root[data-theme="dark"]{
+  --ground:#12171A; --sheet:#1a1a19; --ink:#E7ECE8; --ink-2:#A7B3AD; --ink-3:#7F8B87; --line:#2E3A3B; --line-2:#242E30;
+  --teal:#63C1CC; --teal-soft:#153338; --amber:#E2AC4E; --amber-soft:#3A2D14; --code:#222B2E;
+  --s1:#3987e5; --s2:#d95926; --s3:#199e70; --s4:#c98500; --s1b:#9ec5f4; --s1l:#1c5cab;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--ground);color:var(--ink);font-family:"Source Sans 3",system-ui,sans-serif;font-size:17px;line-height:1.55}
+.doc{max-width:960px;margin:0 auto;padding:40px 22px 100px}
+h1,h2,h3{font-family:"Familjen Grotesk","Source Sans 3",sans-serif;font-weight:700;line-height:1.1;text-wrap:balance;margin:0}
+h1{font-size:clamp(36px,6vw,54px);letter-spacing:-.01em}
+h2{font-size:26px}
+h3{font-size:18px}
+p{margin:0;max-width:66ch}
+.lede{font-size:20px;color:var(--ink-2);max-width:62ch}
+.eyebrow{font-family:"JetBrains Mono",monospace;font-size:12px;text-transform:uppercase;letter-spacing:.14em;color:var(--teal)}
+header{display:flex;flex-direction:column;gap:14px;padding-bottom:26px;border-bottom:2px solid var(--ink)}
+.meta{display:flex;flex-wrap:wrap;gap:18px;font-family:"JetBrains Mono",monospace;font-size:13px;color:var(--ink-2)}
+section{padding:34px 0;border-bottom:1px solid var(--line);display:flex;flex-direction:column;gap:16px}
+section:last-of-type{border-bottom:0}
+.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px}
+.tile{background:var(--sheet);border:1px solid var(--line);border-radius:10px;padding:16px 18px;display:flex;flex-direction:column;gap:4px}
+.tile .n{font-family:"Familjen Grotesk",sans-serif;font-weight:700;font-size:38px;line-height:1;font-variant-numeric:tabular-nums}
+.tile .l{font-size:14px;color:var(--ink-2)}
+.fig{background:var(--sheet);border:1px solid var(--line);border-radius:10px;padding:16px 16px 10px;position:relative}
+.fig svg{display:block;width:100%;height:auto}
+.fig .cap{font-size:14px;color:var(--ink-2);margin-top:6px;max-width:none}
+.legend{display:flex;flex-wrap:wrap;gap:14px;font-size:14px;color:var(--ink-2);margin-bottom:8px}
+.legend span{display:inline-flex;align-items:center;gap:6px}
+.legend i{width:12px;height:12px;border-radius:3px;display:inline-block}
+.tip{position:absolute;pointer-events:none;background:var(--ink);color:var(--ground);font-size:13px;padding:6px 9px;border-radius:6px;white-space:nowrap;transform:translate(-50%,-120%);opacity:0;transition:opacity .08s}
+.tip.on{opacity:1}
+.svgt{font-family:"Source Sans 3",sans-serif;font-size:12px;fill:var(--ink-2)}
+.svgl{font-family:"JetBrains Mono",monospace;font-size:11px;fill:var(--ink)}
+.grid{stroke:var(--line-2);stroke-width:1}
+.axis{stroke:var(--line);stroke-width:1}
+table{border-collapse:collapse;width:100%;font-size:14.5px;font-variant-numeric:tabular-nums;background:var(--sheet)}
+th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+th{font-family:"JetBrains Mono",monospace;font-weight:400;font-size:11.5px;text-transform:uppercase;letter-spacing:.1em;color:var(--ink-2);background:var(--line-2)}
+.tbl{overflow-x:auto;border:1px solid var(--line);border-radius:8px}
+td.ok{color:var(--s3);font-weight:600}
+td.bad{color:var(--s2);font-weight:600}
+.callout{border-left:4px solid var(--amber);background:var(--amber-soft);padding:12px 16px;border-radius:0 8px 8px 0;font-size:15.5px}
+.note{border-left:4px solid var(--teal);background:var(--teal-soft);padding:12px 16px;border-radius:0 8px 8px 0;font-size:15.5px}
+ul{margin:0;padding-left:22px;max-width:70ch}
+li{margin:4px 0}
+code{font-family:"JetBrains Mono",monospace;font-size:.88em;background:var(--code);padding:1px 5px;border-radius:4px}
+details summary{cursor:pointer;color:var(--teal);font-size:15px}
+</style>
+
+<div class="doc">
+<header>
+  <span class="eyebrow">chiffon · benchmark results · 2026-09-02</span>
+  <h1>One Sample Deep</h1>
+  <p class="lede">A compiler and a scheduler run a goal against an app we own with one model sample, at any depth and any width. The loops we compare against pay a sample per dependency level. Every number here is recomputed from raw ledgers by <code>bench verify</code>.</p>
+  <div class="meta"><span>model: grok-4.6 via opencodex</span><span>planner effort: low · loops: medium</span><span>25 ms per write</span><span>arms D ours · B2 parallel MCP · C WebMCP · B sequential MCP · E script ceiling</span></div>
+</header>
+
+<section>
+  <div class="tiles">
+    <div class="tile"><span class="n">1</span><span class="l">samples per task for ours, every task without a question, depth 3 to 6, width 1 to 300</span></div>
+    <div class="tile"><span class="n">4–14</span><span class="l">samples for the parallel MCP loop, rising with depth and width</span></div>
+    <div class="tile"><span class="n">0</span><span class="l">double-sends, every arm, every task, from the app's own effect log</span></div>
+    <div class="tile"><span class="n">0</span><span class="l">verify problems across 318 result files in six run directories</span></div>
+  </div>
+</section>
+
+<section>
+  <span class="eyebrow">the structural claim</span>
+  <h2>Samples against depth</h2>
+  <p>Tasks are ordered by depth, then width. A loop stops to think once per dependency level; a compiled plan thinks once and the scheduler climbs the rest. Medians over the runs in each cell.</p>
+  <div class="fig" id="fig-samples">
+    <div class="legend"><span><i style="background:var(--s1)"></i>D ours</span><span><i style="background:var(--s2)"></i>B2 parallel MCP</span><span><i style="background:var(--s3)"></i>C WebMCP</span><span><i style="background:var(--s4)"></i>B sequential MCP (T1–T6)</span></div>
+    <svg viewBox="0 0 900 360" role="img" aria-label="Median model samples per task for four arms, tasks ordered by depth"></svg>
+    <div class="tip"></div>
+    <p class="cap">Arm E, the hand-written script, is 0 samples on every task and is omitted. T4 B is 60: the turn cap, never finished. The y axis is square-root scaled so 1 and 60 both fit; ticks are labelled.</p>
+  </div>
+</section>
+
+<section>
+  <span class="eyebrow">the clock</span>
+  <h2>Where our time goes</h2>
+  <p>Ours spends almost all of its wall time in the single planner sample. The kitchen itself runs in tens of milliseconds, or about a second when it is waiting on a payment. On T11 the planner spent 111 seconds emitting three hundred names.</p>
+  <div class="fig" id="fig-clock">
+    <div class="legend"><span><i style="background:var(--s1l)"></i>planner, ms</span><span><i style="background:var(--s1b)"></i>kitchen, ms</span></div>
+    <svg viewBox="0 0 900 380" role="img" aria-label="Plan time and run time per task for arm D, medians"></svg>
+    <div class="tip"></div>
+    <p class="cap">Arm D only, medians. T11 is clipped at the axis and labelled with its real value.</p>
+  </div>
+</section>
+
+<section>
+  <span class="eyebrow">correctness and width</span>
+  <h2>Every cell</h2>
+  <div class="tbl"><table id="cells"><thead><tr><th>task</th><th>depth</th><th>arm</th><th>correct</th><th>samples</th><th>plan ms</th><th>run ms</th><th>max parallel</th><th>run dir</th></tr></thead><tbody></tbody></table></div>
+  <p class="cap">Correctness is the oracle's snapshot against the task's expected end state. Max parallel is a sweep over microsecond ledger spans. Ours is capped by its API pool of 16; B2 went 50 wide on T11.</p>
+</section>
+
+<section>
+  <span class="eyebrow">what to believe</span>
+  <h2>Reading it honestly</h2>
+  <ul>
+    <li><b>Samples are the difference that holds.</b> One for ours on every task without a question. Four to six for B2 at depths three to six, fourteen at three hundred rows. B, one call per turn, is a sample per action.</li>
+    <li><b>Correctness is close once the harness is fair.</b> B2 is 5/5 on the wait task and mostly right six deep. Our misses are the planner's: one empty intent on T3, one empty fork answer on T6, one payment-event timeout on T10, all scored as failures.</li>
+    <li><b>Width is not ours to claim.</b> Parallel tool calls parallelise fine. What they cannot do is stop paying a thought per level.</li>
+    <li><b>Wall time is the planner's.</b> Cheaper or cached planning is where the clock moves; the intent cache makes a repeat goal zero samples.</li>
+  </ul>
+  <div class="callout"><b>A retraction.</b> The first campaign showed both loops at 0/5 on the wait task, and the README said the wait "separates the arms completely". That was a bug in our target app: a send arriving after the payment webhook overwrote "paid" with "sent", and only the slow arms ever sent late. Fixed, pinned by a test, and every loop cell on a wait task was rerun. The corrected cells are the ones on this page.</div>
+  <div class="note"><b>Arm A</b>, the pixel loop, is smoke-only: 40 clicks per task, about 760k tokens, nothing finished, no coaching parity. Its screenshots are in the repo. It is the straw the design exists to avoid, and it is reported as the straw.</div>
+  <details><summary>Provenance</summary>
+    <p style="margin-top:8px">Repo <code>/Volumes/goldcoders/chiffon</code>, 38 commits, each through <code>make gate</code>. Cells come from <code>results/campaign-2a</code> (T1–T6, four arms, 5 runs), <code>campaign-2b-ours</code> (T8–T11, ours and ceiling, 5 runs), <code>campaign-2c-wait</code> and <code>campaign-2c-deep</code> (loop arms on wait tasks after the fix, 5 and 2 runs), <code>campaign-2b-loops</code> (T11 loops, 2 runs), and <code>campaign-1</code> for arm B. Every directory verifies clean. Reproduce with <code>make bench-ocx ARMS=D,E,B2,C PLANNER=model RUNS=5</code>.</p>
+  </details>
+</section>
+</div>
+
+<script>
+const CELLS = [
+{"task":"T1","arm":"B","depth":3,"runs":5,"correct":5,"samples":4,"plan":10453,"run":6055,"par":1,"src":"campaign-1"},
+{"task":"T1","arm":"B2","depth":3,"runs":5,"correct":5,"samples":4,"plan":6563,"run":3486,"par":1,"src":"campaign-2a"},
+{"task":"T1","arm":"C","depth":3,"runs":5,"correct":5,"samples":4,"plan":7567,"run":3888,"par":1,"src":"campaign-2a"},
+{"task":"T1","arm":"D","depth":3,"runs":5,"correct":5,"samples":1,"plan":2457,"run":64,"par":1,"src":"campaign-2a"},
+{"task":"T1","arm":"E","depth":3,"runs":5,"correct":5,"samples":0,"plan":0,"run":59,"par":1,"src":"campaign-2a"},
+{"task":"T2","arm":"B","depth":3,"runs":5,"correct":5,"samples":22,"plan":48767,"run":44818,"par":1,"src":"campaign-1"},
+{"task":"T2","arm":"B2","depth":3,"runs":5,"correct":5,"samples":4,"plan":14220,"run":8093,"par":11,"src":"campaign-2a"},
+{"task":"T2","arm":"C","depth":3,"runs":5,"correct":5,"samples":6,"plan":24328,"run":18520,"par":10,"src":"campaign-2a"},
+{"task":"T2","arm":"D","depth":3,"runs":5,"correct":5,"samples":1,"plan":6247,"run":67,"par":10,"src":"campaign-2a"},
+{"task":"T2","arm":"E","depth":3,"runs":5,"correct":5,"samples":0,"plan":0,"run":60,"par":10,"src":"campaign-2a"},
+{"task":"T3","arm":"B","depth":4,"runs":5,"correct":5,"samples":11,"plan":21981,"run":18005,"par":1,"src":"campaign-1"},
+{"task":"T3","arm":"B2","depth":4,"runs":5,"correct":4,"samples":5,"plan":9830,"run":6333,"par":3,"src":"campaign-2a"},
+{"task":"T3","arm":"C","depth":4,"runs":5,"correct":4,"samples":5,"plan":19334,"run":14360,"par":3,"src":"campaign-2a"},
+{"task":"T3","arm":"D","depth":4,"runs":5,"correct":4,"samples":1,"plan":4927,"run":83,"par":3,"src":"campaign-2a"},
+{"task":"T3","arm":"E","depth":4,"runs":5,"correct":5,"samples":0,"plan":0,"run":83,"par":3,"src":"campaign-2a"},
+{"task":"T4","arm":"B","depth":5,"runs":5,"correct":0,"samples":60,"plan":77651,"run":75030,"par":1,"src":"campaign-1 (void: app bug)"},
+{"task":"T4","arm":"B2","depth":5,"runs":5,"correct":5,"samples":5,"plan":9446,"run":5499,"par":1,"src":"campaign-2c-wait"},
+{"task":"T4","arm":"C","depth":5,"runs":5,"correct":2,"samples":4,"plan":10346,"run":5861,"par":1,"src":"campaign-2c-wait"},
+{"task":"T4","arm":"D","depth":5,"runs":5,"correct":5,"samples":1,"plan":3503,"run":658,"par":1,"src":"campaign-2a"},
+{"task":"T4","arm":"E","depth":5,"runs":5,"correct":5,"samples":0,"plan":0,"run":694,"par":1,"src":"campaign-2a"},
+{"task":"T5","arm":"B","depth":3,"runs":5,"correct":5,"samples":24,"plan":44654,"run":40501,"par":1,"src":"campaign-1"},
+{"task":"T5","arm":"B2","depth":3,"runs":5,"correct":5,"samples":5,"plan":17583,"run":11474,"par":10,"src":"campaign-2a"},
+{"task":"T5","arm":"C","depth":3,"runs":5,"correct":5,"samples":7,"plan":34125,"run":25231,"par":10,"src":"campaign-2a"},
+{"task":"T5","arm":"D","depth":3,"runs":5,"correct":5,"samples":1,"plan":6709,"run":99,"par":10,"src":"campaign-2a"},
+{"task":"T5","arm":"E","depth":3,"runs":5,"correct":5,"samples":0,"plan":0,"run":102,"par":10,"src":"campaign-2a"},
+{"task":"T6","arm":"B","depth":3,"runs":5,"correct":5,"samples":2,"plan":5695,"run":1,"par":1,"src":"campaign-1"},
+{"task":"T6","arm":"B2","depth":3,"runs":5,"correct":5,"samples":2,"plan":5851,"run":10,"par":1,"src":"campaign-2a"},
+{"task":"T6","arm":"C","depth":3,"runs":5,"correct":5,"samples":2,"plan":5156,"run":6,"par":1,"src":"campaign-2a"},
+{"task":"T6","arm":"D","depth":3,"runs":5,"correct":4,"samples":2,"plan":6294,"run":2531,"par":1,"src":"campaign-2a"},
+{"task":"T6","arm":"E","depth":3,"runs":5,"correct":5,"samples":0,"plan":0,"run":2,"par":1,"src":"campaign-2a"},
+{"task":"T8","arm":"B2","depth":6,"runs":2,"correct":1,"samples":5.5,"plan":10811.5,"run":7307.5,"par":3,"src":"campaign-2c-deep"},
+{"task":"T8","arm":"C","depth":6,"runs":2,"correct":2,"samples":6,"plan":11923.5,"run":7672,"par":3,"src":"campaign-2c-deep"},
+{"task":"T8","arm":"D","depth":6,"runs":5,"correct":5,"samples":1,"plan":5910,"run":688,"par":3,"src":"campaign-2b-ours"},
+{"task":"T8","arm":"E","depth":6,"runs":5,"correct":5,"samples":0,"plan":0,"run":722,"par":3,"src":"campaign-2b-ours"},
+{"task":"T9","arm":"B2","depth":6,"runs":2,"correct":2,"samples":6,"plan":29848.5,"run":23599.5,"par":10.5,"src":"campaign-2c-deep"},
+{"task":"T9","arm":"C","depth":6,"runs":2,"correct":2,"samples":10,"plan":32963,"run":27089,"par":10,"src":"campaign-2c-deep"},
+{"task":"T9","arm":"D","depth":6,"runs":5,"correct":5,"samples":1,"plan":11152,"run":710,"par":10,"src":"campaign-2b-ours"},
+{"task":"T9","arm":"E","depth":6,"runs":5,"correct":5,"samples":0,"plan":0,"run":727,"par":10,"src":"campaign-2b-ours"},
+{"task":"T10","arm":"B2","depth":6,"runs":2,"correct":2,"samples":6,"plan":28160,"run":19903.5,"par":20,"src":"campaign-2c-deep"},
+{"task":"T10","arm":"C","depth":6,"runs":2,"correct":2,"samples":11.5,"plan":42717,"run":37612.5,"par":10,"src":"campaign-2c-deep"},
+{"task":"T10","arm":"D","depth":6,"runs":5,"correct":4,"samples":1,"plan":13451,"run":699,"par":11,"src":"campaign-2b-ours"},
+{"task":"T10","arm":"E","depth":6,"runs":5,"correct":5,"samples":0,"plan":0,"run":751,"par":10,"src":"campaign-2b-ours"},
+{"task":"T11","arm":"B2","depth":3,"runs":2,"correct":2,"samples":14,"plan":197691,"run":192328,"par":50,"src":"campaign-2b-loops"},
+{"task":"T11","arm":"C","depth":3,"runs":2,"correct":0,"samples":30,"plan":274985,"run":216472,"par":50,"src":"campaign-2b-loops"},
+{"task":"T11","arm":"D","depth":3,"runs":5,"correct":5,"samples":1,"plan":111532,"run":1179,"par":16,"src":"campaign-2b-ours"},
+{"task":"T11","arm":"E","depth":3,"runs":5,"correct":5,"samples":0,"plan":0,"run":291,"par":300,"src":"campaign-2b-ours"}
+];
+const TITLES = {T1:"one invoice",T2:"ten invoices",T3:"three + report",T4:"wait for payment",T5:"ten, 30% failures",T6:"two Acmes",T8:"3 chains, 6 deep",T9:"10 chains, 6 deep",T10:"10 chains + 11 reports",T11:"300 from one want"};
+const SHORT = {T1:"one",T2:"ten",T3:"3 + report",T4:"wait",T5:"ten, 30% fail",T6:"two Acmes",T8:"3 × 6 deep",T9:"10 × 6 deep",T10:"10 × 6 + reports",T11:"300 rows"};
+const ORDER = ["T1","T2","T5","T6","T3","T4","T8","T9","T10","T11"];
+const ARMS = {D:{c:"var(--s1)",l:"D ours"},B2:{c:"var(--s2)",l:"B2 parallel MCP"},C:{c:"var(--s3)",l:"C WebMCP"},B:{c:"var(--s4)",l:"B sequential MCP"}};
+const NS = "http://www.w3.org/2000/svg";
+function el(n,a,t){const e=document.createElementNS(NS,n);for(const k in a)e.setAttribute(k,a[k]);if(t!=null)e.textContent=t;return e;}
+function tipFor(fig){const t=fig.querySelector('.tip');return{show(x,y,html){t.innerHTML=html;const r=fig.getBoundingClientRect();t.style.left=(x-r.left)+'px';t.style.top=(y-r.top)+'px';t.classList.add('on');},hide(){t.classList.remove('on');}};}
+
+(function samples(){
+  const fig=document.getElementById('fig-samples'), svg=fig.querySelector('svg'), tip=tipFor(fig);
+  const W=900,H=360,L=56,R=20,T=18,B=64, iw=W-L-R, ih=H-T-B;
+  const ymax=60, sy=v=>T+ih-(Math.sqrt(v)/Math.sqrt(ymax))*ih;
+  const step=iw/ORDER.length, sx=(i,k)=>L+step*(i+0.5)+(k-1.5)*10;
+  [1,2,4,8,16,30,60].forEach(v=>{svg.appendChild(el('line',{x1:L,x2:W-R,y1:sy(v),y2:sy(v),class:'grid'}));svg.appendChild(el('text',{x:L-8,y:sy(v)+4,'text-anchor':'end',class:'svgt'},String(v)));});
+  svg.appendChild(el('line',{x1:L,x2:W-R,y1:sy(0)+0.5,y2:sy(0)+0.5,class:'axis'}));
+  svg.appendChild(el('text',{x:L-8,y:sy(0)+4,'text-anchor':'end',class:'svgt'},'0'));
+  svg.appendChild(el('text',{x:L,y:T-4,class:'svgt'},'samples (median), √ scale'));
+  let lastDepth=null;
+  ORDER.forEach((t,i)=>{
+    const d=CELLS.find(c=>c.task===t).depth;
+    svg.appendChild(el('text',{x:L+step*(i+0.5),y:H-B+18,'text-anchor':'middle',class:'svgl'},t));
+    svg.appendChild(el('text',{x:L+step*(i+0.5),y:H-B+34,'text-anchor':'middle',class:'svgt'},SHORT[t]));
+    if(d!==lastDepth){svg.appendChild(el('text',{x:L+step*i+4,y:H-B+52,class:'svgt'},'depth '+d));if(i>0)svg.appendChild(el('line',{x1:L+step*i,x2:L+step*i,y1:T,y2:H-B+40,class:'axis','stroke-dasharray':'3 4'}));lastDepth=d;}
+    Object.keys(ARMS).forEach((arm,k)=>{
+      const c=CELLS.find(x=>x.task===t&&x.arm===arm); if(!c) return;
+      const x=sx(i,k), y=sy(c.samples);
+      const stem=el('line',{x1:x,x2:x,y1:sy(0),y2:y,stroke:ARMS[arm].c,'stroke-width':2,'stroke-linecap':'round',opacity:.55}); svg.appendChild(stem);
+      const dot=el('circle',{cx:x,cy:y,r:5,fill:ARMS[arm].c,stroke:'var(--sheet)','stroke-width':2}); svg.appendChild(dot);
+      if(arm==='D'||c.samples>=10) svg.appendChild(el('text',{x:x,y:y-9,'text-anchor':'middle',class:'svgl'},String(c.samples)));
+      const hit=el('rect',{x:x-6,y:T,width:12,height:ih,fill:'transparent'});
+      hit.addEventListener('mousemove',e=>tip.show(e.clientX,e.clientY,`<b>${t} · ${ARMS[arm].l}</b><br>${c.samples} samples · ${c.correct}/${c.runs} correct · ${c.par} wide`));
+      hit.addEventListener('mouseleave',tip.hide); svg.appendChild(hit);
+    });
+  });
+})();
+
+(function clock(){
+  const fig=document.getElementById('fig-clock'), svg=fig.querySelector('svg'), tip=tipFor(fig);
+  const rows=ORDER.map(t=>CELLS.find(c=>c.task===t&&c.arm==='D'));
+  const W=900,H=380,L=150,R=90,T=18,B=30, iw=W-L-R, ih=H-T-B, bh=ih/rows.length;
+  const xmax=16000, sx=v=>L+Math.min(v,xmax)/xmax*iw;
+  [0,4000,8000,12000,16000].forEach(v=>{svg.appendChild(el('line',{x1:sx(v),x2:sx(v),y1:T,y2:H-B,class:'grid'}));svg.appendChild(el('text',{x:sx(v),y:H-B+16,'text-anchor':'middle',class:'svgt'},(v/1000)+' s'));});
+  svg.appendChild(el('line',{x1:sx(0)+0.5,x2:sx(0)+0.5,y1:T,y2:H-B,class:'axis'}));
+  rows.forEach((c,i)=>{
+    const y=T+bh*i+bh*0.22, h=bh*0.56;
+    svg.appendChild(el('text',{x:L-10,y:y+h/2+4,'text-anchor':'end',class:'svgl'},c.task));
+    svg.appendChild(el('text',{x:L-40,y:y+h/2+4,'text-anchor':'end',class:'svgt'},TITLES[c.task]));
+    const pw=sx(c.plan)-sx(0), rw=Math.max(2,sx(c.run)-sx(0));
+    const plan=el('rect',{x:sx(0),y:y,width:pw,height:h,fill:'var(--s1l)',rx:0}); svg.appendChild(plan);
+    const run=el('rect',{x:sx(0)+pw+2,y:y,width:Math.min(rw,W-R-sx(0)-pw-2),height:h,fill:'var(--s1b)',rx:2}); svg.appendChild(run);
+    const label=c.plan>xmax?`${(c.plan/1000).toFixed(0)} s planner ▸`:`${(c.plan/1000).toFixed(1)} s + ${c.run} ms`;
+    svg.appendChild(el('text',{x:Math.min(sx(0)+pw+rw+8,W-R+4),y:y+h/2+4,class:'svgl'},label));
+    const hit=el('rect',{x:L,y:T+bh*i,width:iw,height:bh,fill:'transparent'});
+    hit.addEventListener('mousemove',e=>tip.show(e.clientX,e.clientY,`<b>${c.task} · D ours</b><br>planner ${c.plan} ms · kitchen ${c.run} ms · ${c.samples} sample`));
+    hit.addEventListener('mouseleave',tip.hide); svg.appendChild(hit);
+  });
+})();
+
+(function table(){
+  const tb=document.querySelector('#cells tbody');
+  ORDER.forEach(t=>{["D","E","B2","C","B"].forEach(arm=>{
+    const c=CELLS.find(x=>x.task===t&&x.arm===arm); if(!c) return;
+    const tr=document.createElement('tr');
+    const ok=c.correct===c.runs?'ok':(c.correct===0?'bad':'');
+    tr.innerHTML=`<td>${t} <span style="color:var(--ink-3)">${TITLES[t]}</span></td><td>${c.depth}</td><td><b>${arm}</b></td><td class="${ok}">${c.correct}/${c.runs}</td><td>${c.samples}</td><td>${c.plan}</td><td>${c.run}</td><td>${c.par}</td><td style="color:var(--ink-3)">${c.src}</td>`;
+    tb.appendChild(tr);
+  });});
+})();
+</script>

@@ -1,0 +1,19 @@
+[package]
+name = "driver"
+description = "A CDP browser driver with a page pool: the screen surfaces for chiffon"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+anyhow.workspace = true
+serde_json.workspace = true
+tokio.workspace = true
+futures.workspace = true
+tracing.workspace = true
+chromiumoxide = { version = "0.9", default-features = false, features = ["rustls", "zip8"] }
+
+[dev-dependencies]
+app = { path = "../app" }
+axum.workspace = true
+reqwest.workspace = true

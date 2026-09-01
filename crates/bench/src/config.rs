@@ -58,6 +58,9 @@ pub struct RunOpts {
     #[arg(long)]
     #[serde(skip)]
     pub api_key: Option<String>,
+    /// Directory for the planner's intent cache. A repeat goal against the same facts costs zero samples.
+    #[arg(long)]
+    pub plan_cache: Option<PathBuf>,
     #[arg(long)]
     pub out: Option<PathBuf>,
 }

@@ -208,3 +208,60 @@ if the goal gives no basis to choose, choose the lowest id and say nothing else.
     let resp = sampler.sample(ledger, SampleKind::ForkAnswer, body).await?;
     intent_from(&resp, task)
 }
+
+/// A cache of planner output keyed by what the planner saw: goal, world facts, and the surfaces
+/// available. A hit means a repeat goal costs zero samples. The plan itself is recompiled, which
+/// is cheap, and content-addressed keys make the recompiled plan safe to run again.
+pub struct IntentCache {
+    dir: std::path::PathBuf,
+}
+
+impl IntentCache {
+    pub fn new(dir: impl Into<std::path::PathBuf>) -> IntentCache {
+        IntentCache { dir: dir.into() }
+    }
+
+    pub fn key(goal: &str, facts: &str, surfaces: &[String]) -> String {
+        use sha2::{Digest, Sha256};
+        let mut h = Sha256::new();
+        h.update(goal.trim().as_bytes());
+        h.update(b"\n");
+        h.update(facts.trim().as_bytes());
+        h.update(b"\n");
+        h.update(surfaces.join(",").as_bytes());
+        hex::encode(&h.finalize()[..16])
+    }
+
+    fn path(&self, key: &str) -> std::path::PathBuf {
+        self.dir.join(format!("{key}.json"))
+    }
+
+    pub fn get(&self, goal: &str, facts: &str, surfaces: &[String]) -> Option<Intent> {
+        let text = std::fs::read_to_string(self.path(&Self::key(goal, facts, surfaces))).ok()?;
+        serde_json::from_str(&text).ok()
+    }
+
+    pub fn put(&self, goal: &str, facts: &str, surfaces: &[String], intent: &Intent) -> anyhow::Result<()> {
+        std::fs::create_dir_all(&self.dir)?;
+        std::fs::write(self.path(&Self::key(goal, facts, surfaces)), serde_json::to_string_pretty(intent)?)?;
+        Ok(())
+    }
+}
+
+/// Plan through the cache: a hit is free, a miss is planned, linted and stored.
+pub async fn plan_cached(
+    cache: &IntentCache,
+    task: &Task,
+    world: &World,
+    facts: &str,
+    sampler: &dyn Sampler,
+    ledger: &mut Ledger,
+    opts: &CompileOptions,
+) -> anyhow::Result<(Intent, bool)> {
+    if let Some(i) = cache.get(&task.goal, facts, &opts.surfaces) {
+        return Ok((i, true));
+    }
+    let i = plan_with_lint(task, world, facts, sampler, ledger, opts).await?;
+    cache.put(&task.goal, facts, &opts.surfaces, &i)?;
+    Ok((i, false))
+}

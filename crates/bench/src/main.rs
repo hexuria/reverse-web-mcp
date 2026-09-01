@@ -157,21 +157,26 @@ async fn run(opts: RunOpts) -> anyhow::Result<()> {
                 let ctx = ArmContext { base: base.clone(), world: world.clone(), bus: bus.clone(), surfaces: surfaces.clone(), run_id: format!("r{run}") };
 
                 let mut used_intent = serde_json::Value::Null;
+                let mut cache_hit = false;
                 let receipt = match arm.as_str() {
                     "D" => {
                         let mut ledger = zerohuman::Ledger::new();
                         let intent = if planner == "model" {
                             let facts = planner::world_facts(&base).await?;
-                            match planner::plan_with_lint(
-                                task,
-                                &world,
-                                &facts,
-                                &model_client.as_ref().unwrap().with_effort(&opts.planner_effort),
-                                &mut ledger,
-                                &CompileOptions { plan_id: format!("{}-r{run}", task.id), surfaces: surfaces.clone() },
-                            )
-                            .await
-                            {
+                            let copts = CompileOptions { plan_id: format!("{}-r{run}", task.id), surfaces: surfaces.clone() };
+                            let sampler = model_client.as_ref().unwrap().with_effort(&opts.planner_effort);
+                            let planned = match &opts.plan_cache {
+                                Some(dir) => planner::plan_cached(&planner::IntentCache::new(dir), task, &world, &facts, &sampler, &mut ledger, &copts)
+                                    .await
+                                    .map(|(i, hit)| {
+                                        if hit {
+                                            cache_hit = true;
+                                        }
+                                        i
+                                    }),
+                                None => planner::plan_with_lint(task, &world, &facts, &sampler, &mut ledger, &copts).await,
+                            };
+                            match planned {
                                 Ok(i) => Some(i),
                                 Err(e) => {
                                     eprintln!("planner failed: {e}");
@@ -231,7 +236,9 @@ async fn run(opts: RunOpts) -> anyhow::Result<()> {
                     arm: arm.clone(),
                     run,
                     status: status.into(),
-                    planner: if arm == "D" {
+                    planner: if arm == "D" && cache_hit {
+                        "cached-intent".into()
+                    } else if arm == "D" {
                         format!("{planner}-intent")
                     } else if arm == "E" {
                         "none".into()

@@ -67,3 +67,25 @@ async fn two_bad_intents_is_an_error_not_a_third_sample() {
     assert!(err.to_string().contains("still wrong"), "{err}");
     assert_eq!(ledger.sample_count(), 2);
 }
+
+#[tokio::test]
+async fn a_repeat_goal_costs_zero_samples() {
+    use bench::planner::{plan_cached, IntentCache};
+    let dir = std::env::temp_dir().join(format!("chiffon-cache-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    let cache = IntentCache::new(&dir);
+    let sampler = Scripted(Mutex::new(vec![vec!["invoice(customer=customer(name='Acme')).status='sent'"]]));
+    let mut ledger = Ledger::new();
+    let (first, hit) = plan_cached(&cache, &task(), &world(), "facts", &sampler, &mut ledger, &CompileOptions::default()).await.unwrap();
+    assert!(!hit);
+    assert_eq!(ledger.sample_count(), 1);
+    let mut ledger2 = Ledger::new();
+    let (second, hit) = plan_cached(&cache, &task(), &world(), "facts", &sampler, &mut ledger2, &CompileOptions::default()).await.unwrap();
+    assert!(hit);
+    assert_eq!(ledger2.sample_count(), 0);
+    assert_eq!(first.wants, second.wants);
+    // Different facts, different key: a changed world never hits.
+    assert!(cache.get(&task().goal, "other facts", &CompileOptions::default().surfaces).is_none());
+    assert!(cache.get(&task().goal, "facts", &["api".to_string(), "mcp".to_string()]).is_none());
+    let _ = std::fs::remove_dir_all(&dir);
+}

@@ -157,6 +157,12 @@ What the table says:
 `results/campaign-1/report.html` has the full table with spread, and every result file carries
 its ledger, snapshot and intent.
 
+`results/screens-smoke` is a single-run smoke of the screen arms with the same model. Arm C
+(WebMCP in a headless page) was correct on T1 in 4 samples and on T2 in 6 samples, ten wide.
+Arm A (pixels) clicked 40 times on each task, spent ~760k tokens, and finished neither; its
+screenshots are under `shots/`. That is the straw the whole design is built to avoid, with no
+parity coaching, and it is reported as such.
+
 ## What a result contains
 
 Per run: status, model samples, tokens, wall time, **max parallel** (a sweep over the ledger's

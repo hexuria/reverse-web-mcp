@@ -1,0 +1,1163 @@
+{
+  "task": "T2",
+  "task_title": "invoice and send for 10 customers",
+  "arm": "A",
+  "run": 1,
+  "status": "error",
+  "planner": "grok-4.6@medium",
+  "samples": 40,
+  "tokens_in": 759148,
+  "tokens_out": 1250,
+  "wall_ms": 191578,
+  "plan_ms": 179717,
+  "run_ms": 184976,
+  "max_parallel": 1,
+  "max_parallel_by_surface": {
+    "pixels": 1
+  },
+  "nodes": 0,
+  "depth": 0,
+  "correct": false,
+  "checks": [
+    {
+      "name": "status",
+      "expected": "committed",
+      "actual": "error",
+      "ok": false
+    },
+    {
+      "name": "invoices",
+      "expected": 10,
+      "actual": 1,
+      "ok": false
+    },
+    {
+      "name": "sent",
+      "expected": 10,
+      "actual": 0,
+      "ok": false
+    },
+    {
+      "name": "double_sends",
+      "expected": 0,
+      "actual": 0,
+      "ok": true
+    }
+  ],
+  "double_sends": 0,
+  "forks": 0,
+  "yield_reason": null,
+  "error": "gave up after 40 turns",
+  "snapshot": {
+    "chaos": {
+      "latency_ms": 25,
+      "rate_limit_per_sec": 0,
+      "require_approval": false,
+      "send_fail_rate": 0.0,
+      "ui_modal": false
+    },
+    "customers": [
+      {
+        "email": "billing@acme.example",
+        "id": 1,
+        "name": "Acme"
+      },
+      {
+        "email": "billing@globex.example",
+        "id": 2,
+        "name": "Globex"
+      },
+      {
+        "email": "billing@initech.example",
+        "id": 3,
+        "name": "Initech"
+      },
+      {
+        "email": "billing@umbrella.example",
+        "id": 4,
+        "name": "Umbrella"
+      },
+      {
+        "email": "billing@hooli.example",
+        "id": 5,
+        "name": "Hooli"
+      },
+      {
+        "email": "billing@vandelay.example",
+        "id": 6,
+        "name": "Vandelay"
+      },
+      {
+        "email": "billing@stark.example",
+        "id": 7,
+        "name": "Stark"
+      },
+      {
+        "email": "billing@wayne.example",
+        "id": 8,
+        "name": "Wayne"
+      },
+      {
+        "email": "billing@wonka.example",
+        "id": 9,
+        "name": "Wonka"
+      },
+      {
+        "email": "billing@tyrell.example",
+        "id": 10,
+        "name": "Tyrell"
+      }
+    ],
+    "invoices": [
+      {
+        "amount_cents": 10000,
+        "approved": false,
+        "customer_id": 1,
+        "id": 11,
+        "receipt_sent": false,
+        "status": "draft"
+      }
+    ],
+    "outbox": [],
+    "payments": [],
+    "reports": [],
+    "seed": 2
+  },
+  "receipt": {
+    "depth": 0,
+    "effects": [],
+    "error": "gave up after 40 turns",
+    "evidence": null,
+    "forks_taken": 0,
+    "ledger": {
+      "ended_ms": 1788299781021,
+      "forks": [],
+      "rows": [
+        {
+          "attempt": 1,
+          "ended_us": 1788299595815076,
+          "error": null,
+          "key": null,
+          "node": "px1",
+          "observed": {
+            "ok": true
+          },
+          "ok": true,
+          "op": "cua.click",
+          "started_us": 1788299595793232,
+          "surface": "pixels",
+          "write": false
+        },
+        {
+          "attempt": 1,
+          "ended_us": 1788299598125341,
+          "error": null,
+          "key": null,
+          "node": "px2",
+          "observed": {
+            "ok": true
+          },
+          "ok": true,
+          "op": "cua.click",
+          "started_us": 1788299598124008,
+          "surface": "pixels",
+          "write": false
+        },
+        {
+          "attempt": 1,
+          "ended_us": 1788299614810839,
+          "error": null,
+          "key": null,
+          "node": "px3",
+          "observed": {
+            "ok": true
+          },
+          "ok": true,
+          "op": "cua.click",
+          "started_us": 1788299614776874,
+          "surface": "pixels",
+          "write": false
+        },
+        {
+          "attempt": 1,
+          "ended_us": 1788299621884855,
+          "error": null,
+          "key": null,
+          "node": "px4",
+          "observed": {
+            "ok": true
+          },
+          "ok": true,
+          "op": "cua.click",
+          "started_us": 1788299621872706,
+          "surface": "pixels",
+          "write": false
+        },
+        {
+          "attempt": 1,
+          "ended_us": 1788299625433721,
+          "error": null,
+          "key": null,
+          "node": "px5",
+          "observed": {
+            "ok": true
+          },
+          "ok": true,
+          "op": "cua.click",
+          "started_us": 1788299625431947,
+          "surface": "pixels",
+          "write": false
+        },
+        {
+          "attempt": 1,
+          "ended_us": 1788299628590870,
+          "error": null,
+          "key": null,
+          "node": "px6",
+          "observed": {
+            "ok": true
+          },
+          "ok": true,
+          "op": "cua.click",
+          "started_us": 1788299628589376,
+          "surface": "pixels",
+          "write": false
+        },
+        {
+          "attempt": 1,
+          "ended_us": 1788299632044245,
+          "error": null,
+          "key": null,
+          "node": "px7",
+          "observed": {
+            "ok": true
+          },
+          "ok": true,
+          "op": "cua.click",
+          "started_us": 1788299632042676,
+          "surface": "pixels",
+          "write": false
+        },
+        {
+          "attempt": 1,
+          "ended_us": 1788299635666333,
+          "error": null,
+          "key": null,
+          "node": "px8",
+          "observed": {
+            "ok": true
+          },
+          "ok": true,
+          "op": "cua.click",
+          "started_us": 1788299635664708,
+          "surface": "pixels",
+          "write": false
+        },
+        {
+          "attempt": 1,
+          "ended_us": 1788299651262496,
+          "error": null,
+          "key": null,
+          "node": "px9",
+          "observed": {
+            "ok": true
+          },
+          "ok": true,
+          "op": "cua.click",
+          "started_us": 1788299651260703,
+          "surface": "pixels",
+          "write": false
+        },
+        {
+          "attempt": 1,
+          "ended_us": 1788299653937727,
+          "error": null,
+          "key": null,
+          "node": "px10",
+          "observed": {
+            "ok": true
+          },
+          "ok": true,
+          "op": "cua.click",
+          "started_us": 1788299653934706,
+          "surface": "pixels",
+          "write": false
+        },
+        {
+          "attempt": 1,
+          "ended_us": 1788299656664461,
+          "error": null,
+          "key": null,
+          "node": "px11",
+          "observed": {
+            "ok": true
+          },
+          "ok": true,
+          "op": "cua.click",
+          "started_us": 1788299656661793,
+          "surface": "pixels",
+          "write": false
+        },
+        {
+          "attempt": 1,
+          "ended_us": 1788299665078070,
+          "error": null,
+          "key": null,
+          "node": "px12",
+          "observed": {
+            "ok": true
+          },
+          "ok": true,
+          "op": "cua.click",
+          "started_us": 1788299665076742,
+          "surface": "pixels",
+          "write": false
+        },
+        {
+          "attempt": 1,
+          "ended_us": 1788299668380236,
+          "error": null,
+          "key": null,
+          "node": "px13",
+          "observed": {
+            "ok": true
+          },
+          "ok": true,
+          "op": "cua.click",
+          "started_us": 1788299668378286,
+          "surface": "pixels",
+          "write": false
+        },
+        {
+          "attempt": 1,
+          "ended_us": 1788299678134198,
+          "error": null,
+          "key": null,
+          "node": "px14",
+          "observed": {
+            "ok": true
+          },
+          "ok": true,
+          "op": "cua.click",
+          "started_us": 1788299678132834,
+          "surface": "pixels",
+          "write": false
+        },
+        {
+          "attempt": 1,
+          "ended_us": 1788299681693006,
+          "error": null,
+          "key": null,
+          "node": "px15",
+          "observed": {
+            "ok": true
+          },
+          "ok": true,
+          "op": "cua.click",
+          "started_us": 1788299681691274,
+          "surface": "pixels",
+          "write": false
+        },
+        {
+          "attempt": 1,
+          "ended_us": 1788299684145528,
+          "error": null,
+          "key": null,
+          "node": "px16",
+          "observed": {
+            "ok": true
+          },
+          "ok": true,
+          "op": "cua.click",
+          "started_us": 1788299684143959,
+          "surface": "pixels",
+          "write": false
+        },
+        {
+          "attempt": 1,
+          "ended_us": 1788299692499092,
+          "error": null,
+          "key": null,
+          "node": "px17",
+          "observed": {
+            "ok": true
+          },
+          "ok": true,
+          "op": "cua.click",
+          "started_us": 1788299692497498,
+          "surface": "pixels",
+          "write": false
+        },
+        {
+          "attempt": 1,
+          "ended_us": 1788299695490193,
+          "error": null,
+          "key": null,
+          "node": "px18",
+          "observed": {
+            "ok": true
+          },
+          "ok": true,
+          "op": "cua.click",
+          "started_us": 1788299695485974,
+          "surface": "pixels",
+          "write": false
+        },
+        {
+          "attempt": 1,
+          "ended_us": 1788299704384666,
+          "error": null,
+          "key": null,
+          "node": "px19",
+          "observed": {
+            "ok": true
+          },
+          "ok": true,
+          "op": "cua.click",
+          "started_us": 1788299704381068,
+          "surface": "pixels",
+          "write": false
+        },
+        {
+          "attempt": 1,
+          "ended_us": 1788299708026939,
+          "error": null,
+          "key": null,
+          "node": "px20",
+          "observed": {
+            "ok": true
+          },
+          "ok": true,
+          "op": "cua.click",
+          "started_us": 1788299708025053,
+          "surface": "pixels",
+          "write": false
+        },
+        {
+          "attempt": 1,
+          "ended_us": 1788299710214283,
+          "error": null,
+          "key": null,
+          "node": "px21",
+          "observed": {
+            "ok": true
+          },
+          "ok": true,
+          "op": "cua.click",
+          "started_us": 1788299710213077,
+          "surface": "pixels",
+          "write": false
+        },
+        {
+          "attempt": 1,
+          "ended_us": 1788299713276723,
+          "error": null,
+          "key": null,
+          "node": "px22",
+          "observed": {
+            "ok": true
+          },
+          "ok": true,
+          "op": "cua.click",
+          "started_us": 1788299713272438,
+          "surface": "pixels",
+          "write": false
+        },
+        {
+          "attempt": 1,
+          "ended_us": 1788299716939022,
+          "error": null,
+          "key": null,
+          "node": "px23",
+          "observed": {
+            "ok": true
+          },
+          "ok": true,
+          "op": "cua.click",
+          "started_us": 1788299716925561,
+          "surface": "pixels",
+          "write": false
+        },
+        {
+          "attempt": 1,
+          "ended_us": 1788299719566747,
+          "error": null,
+          "key": null,
+          "node": "px24",
+          "observed": {
+            "ok": true
+          },
+          "ok": true,
+          "op": "cua.click",
+          "started_us": 1788299719564924,
+          "surface": "pixels",
+          "write": false
+        },
+        {
+          "attempt": 1,
+          "ended_us": 1788299722904365,
+          "error": null,
+          "key": null,
+          "node": "px25",
+          "observed": {
+            "ok": true
+          },
+          "ok": true,
+          "op": "cua.click",
+          "started_us": 1788299722902850,
+          "surface": "pixels",
+          "write": false
+        },
+        {
+          "attempt": 1,
+          "ended_us": 1788299726620287,
+          "error": null,
+          "key": null,
+          "node": "px26",
+          "observed": {
+            "ok": true
+          },
+          "ok": true,
+          "op": "cua.click",
+          "started_us": 1788299726618686,
+          "surface": "pixels",
+          "write": false
+        },
+        {
+          "attempt": 1,
+          "ended_us": 1788299730244446,
+          "error": null,
+          "key": null,
+          "node": "px27",
+          "observed": {
+            "ok": true
+          },
+          "ok": true,
+          "op": "cua.click",
+          "started_us": 1788299730242279,
+          "surface": "pixels",
+          "write": false
+        },
+        {
+          "attempt": 1,
+          "ended_us": 1788299734438748,
+          "error": null,
+          "key": null,
+          "node": "px28",
+          "observed": {
+            "ok": true
+          },
+          "ok": true,
+          "op": "cua.click",
+          "started_us": 1788299734437020,
+          "surface": "pixels",
+          "write": false
+        },
+        {
+          "attempt": 1,
+          "ended_us": 1788299741832643,
+          "error": null,
+          "key": null,
+          "node": "px29",
+          "observed": {
+            "ok": true
+          },
+          "ok": true,
+          "op": "cua.click",
+          "started_us": 1788299741830783,
+          "surface": "pixels",
+          "write": false
+        },
+        {
+          "attempt": 1,
+          "ended_us": 1788299746577049,
+          "error": null,
+          "key": null,
+          "node": "px30",
+          "observed": {
+            "ok": true
+          },
+          "ok": true,
+          "op": "cua.click",
+          "started_us": 1788299746574984,
+          "surface": "pixels",
+          "write": false
+        },
+        {
+          "attempt": 1,
+          "ended_us": 1788299750051955,
+          "error": null,
+          "key": null,
+          "node": "px31",
+          "observed": {
+            "ok": true
+          },
+          "ok": true,
+          "op": "cua.click",
+          "started_us": 1788299750050229,
+          "surface": "pixels",
+          "write": false
+        },
+        {
+          "attempt": 1,
+          "ended_us": 1788299753838859,
+          "error": null,
+          "key": null,
+          "node": "px32",
+          "observed": {
+            "ok": true
+          },
+          "ok": true,
+          "op": "cua.click",
+          "started_us": 1788299753836927,
+          "surface": "pixels",
+          "write": false
+        },
+        {
+          "attempt": 1,
+          "ended_us": 1788299757649011,
+          "error": null,
+          "key": null,
+          "node": "px33",
+          "observed": {
+            "ok": true
+          },
+          "ok": true,
+          "op": "cua.click",
+          "started_us": 1788299757647817,
+          "surface": "pixels",
+          "write": false
+        },
+        {
+          "attempt": 1,
+          "ended_us": 1788299761489949,
+          "error": null,
+          "key": null,
+          "node": "px34",
+          "observed": {
+            "ok": true
+          },
+          "ok": true,
+          "op": "cua.click",
+          "started_us": 1788299761488331,
+          "surface": "pixels",
+          "write": false
+        },
+        {
+          "attempt": 1,
+          "ended_us": 1788299765075174,
+          "error": null,
+          "key": null,
+          "node": "px35",
+          "observed": {
+            "ok": true
+          },
+          "ok": true,
+          "op": "cua.click",
+          "started_us": 1788299765071724,
+          "surface": "pixels",
+          "write": false
+        },
+        {
+          "attempt": 1,
+          "ended_us": 1788299767855834,
+          "error": null,
+          "key": null,
+          "node": "px36",
+          "observed": {
+            "ok": true
+          },
+          "ok": true,
+          "op": "cua.click",
+          "started_us": 1788299767854402,
+          "surface": "pixels",
+          "write": false
+        },
+        {
+          "attempt": 1,
+          "ended_us": 1788299770647383,
+          "error": null,
+          "key": null,
+          "node": "px37",
+          "observed": {
+            "ok": true
+          },
+          "ok": true,
+          "op": "cua.click",
+          "started_us": 1788299770645206,
+          "surface": "pixels",
+          "write": false
+        },
+        {
+          "attempt": 1,
+          "ended_us": 1788299774832227,
+          "error": null,
+          "key": null,
+          "node": "px38",
+          "observed": {
+            "ok": true
+          },
+          "ok": true,
+          "op": "cua.click",
+          "started_us": 1788299774831057,
+          "surface": "pixels",
+          "write": false
+        },
+        {
+          "attempt": 1,
+          "ended_us": 1788299777955100,
+          "error": null,
+          "key": null,
+          "node": "px39",
+          "observed": {
+            "ok": true
+          },
+          "ok": true,
+          "op": "cua.click",
+          "started_us": 1788299777953590,
+          "surface": "pixels",
+          "write": false
+        },
+        {
+          "attempt": 1,
+          "ended_us": 1788299780769396,
+          "error": null,
+          "key": null,
+          "node": "px40",
+          "observed": {
+            "ok": true
+          },
+          "ok": true,
+          "op": "cua.click",
+          "started_us": 1788299780767984,
+          "surface": "pixels",
+          "write": false
+        }
+      ],
+      "samples": [
+        {
+          "effort": "medium",
+          "ended_us": 1788299595793222,
+          "kind": "turn",
+          "model": "grok-4.6",
+          "seq": 1,
+          "started_us": 1788299589572297,
+          "tokens_in": 1545,
+          "tokens_out": 41
+        },
+        {
+          "effort": "medium",
+          "ended_us": 1788299598123998,
+          "kind": "turn",
+          "model": "grok-4.6",
+          "seq": 2,
+          "started_us": 1788299596140785,
+          "tokens_in": 2447,
+          "tokens_out": 37
+        },
+        {
+          "effort": "medium",
+          "ended_us": 1788299614776865,
+          "kind": "turn",
+          "model": "grok-4.6",
+          "seq": 3,
+          "started_us": 1788299598417155,
+          "tokens_in": 3345,
+          "tokens_out": 20
+        },
+        {
+          "effort": "medium",
+          "ended_us": 1788299621872698,
+          "kind": "turn",
+          "model": "grok-4.6",
+          "seq": 4,
+          "started_us": 1788299615091404,
+          "tokens_in": 4223,
+          "tokens_out": 33
+        },
+        {
+          "effort": "medium",
+          "ended_us": 1788299625431937,
+          "kind": "turn",
+          "model": "grok-4.6",
+          "seq": 5,
+          "started_us": 1788299622198045,
+          "tokens_in": 5117,
+          "tokens_out": 41
+        },
+        {
+          "effort": "medium",
+          "ended_us": 1788299628589365,
+          "kind": "turn",
+          "model": "grok-4.6",
+          "seq": 6,
+          "started_us": 1788299625735168,
+          "tokens_in": 6019,
+          "tokens_out": 44
+        },
+        {
+          "effort": "medium",
+          "ended_us": 1788299632042664,
+          "kind": "turn",
+          "model": "grok-4.6",
+          "seq": 7,
+          "started_us": 1788299628882493,
+          "tokens_in": 6924,
+          "tokens_out": 33
+        },
+        {
+          "effort": "medium",
+          "ended_us": 1788299635664699,
+          "kind": "turn",
+          "model": "grok-4.6",
+          "seq": 8,
+          "started_us": 1788299632327756,
+          "tokens_in": 7818,
+          "tokens_out": 36
+        },
+        {
+          "effort": "medium",
+          "ended_us": 1788299651260695,
+          "kind": "turn",
+          "model": "grok-4.6",
+          "seq": 9,
+          "started_us": 1788299635939470,
+          "tokens_in": 8715,
+          "tokens_out": 35
+        },
+        {
+          "effort": "medium",
+          "ended_us": 1788299653934699,
+          "kind": "turn",
+          "model": "grok-4.6",
+          "seq": 10,
+          "started_us": 1788299651541740,
+          "tokens_in": 9611,
+          "tokens_out": 45
+        },
+        {
+          "effort": "medium",
+          "ended_us": 1788299656661779,
+          "kind": "turn",
+          "model": "grok-4.6",
+          "seq": 11,
+          "started_us": 1788299654232852,
+          "tokens_in": 10517,
+          "tokens_out": 37
+        },
+        {
+          "effort": "medium",
+          "ended_us": 1788299665076734,
+          "kind": "turn",
+          "model": "grok-4.6",
+          "seq": 12,
+          "started_us": 1788299656951627,
+          "tokens_in": 11415,
+          "tokens_out": 35
+        },
+        {
+          "effort": "medium",
+          "ended_us": 1788299668378276,
+          "kind": "turn",
+          "model": "grok-4.6",
+          "seq": 13,
+          "started_us": 1788299665359224,
+          "tokens_in": 12311,
+          "tokens_out": 32
+        },
+        {
+          "effort": "medium",
+          "ended_us": 1788299678132827,
+          "kind": "turn",
+          "model": "grok-4.6",
+          "seq": 14,
+          "started_us": 1788299668668448,
+          "tokens_in": 13204,
+          "tokens_out": 32
+        },
+        {
+          "effort": "medium",
+          "ended_us": 1788299681691263,
+          "kind": "turn",
+          "model": "grok-4.6",
+          "seq": 15,
+          "started_us": 1788299678431534,
+          "tokens_in": 14097,
+          "tokens_out": 35
+        },
+        {
+          "effort": "medium",
+          "ended_us": 1788299684143949,
+          "kind": "turn",
+          "model": "grok-4.6",
+          "seq": 16,
+          "started_us": 1788299681973974,
+          "tokens_in": 14993,
+          "tokens_out": 28
+        },
+        {
+          "effort": "medium",
+          "ended_us": 1788299692497488,
+          "kind": "turn",
+          "model": "grok-4.6",
+          "seq": 17,
+          "started_us": 1788299684422043,
+          "tokens_in": 15882,
+          "tokens_out": 35
+        },
+        {
+          "effort": "medium",
+          "ended_us": 1788299695485954,
+          "kind": "turn",
+          "model": "grok-4.6",
+          "seq": 18,
+          "started_us": 1788299692774762,
+          "tokens_in": 16778,
+          "tokens_out": 35
+        },
+        {
+          "effort": "medium",
+          "ended_us": 1788299704381058,
+          "kind": "turn",
+          "model": "grok-4.6",
+          "seq": 19,
+          "started_us": 1788299695775214,
+          "tokens_in": 17674,
+          "tokens_out": 28
+        },
+        {
+          "effort": "medium",
+          "ended_us": 1788299708025045,
+          "kind": "turn",
+          "model": "grok-4.6",
+          "seq": 20,
+          "started_us": 1788299704690842,
+          "tokens_in": 18563,
+          "tokens_out": 28
+        },
+        {
+          "effort": "medium",
+          "ended_us": 1788299710213070,
+          "kind": "turn",
+          "model": "grok-4.6",
+          "seq": 21,
+          "started_us": 1788299708311163,
+          "tokens_in": 19452,
+          "tokens_out": 28
+        },
+        {
+          "effort": "medium",
+          "ended_us": 1788299713272314,
+          "kind": "turn",
+          "model": "grok-4.6",
+          "seq": 22,
+          "started_us": 1788299710487853,
+          "tokens_in": 20341,
+          "tokens_out": 28
+        },
+        {
+          "effort": "medium",
+          "ended_us": 1788299716925535,
+          "kind": "turn",
+          "model": "grok-4.6",
+          "seq": 23,
+          "started_us": 1788299713555616,
+          "tokens_in": 21230,
+          "tokens_out": 28
+        },
+        {
+          "effort": "medium",
+          "ended_us": 1788299719564915,
+          "kind": "turn",
+          "model": "grok-4.6",
+          "seq": 24,
+          "started_us": 1788299717260666,
+          "tokens_in": 22119,
+          "tokens_out": 28
+        },
+        {
+          "effort": "medium",
+          "ended_us": 1788299722902839,
+          "kind": "turn",
+          "model": "grok-4.6",
+          "seq": 25,
+          "started_us": 1788299719840328,
+          "tokens_in": 23008,
+          "tokens_out": 28
+        },
+        {
+          "effort": "medium",
+          "ended_us": 1788299726618678,
+          "kind": "turn",
+          "model": "grok-4.6",
+          "seq": 26,
+          "started_us": 1788299723208917,
+          "tokens_in": 23897,
+          "tokens_out": 28
+        },
+        {
+          "effort": "medium",
+          "ended_us": 1788299730242272,
+          "kind": "turn",
+          "model": "grok-4.6",
+          "seq": 27,
+          "started_us": 1788299726905795,
+          "tokens_in": 24786,
+          "tokens_out": 28
+        },
+        {
+          "effort": "medium",
+          "ended_us": 1788299734437013,
+          "kind": "turn",
+          "model": "grok-4.6",
+          "seq": 28,
+          "started_us": 1788299730524941,
+          "tokens_in": 25675,
+          "tokens_out": 28
+        },
+        {
+          "effort": "medium",
+          "ended_us": 1788299741830776,
+          "kind": "turn",
+          "model": "grok-4.6",
+          "seq": 29,
+          "started_us": 1788299734723758,
+          "tokens_in": 26564,
+          "tokens_out": 28
+        },
+        {
+          "effort": "medium",
+          "ended_us": 1788299746574976,
+          "kind": "turn",
+          "model": "grok-4.6",
+          "seq": 30,
+          "started_us": 1788299742126248,
+          "tokens_in": 27453,
+          "tokens_out": 28
+        },
+        {
+          "effort": "medium",
+          "ended_us": 1788299750050221,
+          "kind": "turn",
+          "model": "grok-4.6",
+          "seq": 31,
+          "started_us": 1788299746854442,
+          "tokens_in": 28342,
+          "tokens_out": 28
+        },
+        {
+          "effort": "medium",
+          "ended_us": 1788299753836916,
+          "kind": "turn",
+          "model": "grok-4.6",
+          "seq": 32,
+          "started_us": 1788299750352066,
+          "tokens_in": 29231,
+          "tokens_out": 28
+        },
+        {
+          "effort": "medium",
+          "ended_us": 1788299757647797,
+          "kind": "turn",
+          "model": "grok-4.6",
+          "seq": 33,
+          "started_us": 1788299754122030,
+          "tokens_in": 30120,
+          "tokens_out": 28
+        },
+        {
+          "effort": "medium",
+          "ended_us": 1788299761488321,
+          "kind": "turn",
+          "model": "grok-4.6",
+          "seq": 34,
+          "started_us": 1788299757939271,
+          "tokens_in": 31009,
+          "tokens_out": 28
+        },
+        {
+          "effort": "medium",
+          "ended_us": 1788299765071705,
+          "kind": "turn",
+          "model": "grok-4.6",
+          "seq": 35,
+          "started_us": 1788299761781618,
+          "tokens_in": 31898,
+          "tokens_out": 28
+        },
+        {
+          "effort": "medium",
+          "ended_us": 1788299767854394,
+          "kind": "turn",
+          "model": "grok-4.6",
+          "seq": 36,
+          "started_us": 1788299765371067,
+          "tokens_in": 32787,
+          "tokens_out": 28
+        },
+        {
+          "effort": "medium",
+          "ended_us": 1788299770645181,
+          "kind": "turn",
+          "model": "grok-4.6",
+          "seq": 37,
+          "started_us": 1788299768143497,
+          "tokens_in": 33676,
+          "tokens_out": 28
+        },
+        {
+          "effort": "medium",
+          "ended_us": 1788299774831050,
+          "kind": "turn",
+          "model": "grok-4.6",
+          "seq": 38,
+          "started_us": 1788299770948203,
+          "tokens_in": 34565,
+          "tokens_out": 28
+        },
+        {
+          "effort": "medium",
+          "ended_us": 1788299777953579,
+          "kind": "turn",
+          "model": "grok-4.6",
+          "seq": 39,
+          "started_us": 1788299775138958,
+          "tokens_in": 35454,
+          "tokens_out": 28
+        },
+        {
+          "effort": "medium",
+          "ended_us": 1788299780767974,
+          "kind": "turn",
+          "model": "grok-4.6",
+          "seq": 40,
+          "started_us": 1788299778254340,
+          "tokens_in": 36343,
+          "tokens_out": 28
+        }
+      ],
+      "started_ms": 1788299589443
+    },
+    "max_parallel": 1,
+    "max_parallel_by_surface": {
+      "pixels": 1
+    },
+    "nodes": 0,
+    "plan": "plan T2-A-r1  (0 nodes, depth 0)\n",
+    "plan_id": "T2-A-r1",
+    "plan_ms": 179717,
+    "run_ms": 184976,
+    "samples": 40,
+    "status": "error",
+    "tokens_in": 759148,
+    "tokens_out": 1250,
+    "wall_ms": 191578,
+    "yield_reason": null
+  },
+  "intent": null,
+  "model": "grok-4.6",
+  "effort": "medium",
+  "base_url": "http://localhost:8080",
+  "latency_ms": 25,
+  "surfaces": "api"
+}

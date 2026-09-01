@@ -18,7 +18,7 @@ PHASE ?= 3
 LATENCY ?= 25
 SURFACES ?= api
 TASKS ?=
-RUN ?= $(shell ls -d results/*/ 2>/dev/null | sort | tail -1)
+RUN ?= $(shell ls -td results/*/ 2>/dev/null | head -1)
 
 .PHONY: build test gate bench report verify app sandbox clean
 

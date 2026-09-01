@@ -50,7 +50,10 @@ written), and every result file records model, effort, base URL, latency and sur
 model for a whole comparison; never mix providers across arms.
 
 Every knob is on `bench run --help`: `--latency-ms` (default 25, added to every write so the app
-behaves like a network service), `--surfaces`, `--model`, `--effort`, `--planner`.
+behaves like a network service), `--surfaces`, `--model`, `--effort`, `--planner`,
+`--planner-effort` (default `low`). Through opencodex with grok-4.6 the effort knob is real but
+small: on T3 the planner emitted 143–163 output tokens in 5–6 s at low and 172–175 in 7–8 s at
+medium, all correct. Treat effort as a cost lever, not a correctness lever, on that route.
 
 ## The target app
 

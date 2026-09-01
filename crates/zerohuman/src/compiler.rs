@@ -48,10 +48,13 @@ struct Compiler<'a> {
     nodes: Vec<Node>,
     memo: HashMap<String, String>,
     deps: Vec<(String, String)>,
+    /// Each node's content address: its operation plus its want with every reference expanded
+    /// into the referenced node's own address. Stable under renumbering and reordering.
+    canon: HashMap<String, String>,
 }
 
 pub fn compile(intent: &Intent, world: &World, opts: &CompileOptions) -> Result<Plan, CompileError> {
-    let mut c = Compiler { ops: world.ops.clone(), intent, opts, nodes: Vec::new(), memo: HashMap::new(), deps: Vec::new() };
+    let mut c = Compiler { ops: world.ops.clone(), intent, opts, nodes: Vec::new(), memo: HashMap::new(), deps: Vec::new(), canon: HashMap::new() };
     for w in &intent.wants {
         let pred = Pred::parse(w).map_err(|e| CompileError::Parse(w.clone(), e))?;
         c.satisfy(&pred)?;
@@ -72,6 +75,33 @@ impl<'a> Compiler<'a> {
             letter.to_string()
         } else {
             format!("{letter}{}", i / 26)
+        }
+    }
+
+    /// The want with every `$node.field` replaced by that node's content address.
+    fn expand(&self, pred: &Pred) -> String {
+        let bind = |_: &str| None;
+        let p = pred.subst(&bind);
+        let mut out = format!("{}(", p.entity);
+        for (i, (k, v)) in p.args.iter().enumerate() {
+            if i > 0 {
+                out.push(',');
+            }
+            out.push_str(&format!("{k}={}", self.expand_val(v)));
+        }
+        out.push(')');
+        if !p.field.is_empty() {
+            out.push_str(&format!(".{}={}", p.field, self.expand_val(&p.value)));
+        }
+        out
+    }
+
+    fn expand_val(&self, v: &Val) -> String {
+        match v {
+            Val::Ref(n, f) => format!("@({}).{f}", self.canon.get(n).cloned().unwrap_or_else(|| n.clone())),
+            Val::List(xs) => format!("[{}]", xs.iter().map(|x| self.expand_val(x)).collect::<Vec<_>>().join(",")),
+            Val::Entity(p) => self.expand(p),
+            other => other.to_string(),
         }
     }
 
@@ -219,7 +249,9 @@ impl<'a> Compiler<'a> {
 
         let reads = op.reads.iter().flat_map(|r| resource(r, &b, &id)).collect();
         let writes = op.writes.iter().flat_map(|w| resource(w, &b, &id)).collect::<Vec<_>>();
-        let key = if op.kind == OpKind::Http && !writes.is_empty() { Some(format!("{}/{}", self.opts.plan_id, id)) } else { None };
+        let canon = format!("{}|{}", op.name, self.expand(want));
+        let key = if op.kind == OpKind::Http && !writes.is_empty() { Some(format!("{}/{}", self.opts.plan_id, content_hash(&canon))) } else { None };
+        self.canon.insert(id.clone(), canon);
         let mut fork = op.fork.clone();
         if let Some(f) = &mut fork {
             if let Some(intent_fork) = self.intent.forks.iter().find(|x| x.when == f.when) {
@@ -253,6 +285,13 @@ impl<'a> Compiler<'a> {
         }
         Ok(id)
     }
+}
+
+/// Sixteen hex chars of SHA-256: enough to never collide inside one plan, short enough to read.
+fn content_hash(canon: &str) -> String {
+    use sha2::{Digest, Sha256};
+    let digest = Sha256::digest(canon.as_bytes());
+    hex::encode(&digest[..8])
 }
 
 /// Bind the op's postcondition variables against a concrete want.
@@ -457,6 +496,39 @@ mod tests {
         assert!(plan.node("B").unwrap().key.is_some());
         assert!(plan.node("A").unwrap().key.is_none());
         assert!(plan.node("A").unwrap().fork.is_some());
+    }
+
+    /// Walk args back to the lookup node and read the customer name this lane is about.
+    fn lane_name(plan: &Plan, node: &Node) -> String {
+        let mut cur = node;
+        loop {
+            if let Some(Arg::Lit(Value::String(name))) = cur.args.get("name") {
+                return name.clone();
+            }
+            let next = cur.args.values().flat_map(|a| a.refs()).next().expect("a ref back to the lookup");
+            cur = plan.node(&next).unwrap();
+        }
+    }
+
+    #[test]
+    fn keys_survive_node_renumbering() {
+        let a = intent(&[
+            "invoice(customer=customer(name='Acme')).exists",
+            "invoice(customer=customer(name='Acme')).status='sent'",
+            "invoice(customer=customer(name='Globex')).exists",
+            "invoice(customer=customer(name='Globex')).status='sent'",
+        ]);
+        let mut reversed = a.clone();
+        reversed.wants.reverse();
+        let p1 = compile(&a, &world(), &CompileOptions::default()).unwrap();
+        let p2 = compile(&reversed, &world(), &CompileOptions::default()).unwrap();
+        let send = |p: &Plan, name: &str| p.nodes.iter().find(|n| n.op == "sendInvoice" && lane_name(p, n) == name).cloned().unwrap();
+        let (s1, s2) = (send(&p1, "Acme"), send(&p2, "Acme"));
+        assert_ne!(s1.id, s2.id, "the node was renumbered");
+        assert_eq!(s1.key, s2.key, "but its key is the same");
+        assert_ne!(send(&p1, "Acme").key, send(&p1, "Globex").key);
+        assert!(s1.key.as_deref().unwrap().starts_with("plan/"));
+        assert_eq!(s1.key.as_deref().unwrap().len(), "plan/".len() + 16);
     }
 
     #[test]

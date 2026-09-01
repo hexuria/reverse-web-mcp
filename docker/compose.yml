@@ -1,0 +1,26 @@
+# The sandbox. Your machine runs `docker compose up`; everything else happens in here.
+services:
+  app:
+    build: { context: .., dockerfile: docker/Dockerfile }
+    entrypoint: ["/usr/local/bin/app", "--bind", "0.0.0.0:47310", "--seed", "1"]
+    ports: ["47310:47310"]
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:47310/health"]
+      interval: 2s
+      timeout: 2s
+      retries: 15
+
+  lanes:
+    build: { context: .., dockerfile: docker/Dockerfile }
+    depends_on:
+      app: { condition: service_healthy }
+    environment:
+      APP_URL: http://app:47310
+      DISPLAY_COUNT: "3"
+      ARMS: ${ARMS:-D,E}
+      RUNS: ${RUNS:-5}
+      PHASE: ${PHASE:-3}
+    volumes:
+      - ../results:/work/results
+      - ../recordings:/work/recordings
+    shm_size: 1g

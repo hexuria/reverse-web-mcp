@@ -1,0 +1,131 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "chiffon target app",
+    "version": "0.1.0",
+    "description": "Invoicing. One handler set, five doors. The x-zerohuman blocks are the world model: read/write footprints, postconditions, and which surfaces expose each operation at what cost."
+  },
+  "x-zerohuman-entities": {
+    "customer": { "id": "id", "fields": ["name", "email"] },
+    "invoice": { "id": "id", "fields": ["customer_id", "amount_cents", "status", "approved", "receipt_sent"] },
+    "outbox": { "id": "id", "fields": ["to", "subject", "kind", "invoice_id"] },
+    "report": { "id": "id", "fields": ["invoice_ids", "total_cents", "sent_count"] }
+  },
+  "x-zerohuman-events": {
+    "payment.received": { "entity": "invoice", "post": "invoice(id=$id).status='paid'" }
+  },
+  "x-zerohuman-ui": {
+    "approveInvoice": {
+      "post": "invoice(id=$id).approved=true",
+      "requires": ["invoice(id=$id).exists"],
+      "reads": ["invoice:$id"],
+      "writes": ["invoice:$id"],
+      "surfaces": { "a11y": 50, "pixels": 100 },
+      "route": "/ui/invoices/{id}",
+      "control": { "role": "button", "name": "Approve invoice {id}" }
+    }
+  },
+  "paths": {
+    "/api/customers": {
+      "get": {
+        "operationId": "listCustomers",
+        "parameters": [{ "name": "name", "in": "query", "schema": { "type": "string" } }],
+        "x-zerohuman": {
+          "post": "customer(name=$name).resolved",
+          "produces": "customer",
+          "reads": ["customer:*"],
+          "writes": [],
+          "surfaces": { "api": 1, "mcp": 3, "webmcp": 2, "a11y": 50 },
+          "fork": { "when": "result.count != 1", "ask": "which customer named $name" }
+        }
+      },
+      "post": {
+        "operationId": "createCustomer",
+        "requestBody": { "content": { "application/json": { "schema": { "type": "object", "properties": { "name": { "type": "string" }, "email": { "type": "string" } }, "required": ["name", "email"] } } } },
+        "x-zerohuman": {
+          "post": "customer(name=$name).exists",
+          "produces": "customer",
+          "reads": [],
+          "writes": ["customer:new"],
+          "surfaces": { "api": 1, "mcp": 3, "webmcp": 2 }
+        }
+      }
+    },
+    "/api/invoices": {
+      "get": {
+        "operationId": "listInvoices",
+        "parameters": [{ "name": "customer_id", "in": "query", "schema": { "type": "integer" } }],
+        "x-zerohuman": { "reads": ["invoice:*"], "writes": [], "surfaces": { "api": 1, "mcp": 3, "webmcp": 2, "a11y": 50 } }
+      },
+      "post": {
+        "operationId": "createInvoice",
+        "requestBody": { "content": { "application/json": { "schema": { "type": "object", "properties": { "customer_id": { "type": "integer" }, "amount_cents": { "type": "integer" } }, "required": ["customer_id", "amount_cents"] } } } },
+        "x-zerohuman": {
+          "post": "invoice(customer=$customer_id).exists",
+          "produces": "invoice",
+          "requires": ["customer(id=$customer_id).resolved"],
+          "reads": ["customer:$customer_id"],
+          "writes": ["invoice:new"],
+          "defaults": { "amount_cents": 10000 },
+          "surfaces": { "api": 1, "mcp": 3, "webmcp": 2, "a11y": 50, "pixels": 100 }
+        }
+      }
+    },
+    "/api/invoices/{id}": {
+      "get": {
+        "operationId": "getInvoice",
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }],
+        "x-zerohuman": { "reads": ["invoice:$id"], "writes": [], "surfaces": { "api": 1, "mcp": 3, "webmcp": 2, "a11y": 50 } }
+      }
+    },
+    "/api/invoices/{id}/send": {
+      "post": {
+        "operationId": "sendInvoice",
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }],
+        "x-zerohuman": {
+          "post": "invoice(id=$id).status='sent'",
+          "requires": ["invoice(id=$id).exists"],
+          "reads": ["invoice:$id", "customer:*"],
+          "writes": ["invoice:$id", "outbox:new"],
+          "external": true,
+          "surfaces": { "api": 1, "mcp": 3, "webmcp": 2, "a11y": 50, "pixels": 100 }
+        }
+      }
+    },
+    "/api/invoices/{id}/receipt": {
+      "post": {
+        "operationId": "sendReceipt",
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }],
+        "x-zerohuman": {
+          "post": "invoice(id=$id).receipt_sent=true",
+          "requires": ["invoice(id=$id).status='paid'"],
+          "reads": ["invoice:$id", "customer:*"],
+          "writes": ["invoice:$id", "outbox:new"],
+          "external": true,
+          "surfaces": { "api": 1, "mcp": 3, "webmcp": 2 }
+        }
+      }
+    },
+    "/api/reports": {
+      "post": {
+        "operationId": "createReport",
+        "requestBody": { "content": { "application/json": { "schema": { "type": "object", "properties": { "invoice_ids": { "type": "array", "items": { "type": "integer" } } }, "required": ["invoice_ids"] } } } },
+        "x-zerohuman": {
+          "post": "report(invoices=$invoice_ids).exists",
+          "produces": "report",
+          "requires": ["invoice(id=$invoice_ids[]).exists"],
+          "reads": ["invoice:$invoice_ids[]"],
+          "writes": ["report:new"],
+          "surfaces": { "api": 1, "mcp": 3, "webmcp": 2 }
+        }
+      }
+    },
+    "/api/reports/{id}": {
+      "get": {
+        "operationId": "getReport",
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }],
+        "x-zerohuman": { "reads": ["report:$id"], "writes": [], "surfaces": { "api": 1, "mcp": 3 } }
+      }
+    }
+  }
+}

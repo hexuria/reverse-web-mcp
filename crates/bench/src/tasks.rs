@@ -1,0 +1,117 @@
+//! Task files: goal, wants, seed, chaos, hooks, and what the oracle must show at the end.
+
+use std::path::Path;
+
+use serde::{Deserialize, Serialize};
+use serde_json::Value;
+use zerohuman::intent::{Constraints, Intent, IntentFork};
+
+#[derive(Clone, Debug, Serialize, Deserialize, Default)]
+pub struct Expect {
+    #[serde(default = "committed")]
+    pub status: String,
+    #[serde(default)]
+    pub invoices: Option<usize>,
+    #[serde(default)]
+    pub sent: Option<usize>,
+    #[serde(default)]
+    pub paid: Option<usize>,
+    #[serde(default)]
+    pub receipts: Option<usize>,
+    #[serde(default)]
+    pub reports: Option<usize>,
+    #[serde(default)]
+    pub forks: Option<usize>,
+    #[serde(default)]
+    pub double_sends: Option<usize>,
+}
+
+fn committed() -> String {
+    "committed".into()
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, Default)]
+pub struct Hooks {
+    #[serde(default)]
+    pub pay_after_create_ms: Option<u64>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct Task {
+    pub id: String,
+    pub title: String,
+    #[serde(default = "two")]
+    pub phase: u32,
+    pub seed: u64,
+    pub goal: String,
+    #[serde(default)]
+    pub wants: Vec<String>,
+    #[serde(default)]
+    pub constraints: Constraints,
+    #[serde(default)]
+    pub forks: Vec<IntentFork>,
+    #[serde(default)]
+    pub chaos: Value,
+    #[serde(default)]
+    pub hooks: Hooks,
+    #[serde(default)]
+    pub expect: Expect,
+}
+
+fn two() -> u32 {
+    2
+}
+
+impl Task {
+    pub fn load(path: &Path) -> anyhow::Result<Task> {
+        let text = std::fs::read_to_string(path)?;
+        Ok(toml::from_str(&text)?)
+    }
+
+    pub fn load_dir(dir: &Path) -> anyhow::Result<Vec<Task>> {
+        let mut out = Vec::new();
+        let mut paths: Vec<_> = std::fs::read_dir(dir)?.filter_map(|e| e.ok()).map(|e| e.path()).filter(|p| p.extension().map_or(false, |x| x == "toml")).collect();
+        paths.sort();
+        for p in paths {
+            out.push(Task::load(&p)?);
+        }
+        Ok(out)
+    }
+
+    pub fn intent(&self) -> Intent {
+        Intent { goal: self.goal.clone(), wants: self.wants.clone(), constraints: self.constraints.clone(), forks: self.forks.clone() }
+    }
+}
+
+/// Every check the oracle can make, with what was expected and what was seen.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct Check {
+    pub name: String,
+    pub expected: Value,
+    pub actual: Value,
+    pub ok: bool,
+}
+
+pub fn check(expect: &Expect, status: &str, forks: usize, snapshot: &Value, double_sends: usize) -> Vec<Check> {
+    let invoices = snapshot.get("invoices").and_then(|v| v.as_array()).cloned().unwrap_or_default();
+    let count = |f: &dyn Fn(&Value) -> bool| invoices.iter().filter(|i| f(i)).count();
+    let sent = count(&|i| i.get("status").and_then(|s| s.as_str()).map_or(false, |s| s != "draft"));
+    let paid = count(&|i| i.get("status").and_then(|s| s.as_str()) == Some("paid"));
+    let receipts = count(&|i| i.get("receipt_sent").and_then(|b| b.as_bool()).unwrap_or(false));
+    let reports = snapshot.get("reports").and_then(|v| v.as_array()).map_or(0, |a| a.len());
+
+    let mut out = vec![Check { name: "status".into(), expected: Value::String(expect.status.clone()), actual: Value::String(status.into()), ok: expect.status == status }];
+    let mut num = |name: &str, exp: Option<usize>, act: usize| {
+        if let Some(e) = exp {
+            out.push(Check { name: name.into(), expected: Value::from(e), actual: Value::from(act), ok: e == act });
+        }
+    };
+    num("invoices", expect.invoices, invoices.len());
+    num("sent", expect.sent, sent);
+    num("paid", expect.paid, paid);
+    num("receipts", expect.receipts, receipts);
+    num("reports", expect.reports, reports);
+    num("forks", expect.forks, forks);
+    num("double_sends", expect.double_sends, double_sends);
+    out
+}

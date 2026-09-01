@@ -1,0 +1,21 @@
+id = "T3"
+title = "three invoices, email each, one report over all three"
+phase = 2
+seed = 3
+goal = "Invoice Acme, Globex and Initech, send each, then produce one report covering all three."
+wants = [
+  "invoice(customer=customer(name='Acme')).exists",
+  "invoice(customer=customer(name='Acme')).status='sent'",
+  "invoice(customer=customer(name='Globex')).exists",
+  "invoice(customer=customer(name='Globex')).status='sent'",
+  "invoice(customer=customer(name='Initech')).exists",
+  "invoice(customer=customer(name='Initech')).status='sent'",
+  "report(invoices=[invoice(customer=customer(name='Acme')),invoice(customer=customer(name='Globex')),invoice(customer=customer(name='Initech'))]).exists",
+]
+
+[expect]
+status = "committed"
+invoices = 3
+sent = 3
+reports = 1
+double_sends = 0

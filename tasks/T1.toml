@@ -1,0 +1,15 @@
+id = "T1"
+title = "one invoice, sent"
+phase = 2
+seed = 1
+goal = "Create an invoice for Acme and send it."
+wants = [
+  "invoice(customer=customer(name='Acme')).exists",
+  "invoice(customer=customer(name='Acme')).status='sent'",
+]
+
+[expect]
+status = "committed"
+invoices = 1
+sent = 1
+double_sends = 0

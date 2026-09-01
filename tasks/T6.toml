@@ -1,0 +1,20 @@
+id = "T6"
+title = "invoice Acme when two customers are named Acme"
+phase = 3
+seed = 6
+goal = "Create and send an invoice for Acme."
+wants = [
+  "invoice(customer=customer(name='Acme')).exists",
+  "invoice(customer=customer(name='Acme')).status='sent'",
+]
+
+[[forks]]
+when = "result.count != 1"
+ask = "Two customers are named Acme. Which one?"
+
+[expect]
+status = "need_think"
+invoices = 0
+sent = 0
+forks = 1
+double_sends = 0

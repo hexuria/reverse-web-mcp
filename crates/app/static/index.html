@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Invoices</title>
+<style>
+  :root { color-scheme: light; }
+  body { margin: 0; font: 16px/1.45 system-ui, sans-serif; background: #f6f7f5; color: #1c2321; }
+  header { padding: 14px 24px; background: #1c2321; color: #fff; display: flex; gap: 24px; align-items: baseline; }
+  header h1 { font-size: 18px; margin: 0; }
+  header span { font-size: 13px; opacity: .75; font-family: ui-monospace, monospace; }
+  main { max-width: 1040px; margin: 0 auto; padding: 24px; display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+  section { background: #fff; border: 1px solid #d9ded9; border-radius: 8px; padding: 18px; }
+  h2 { font-size: 16px; margin: 0 0 12px; }
+  table { width: 100%; border-collapse: collapse; font-size: 15px; }
+  th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid #e8ece8; }
+  th { font-size: 12px; text-transform: uppercase; letter-spacing: .08em; color: #5c6a64; }
+  form { display: grid; gap: 8px; margin-top: 12px; }
+  label { display: grid; gap: 4px; font-size: 14px; }
+  input, select { font: inherit; padding: 6px 8px; border: 1px solid #b9c2bb; border-radius: 6px; }
+  button { font: inherit; padding: 6px 12px; border: 1px solid #1c2321; border-radius: 6px; background: #1c2321; color: #fff; cursor: pointer; }
+  button.secondary { background: #fff; color: #1c2321; }
+  button:disabled { opacity: .45; cursor: default; }
+  .status { font-family: ui-monospace, monospace; font-size: 13px; padding: 2px 6px; border-radius: 4px; background: #eef1ee; }
+  .status.sent { background: #dcefe2; }
+  .status.paid { background: #dce7fb; }
+  #toast { position: fixed; right: 20px; bottom: 20px; background: #1c2321; color: #fff; padding: 10px 14px; border-radius: 6px; font-size: 14px; }
+  #toast[hidden] { display: none; }
+  dialog { border: 1px solid #d9ded9; border-radius: 8px; padding: 24px; max-width: 360px; }
+  dialog::backdrop { background: rgba(0,0,0,.35); }
+  #detail:empty { display: none; }
+  .wide { grid-column: 1 / -1; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Invoices</h1>
+  <span id="seed">seed …</span>
+  <span id="webmcp">webmcp: probing</span>
+</header>
+
+<main>
+  <section aria-labelledby="h-customers">
+    <h2 id="h-customers">Customers</h2>
+    <table aria-label="Customers">
+      <thead><tr><th>Id</th><th>Name</th><th>Email</th></tr></thead>
+      <tbody id="customers"></tbody>
+    </table>
+  </section>
+
+  <section aria-labelledby="h-new">
+    <h2 id="h-new">New invoice</h2>
+    <form id="new-invoice">
+      <label>Customer
+        <select name="customer_id" id="customer-select" required></select>
+      </label>
+      <label>Amount (cents)
+        <input name="amount_cents" type="number" value="10000" required>
+      </label>
+      <button type="submit" name="create">Create invoice</button>
+    </form>
+  </section>
+
+  <section class="wide" aria-labelledby="h-invoices">
+    <h2 id="h-invoices">All invoices</h2>
+    <table aria-label="Invoices">
+      <thead><tr><th>Id</th><th>Customer</th><th>Amount</th><th>Status</th><th>Approved</th><th>Actions</th></tr></thead>
+      <tbody id="invoices"></tbody>
+    </table>
+  </section>
+
+  <section class="wide" id="detail" aria-live="polite"></section>
+</main>
+
+<dialog id="modal" aria-labelledby="modal-title">
+  <h2 id="modal-title">Before you continue</h2>
+  <p>This is the chaos modal. A person would close it without thinking. An agent has to notice it.</p>
+  <button id="modal-close" autofocus>Close</button>
+</dialog>
+
+<div id="toast" role="status" hidden></div>
+<script src="/static/app.js"></script>
+</body>
+</html>

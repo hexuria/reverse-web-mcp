@@ -1,0 +1,517 @@
+//! Intent graph → physical plan.
+//!
+//! For each want, find an operation whose postcondition unifies with it, satisfy that
+//! operation's requirements the same way, and record the node. Then derive edges from
+//! read/write footprints, choose the cheapest available surface per node, stamp a key
+//! on every write, and insert gates. Nothing here samples a model.
+
+use std::collections::{BTreeMap, HashMap, HashSet};
+
+use serde_json::{json, Value};
+use thiserror::Error;
+
+use crate::intent::Intent;
+use crate::plan::{Arg, Gate, GateKind, Node, Plan};
+use crate::pred::{Pred, Val};
+use crate::world::{Op, OpKind, World};
+
+#[derive(Debug, Error)]
+pub enum CompileError {
+    #[error("cannot parse want '{0}': {1}")]
+    Parse(String, String),
+    #[error("nothing in the world model can make '{0}' true")]
+    Unsatisfiable(String),
+    #[error("operation {0} has no available surface among {1:?}")]
+    NoSurface(String, Vec<String>),
+    #[error("argument '{0}' of {1} is unbound")]
+    Unbound(String, String),
+}
+
+pub struct CompileOptions {
+    pub plan_id: String,
+    /// Surfaces this run may use, e.g. ["api"] or ["api","mcp","a11y"].
+    pub surfaces: Vec<String>,
+}
+
+impl Default for CompileOptions {
+    fn default() -> Self {
+        CompileOptions { plan_id: "plan".into(), surfaces: vec!["api".into()] }
+    }
+}
+
+type Bindings = HashMap<String, Val>;
+
+struct Compiler<'a> {
+    ops: Vec<Op>,
+    intent: &'a Intent,
+    opts: &'a CompileOptions,
+    nodes: Vec<Node>,
+    memo: HashMap<String, String>,
+    deps: Vec<(String, String)>,
+}
+
+pub fn compile(intent: &Intent, world: &World, opts: &CompileOptions) -> Result<Plan, CompileError> {
+    let mut c = Compiler { ops: world.ops.clone(), intent, opts, nodes: Vec::new(), memo: HashMap::new(), deps: Vec::new() };
+    for w in &intent.wants {
+        let pred = Pred::parse(w).map_err(|e| CompileError::Parse(w.clone(), e))?;
+        c.satisfy(&pred)?;
+    }
+    let mut edges = c.deps.clone();
+    edges.extend(footprint_edges(&c.nodes));
+    let edges = reduce(dedupe(edges), &c.nodes);
+    let gates = c
+        .nodes
+        .iter()
+        .filter(|n| n.external)
+        .map(|n| Gate { node: n.id.clone(), kind: GateKind::External, allowed: intent.constraints.external_ok })
+        .collect();
+    Ok(Plan { plan_id: opts.plan_id.clone(), goal: intent.goal.clone(), nodes: c.nodes, edges, gates })
+}
+
+impl<'a> Compiler<'a> {
+    fn next_id(&self) -> String {
+        let i = self.nodes.len();
+        let letter = (b'A' + (i % 26) as u8) as char;
+        if i < 26 {
+            letter.to_string()
+        } else {
+            format!("{letter}{}", i / 26)
+        }
+    }
+
+    /// Nested entity references become `$node.id` by satisfying the reference first.
+    fn resolve_refs(&mut self, pred: &Pred) -> Result<Pred, CompileError> {
+        let mut args = Vec::new();
+        for (k, v) in &pred.args {
+            args.push((k.clone(), self.resolve_val(v)?));
+        }
+        Ok(Pred { entity: pred.entity.clone(), args, field: pred.field.clone(), value: pred.value.clone() })
+    }
+
+    fn resolve_val(&mut self, v: &Val) -> Result<Val, CompileError> {
+        Ok(match v {
+            Val::Entity(inner) => {
+                let mut inner = (**inner).clone();
+                if inner.field.is_empty() {
+                    let resolved_exists = self.ops.iter().any(|o| o.produces.as_deref() == Some(&inner.entity) && o.post.as_ref().map(|p| p.field == "resolved").unwrap_or(false));
+                    inner.field = if resolved_exists { "resolved".into() } else { "exists".into() };
+                    inner.value = Val::Bool(true);
+                }
+                let node = self.satisfy(&inner)?;
+                Val::Ref(node, "id".into())
+            }
+            Val::List(xs) => Val::List(xs.iter().map(|x| self.resolve_val(x)).collect::<Result<_, _>>()?),
+            other => other.clone(),
+        })
+    }
+
+    fn satisfy(&mut self, raw: &Pred) -> Result<String, CompileError> {
+        let pred = self.resolve_refs(raw)?;
+        let key = pred.to_string();
+        if let Some(id) = self.memo.get(&key) {
+            return Ok(id.clone());
+        }
+
+        // An existence want identified by a reference is already satisfied by that node.
+        if pred.is_existence() {
+            if let Some(Val::Ref(n, _)) = pred.arg("id") {
+                self.memo.insert(key, n.clone());
+                return Ok(n.clone());
+            }
+        }
+
+        let mut candidates: Vec<Op> = self
+            .ops
+            .iter()
+            .filter(|o| match &o.post {
+                Some(p) => {
+                    p.entity == pred.entity
+                        && (p.field == pred.field || (pred.is_existence() && p.is_existence()))
+                        && (pred.is_existence() && o.produces.as_deref() == Some(&pred.entity) || !pred.is_existence())
+                }
+                None => false,
+            })
+            .cloned()
+            .collect();
+        // "X exists" is satisfied by finding X before it is satisfied by making X. A read-only
+        // resolver goes first; its fork yields to the planner if nothing (or too much) is found.
+        if pred.is_existence() {
+            candidates.sort_by_key(|o| (o.is_write(), o.name.clone()));
+        }
+
+        for op in candidates {
+            let post = op.post.clone().unwrap();
+            let mut b = Bindings::new();
+            let identified_by_ref = !pred.is_existence() && post.args.len() == 1 && post.args[0].0 == "id" && pred.arg("id").is_none();
+            let mut pred_for_unify = pred.clone();
+            if identified_by_ref {
+                // The op identifies the entity by id; the want identifies it by other args.
+                let target = self.satisfy(&pred.as_exists())?;
+                pred_for_unify = Pred { entity: pred.entity.clone(), args: vec![("id".into(), Val::Ref(target, "id".into()))], field: pred.field.clone(), value: pred.value.clone() };
+            }
+            if pred.is_existence() && post.is_existence() && post.field != pred_for_unify.field {
+                pred_for_unify.field = post.field.clone();
+            }
+            if !unify(&post, &pred_for_unify, &mut b) {
+                continue;
+            }
+            let id = self.build(&op, b, &pred)?;
+            self.memo.insert(key, id.clone());
+            return Ok(id);
+        }
+        Err(CompileError::Unsatisfiable(key))
+    }
+
+    fn build(&mut self, op: &Op, b: Bindings, want: &Pred) -> Result<String, CompileError> {
+        let bind = |n: &str| b.get(n).cloned();
+
+        // Requirements first, so dependencies are created before this node.
+        let mut deps: Vec<String> = Vec::new();
+        for r in &op.requires {
+            let r = r.subst(&bind);
+            if r.is_existence() {
+                let refs = refs_in(&r);
+                if !refs.is_empty() {
+                    deps.extend(refs);
+                    continue;
+                }
+            }
+            deps.push(self.satisfy(&r)?);
+        }
+        for v in b.values() {
+            deps.extend(refs_in_val(v));
+        }
+
+        let id = self.next_id();
+        let mut args = BTreeMap::new();
+        for p in &op.params {
+            match b.get(&p.name) {
+                Some(v) => {
+                    args.insert(p.name.clone(), val_to_arg(v).map_err(|n| CompileError::Unbound(n, op.name.clone()))?);
+                }
+                None => {
+                    if let Some(d) = op.defaults.get(&p.name) {
+                        args.insert(p.name.clone(), Arg::Lit(d.clone()));
+                    }
+                }
+            }
+        }
+        if op.kind == OpKind::Event {
+            if let Some(v) = b.get("id") {
+                args.insert("id".into(), val_to_arg(v).map_err(|n| CompileError::Unbound(n, op.name.clone()))?);
+            }
+        }
+
+        let surface = match op.kind {
+            OpKind::Event => "event".to_string(),
+            _ => op
+                .surfaces
+                .iter()
+                .filter(|(s, _)| self.opts.surfaces.contains(s))
+                .min_by_key(|(_, c)| **c)
+                .map(|(s, _)| s.clone())
+                .ok_or_else(|| CompileError::NoSurface(op.name.clone(), self.opts.surfaces.clone()))?,
+        };
+
+        let reads = op.reads.iter().flat_map(|r| resource(r, &b, &id)).collect();
+        let writes = op.writes.iter().flat_map(|w| resource(w, &b, &id)).collect::<Vec<_>>();
+        let key = if op.kind == OpKind::Http && !writes.is_empty() { Some(format!("{}/{}", self.opts.plan_id, id)) } else { None };
+        let mut fork = op.fork.clone();
+        if let Some(f) = &mut fork {
+            if let Some(intent_fork) = self.intent.forks.iter().find(|x| x.when == f.when) {
+                f.ask = intent_fork.ask.clone();
+            }
+            f.ask = f.ask.replace("$name", b.get("name").and_then(|v| v.as_str()).unwrap_or("?"));
+        }
+
+        let post = op.post.as_ref().map(|p| p.subst(&bind).to_string()).unwrap_or_else(|| want.to_string());
+        self.nodes.push(Node {
+            id: id.clone(),
+            op: op.name.clone(),
+            kind: op.kind.clone(),
+            args,
+            surface,
+            key,
+            reads,
+            writes,
+            external: op.external,
+            produces: op.produces.clone(),
+            fork,
+            ui: op.ui.clone(),
+            post,
+        });
+        deps.sort();
+        deps.dedup();
+        for d in deps {
+            if d != id {
+                self.deps.push((d, id.clone()));
+            }
+        }
+        Ok(id)
+    }
+}
+
+/// Bind the op's postcondition variables against a concrete want.
+fn unify(post: &Pred, want: &Pred, b: &mut Bindings) -> bool {
+    if post.entity != want.entity || post.field != want.field {
+        return false;
+    }
+    if !unify_val(&post.value, &want.value, b) {
+        return false;
+    }
+    for (k, pv) in &post.args {
+        match want.arg(k) {
+            Some(wv) => {
+                if !unify_val(pv, wv, b) {
+                    return false;
+                }
+            }
+            None => {
+                if !matches!(pv, Val::Var(..)) {
+                    return false;
+                }
+            }
+        }
+    }
+    for (k, _) in &want.args {
+        if post.arg(k).is_none() {
+            return false;
+        }
+    }
+    true
+}
+
+fn unify_val(pattern: &Val, concrete: &Val, b: &mut Bindings) -> bool {
+    match pattern {
+        Val::Var(n, _) => match b.get(n) {
+            Some(existing) => existing == concrete,
+            None => {
+                b.insert(n.clone(), concrete.clone());
+                true
+            }
+        },
+        Val::List(ps) => match concrete {
+            Val::List(cs) if ps.len() == cs.len() => ps.iter().zip(cs).all(|(p, c)| unify_val(p, c, b)),
+            _ => false,
+        },
+        other => other == concrete,
+    }
+}
+
+fn refs_in(p: &Pred) -> Vec<String> {
+    p.args.iter().flat_map(|(_, v)| refs_in_val(v)).collect()
+}
+
+fn refs_in_val(v: &Val) -> Vec<String> {
+    match v {
+        Val::Ref(n, _) => vec![n.clone()],
+        Val::List(xs) => xs.iter().flat_map(refs_in_val).collect(),
+        _ => vec![],
+    }
+}
+
+fn val_to_arg(v: &Val) -> Result<Arg, String> {
+    Ok(match v {
+        Val::Str(s) => Arg::Lit(Value::String(s.clone())),
+        Val::Num(n) => Arg::Lit(json!(n)),
+        Val::Bool(b) => Arg::Lit(json!(b)),
+        Val::List(xs) => Arg::List(xs.iter().map(val_to_arg).collect::<Result<_, _>>()?),
+        Val::Ref(n, f) => Arg::Ref { node: n.clone(), field: f.clone() },
+        Val::Var(n, _) => return Err(n.clone()),
+        Val::Entity(p) => return Err(p.to_string()),
+    })
+}
+
+/// `entity:selector` → concrete resource tokens. `@X` means "the entity node X produced".
+fn resource(spec: &str, b: &Bindings, node: &str) -> Vec<String> {
+    let (entity, sel) = match spec.split_once(':') {
+        Some(x) => x,
+        None => return vec![spec.to_string()],
+    };
+    match sel {
+        "*" => vec![format!("{entity}:*")],
+        "new" => vec![format!("{entity}:@{node}")],
+        s if s.starts_with('$') => {
+            let name = s.trim_start_matches('$').trim_end_matches("[]");
+            match b.get(name) {
+                Some(v) => val_tokens(entity, v),
+                None => vec![format!("{entity}:*")],
+            }
+        }
+        s => vec![format!("{entity}:{s}")],
+    }
+}
+
+fn val_tokens(entity: &str, v: &Val) -> Vec<String> {
+    match v {
+        Val::Ref(n, _) => vec![format!("{entity}:@{n}")],
+        Val::Num(x) => vec![format!("{entity}:{x}")],
+        Val::Str(s) => vec![format!("{entity}:{s}")],
+        Val::List(xs) => xs.iter().flat_map(|x| val_tokens(entity, x)).collect(),
+        _ => vec![format!("{entity}:*")],
+    }
+}
+
+fn conflicts(a: &str, b: &str) -> bool {
+    let (ea, ia) = a.split_once(':').unwrap_or((a, "*"));
+    let (eb, ib) = b.split_once(':').unwrap_or((b, "*"));
+    ea == eb && (ia == "*" || ib == "*" || ia == ib)
+}
+
+fn any_conflict(xs: &[String], ys: &[String]) -> bool {
+    xs.iter().any(|x| ys.iter().any(|y| conflicts(x, y)))
+}
+
+/// Two nodes touch the same data → the later one waits. Disjoint footprints → no edge, and
+/// that absence is where the parallelism comes from.
+fn footprint_edges(nodes: &[Node]) -> Vec<(String, String)> {
+    let mut out = Vec::new();
+    for i in 0..nodes.len() {
+        for j in (i + 1)..nodes.len() {
+            let (a, b) = (&nodes[i], &nodes[j]);
+            let mut touched = b.reads.clone();
+            touched.extend(b.writes.iter().cloned());
+            if any_conflict(&a.writes, &touched) || any_conflict(&a.reads, &b.writes) {
+                out.push((a.id.clone(), b.id.clone()));
+            }
+        }
+    }
+    out
+}
+
+fn dedupe(edges: Vec<(String, String)>) -> Vec<(String, String)> {
+    let mut seen = HashSet::new();
+    edges.into_iter().filter(|e| e.0 != e.1 && seen.insert(e.clone())).collect()
+}
+
+/// Transitive reduction, so the plan file shows only the edges that carry information.
+fn reduce(edges: Vec<(String, String)>, nodes: &[Node]) -> Vec<(String, String)> {
+    let order: HashMap<&str, usize> = nodes.iter().enumerate().map(|(i, n)| (n.id.as_str(), i)).collect();
+    let mut kept: Vec<(String, String)> = Vec::new();
+    let mut sorted = edges;
+    sorted.sort_by_key(|(a, b)| (order.get(b.as_str()).copied(), order.get(a.as_str()).copied()));
+    for (a, b) in sorted.iter() {
+        let others: Vec<&(String, String)> = sorted.iter().filter(|e| !(e.0 == *a && e.1 == *b)).collect();
+        if !reachable(a, b, &others) {
+            kept.push((a.clone(), b.clone()));
+        }
+    }
+    kept
+}
+
+fn reachable(from: &str, to: &str, edges: &[&(String, String)]) -> bool {
+    let mut stack = vec![from];
+    let mut seen = HashSet::new();
+    while let Some(x) = stack.pop() {
+        for (a, b) in edges {
+            if a == x && seen.insert(b.as_str()) {
+                if b == to {
+                    return true;
+                }
+                stack.push(b);
+            }
+        }
+    }
+    false
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn world() -> World {
+        let doc: Value = serde_json::from_str(include_str!("../../app/static/openapi.json")).unwrap();
+        World::from_openapi(&doc).unwrap()
+    }
+
+    fn intent(wants: &[&str]) -> Intent {
+        Intent { goal: "test".into(), wants: wants.iter().map(|s| s.to_string()).collect(), ..Default::default() }
+    }
+
+    #[test]
+    fn two_customers_are_two_lanes() {
+        let plan = compile(
+            &intent(&[
+                "invoice(customer=customer(name='Acme')).exists",
+                "invoice(customer=customer(name='Acme')).status='sent'",
+                "invoice(customer=customer(name='Globex')).exists",
+                "invoice(customer=customer(name='Globex')).status='sent'",
+            ]),
+            &world(),
+            &CompileOptions::default(),
+        )
+        .unwrap();
+        println!("{}", plan.render());
+        // lookup, create, send per customer
+        assert_eq!(plan.nodes.len(), 6);
+        // No edge crosses from the Acme lane into the Globex lane.
+        let lane_a: HashSet<&str> = ["A", "B", "C"].into();
+        for (x, y) in &plan.edges {
+            assert_eq!(lane_a.contains(x.as_str()), lane_a.contains(y.as_str()), "edge {x}->{y} crosses lanes");
+        }
+        assert_eq!(plan.depth(), 3);
+        assert!(plan.node("B").unwrap().key.is_some());
+        assert!(plan.node("A").unwrap().key.is_none());
+        assert!(plan.node("A").unwrap().fork.is_some());
+    }
+
+    #[test]
+    fn report_waits_for_sends_and_emails_start_early() {
+        let plan = compile(
+            &intent(&[
+                "invoice(customer=customer(name='Acme')).exists",
+                "invoice(customer=customer(name='Acme')).status='sent'",
+                "invoice(customer=customer(name='Globex')).exists",
+                "invoice(customer=customer(name='Globex')).status='sent'",
+                "invoice(customer=customer(name='Initech')).exists",
+                "invoice(customer=customer(name='Initech')).status='sent'",
+                "report(invoices=[invoice(customer=customer(name='Acme')),invoice(customer=customer(name='Globex')),invoice(customer=customer(name='Initech'))]).exists",
+            ]),
+            &world(),
+            &CompileOptions::default(),
+        )
+        .unwrap();
+        println!("{}", plan.render());
+        let report = plan.nodes.iter().find(|n| n.op == "createReport").unwrap();
+        let sends: Vec<&Node> = plan.nodes.iter().filter(|n| n.op == "sendInvoice").collect();
+        assert_eq!(sends.len(), 3);
+        let preds = plan.preds_of(&report.id);
+        for s in &sends {
+            assert!(preds.contains(&s.id.as_str()), "report must wait for send {}", s.id);
+        }
+        // Each send depends only on its own create, never on another lane's.
+        for s in &sends {
+            assert_eq!(plan.preds_of(&s.id).len(), 1);
+        }
+    }
+
+    #[test]
+    fn receipt_waits_on_the_payment_event() {
+        let plan = compile(
+            &intent(&[
+                "invoice(customer=customer(name='Acme')).exists",
+                "invoice(customer=customer(name='Acme')).status='sent'",
+                "invoice(customer=customer(name='Acme')).receipt_sent=true",
+            ]),
+            &world(),
+            &CompileOptions::default(),
+        )
+        .unwrap();
+        println!("{}", plan.render());
+        let wait = plan.nodes.iter().find(|n| n.kind == OpKind::Event).expect("a wait node");
+        assert_eq!(wait.op, "payment.received");
+        let receipt = plan.nodes.iter().find(|n| n.op == "sendReceipt").unwrap();
+        assert!(plan.preds_of(&receipt.id).contains(&wait.id.as_str()));
+    }
+
+    #[test]
+    fn ui_only_approve_needs_a_screen_surface() {
+        let i = intent(&["invoice(customer=customer(name='Acme')).exists", "invoice(customer=customer(name='Acme')).approved=true"]);
+        let err = compile(&i, &world(), &CompileOptions::default()).unwrap_err();
+        assert!(matches!(err, CompileError::NoSurface(..)), "{err}");
+        let plan = compile(&i, &world(), &CompileOptions { plan_id: "p".into(), surfaces: vec!["api".into(), "a11y".into()] }).unwrap();
+        let approve = plan.nodes.iter().find(|n| n.op == "approveInvoice").unwrap();
+        assert_eq!(approve.surface, "a11y");
+        assert_eq!(approve.kind, OpKind::Ui);
+    }
+}

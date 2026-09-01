@@ -1,0 +1,33 @@
+id = "T2"
+title = "invoice and send for 10 customers"
+phase = 2
+seed = 2
+goal = "Create and send an invoice for each of the ten customers."
+wants = [
+  "invoice(customer=customer(name='Acme')).exists",
+  "invoice(customer=customer(name='Acme')).status='sent'",
+  "invoice(customer=customer(name='Globex')).exists",
+  "invoice(customer=customer(name='Globex')).status='sent'",
+  "invoice(customer=customer(name='Initech')).exists",
+  "invoice(customer=customer(name='Initech')).status='sent'",
+  "invoice(customer=customer(name='Umbrella')).exists",
+  "invoice(customer=customer(name='Umbrella')).status='sent'",
+  "invoice(customer=customer(name='Hooli')).exists",
+  "invoice(customer=customer(name='Hooli')).status='sent'",
+  "invoice(customer=customer(name='Vandelay')).exists",
+  "invoice(customer=customer(name='Vandelay')).status='sent'",
+  "invoice(customer=customer(name='Stark')).exists",
+  "invoice(customer=customer(name='Stark')).status='sent'",
+  "invoice(customer=customer(name='Wayne')).exists",
+  "invoice(customer=customer(name='Wayne')).status='sent'",
+  "invoice(customer=customer(name='Wonka')).exists",
+  "invoice(customer=customer(name='Wonka')).status='sent'",
+  "invoice(customer=customer(name='Tyrell')).exists",
+  "invoice(customer=customer(name='Tyrell')).status='sent'",
+]
+
+[expect]
+status = "committed"
+invoices = 10
+sent = 10
+double_sends = 0

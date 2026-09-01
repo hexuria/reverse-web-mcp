@@ -133,9 +133,12 @@ async fn run(opts: RunOpts) -> anyhow::Result<()> {
 
     let world = Arc::new(zerohuman::world_from(&base).await?);
     let needs_model = opts.needs_model();
-    let browser = if surfaces.iter().any(|s| s == "a11y" || s == "pixels") {
+    let wants_screen = surfaces.iter().any(|s| s == "a11y" || s == "pixels");
+    let wants_pages = arms.iter().any(|a| a == "C" || a == "A");
+    let browser = if wants_screen || wants_pages {
         let chrome = driver::find_chrome();
-        Some(driver::BrowserPool::launch(1, true, chrome.as_deref()).await?)
+        let pages = if wants_pages { zerohuman::Pools::default().per_surface.get("webmcp").copied().unwrap_or(4) } else { 1 };
+        Some(driver::BrowserPool::launch(pages, true, chrome.as_deref()).await?)
     } else {
         None
     };
@@ -213,6 +216,10 @@ async fn run(opts: RunOpts) -> anyhow::Result<()> {
                     "B" | "B2" => {
                         let facts = planner::world_facts(&base).await?;
                         loops::run_mcp_loop(task, &ctx, model_client.as_ref().unwrap(), &facts, arm == "B2").await?
+                    }
+                    "C" => {
+                        let facts = planner::world_facts(&base).await?;
+                        loops::run_webmcp_loop(task, &ctx, model_client.as_ref().unwrap(), &facts).await?
                     }
                     other => {
                         let plan =

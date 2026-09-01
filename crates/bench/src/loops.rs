@@ -165,10 +165,81 @@ fn mcp_tools_as_anthropic(tools: &Value) -> Vec<Value> {
 
 /// Arms B and B2. The model drives the target app's MCP door until it says done.
 /// `facts` is the same read of the world the planner gets, so the baseline is coached identically.
-pub async fn run_mcp_loop(task: &Task, ctx: &ArmContext, model: &dyn crate::planner::Sampler, facts: &str, parallel: bool) -> anyhow::Result<Receipt> {
-    let mcp = Arc::new(McpEffector::new(&format!("{}/mcp", ctx.base.trim_end_matches('/')), "mcp"));
-    let listed: Value = reqwest::Client::new().post(&mcp.url).json(&json!({"jsonrpc":"2.0","id":1,"method":"tools/list"})).send().await?.json().await?;
-    let tools = mcp_tools_as_anthropic(&listed["result"]["tools"]);
+/// Where a loop's tool calls go. MCP over HTTP and WebMCP in a page are the same loop with a
+/// different backend, so the loop is written once.
+#[async_trait::async_trait]
+pub trait ToolBackend: Send + Sync {
+    fn surface(&self) -> &str;
+    /// Tool definitions in the Messages API shape.
+    async fn list(&self) -> anyhow::Result<Vec<Value>>;
+    async fn call(&self, name: &str, args: Value) -> Result<Value, EffectError>;
+}
+
+/// The target app's MCP door.
+pub struct McpBackend(pub McpEffector);
+
+#[async_trait::async_trait]
+impl ToolBackend for McpBackend {
+    fn surface(&self) -> &str {
+        "mcp"
+    }
+    async fn list(&self) -> anyhow::Result<Vec<Value>> {
+        let listed: Value = reqwest::Client::new().post(&self.0.url).json(&json!({"jsonrpc":"2.0","id":1,"method":"tools/list"})).send().await?.json().await?;
+        Ok(mcp_tools_as_anthropic(&listed["result"]["tools"]))
+    }
+    async fn call(&self, name: &str, args: Value) -> Result<Value, EffectError> {
+        self.0.call(name, args).await
+    }
+}
+
+/// The page's WebMCP tools, called from inside a headless browser. Each call leases a page from
+/// the pool, so concurrency is bounded by pages the way MCP is bounded by connections.
+pub struct WebMcpBackend {
+    pub base: String,
+    pub pool: Arc<driver::BrowserPool>,
+}
+
+impl WebMcpBackend {
+    async fn on_app(&self, page: &driver::Lease) -> anyhow::Result<()> {
+        let here = page.eval("location.origin").await.unwrap_or(Value::Null);
+        if here.as_str() != Some(self.base.trim_end_matches('/')) {
+            page.goto(&self.base).await?;
+        }
+        Ok(())
+    }
+}
+
+#[async_trait::async_trait]
+impl ToolBackend for WebMcpBackend {
+    fn surface(&self) -> &str {
+        "webmcp"
+    }
+    async fn list(&self) -> anyhow::Result<Vec<Value>> {
+        let page = self.pool.lease().await?;
+        self.on_app(&page).await?;
+        let tools = page.eval("window.__webmcp.list()").await?;
+        Ok(mcp_tools_as_anthropic(&tools))
+    }
+    async fn call(&self, name: &str, args: Value) -> Result<Value, EffectError> {
+        let page = self.pool.lease().await.map_err(|e| EffectError::Retryable(e.to_string()))?;
+        self.on_app(&page).await.map_err(|e| EffectError::Retryable(e.to_string()))?;
+        let js = format!("window.__webmcp.call({}, {})", serde_json::to_string(name).unwrap(), args);
+        page.eval(&js).await.map_err(|e| EffectError::Fatal(e.to_string()))
+    }
+}
+
+/// Arms B, B2 and C: the model drives a tool backend until it says done.
+pub async fn run_tool_loop(
+    task: &Task,
+    ctx: &ArmContext,
+    model: &dyn crate::planner::Sampler,
+    facts: &str,
+    parallel: bool,
+    backend: Arc<dyn ToolBackend>,
+    arm: &str,
+) -> anyhow::Result<Receipt> {
+    let tools = backend.list().await?;
+    let surface = backend.surface().to_string();
 
     let mut ledger = Ledger::new();
     let rec = Recorder::new(ctx.world.clone());
@@ -223,17 +294,18 @@ pub async fn run_mcp_loop(task: &Task, ctx: &ArmContext, model: &dyn crate::plan
             break;
         }
 
-        // Execute every tool call this turn (concurrently for B2, they arrive one at a time for B).
+        // Execute every tool call this turn (concurrently when the model emitted several).
         let futs = calls.iter().map(|c| {
-            let mcp = mcp.clone();
+            let backend = backend.clone();
             let rec = rec.clone();
+            let surface = surface.clone();
             let name = c["name"].as_str().unwrap_or("").to_string();
             let input = c["input"].clone();
             let id = c["id"].as_str().unwrap_or("").to_string();
             async move {
                 let key = input.get("idempotency_key").and_then(|k| k.as_str()).map(|s| s.to_string());
-                let recording = rec.start(&rec.next_node_id("t"), &name, "mcp", key, 1);
-                let res = mcp.call(&name, input.clone()).await;
+                let recording = rec.start(&rec.next_node_id("t"), &name, &surface, key, 1);
+                let res = backend.call(&name, input.clone()).await;
                 recording.finish(&res);
                 let content = match res {
                     Ok(v) => v.to_string(),
@@ -250,12 +322,19 @@ pub async fn run_mcp_loop(task: &Task, ctx: &ArmContext, model: &dyn crate::plan
     }
     rec.drain_into(&mut ledger);
     ledger.ended_ms = zerohuman::ledger::now_ms();
-    let plan = Plan {
-        plan_id: format!("{}-{}-{}", task.id, if parallel { "B2" } else { "B" }, ctx.run_id),
-        goal: task.goal.clone(),
-        nodes: vec![],
-        edges: vec![],
-        gates: vec![],
-    };
+    let plan = Plan { plan_id: format!("{}-{arm}-{}", task.id, ctx.run_id), goal: task.goal.clone(), nodes: vec![], edges: vec![], gates: vec![] };
     Ok(ledger.receipt(&plan, status, yield_reason, None, error))
+}
+
+/// Arms B and B2 over the target app's MCP door.
+pub async fn run_mcp_loop(task: &Task, ctx: &ArmContext, model: &dyn crate::planner::Sampler, facts: &str, parallel: bool) -> anyhow::Result<Receipt> {
+    let backend = Arc::new(McpBackend(McpEffector::new(&format!("{}/mcp", ctx.base.trim_end_matches('/')), "mcp")));
+    run_tool_loop(task, ctx, model, facts, parallel, backend, if parallel { "B2" } else { "B" }).await
+}
+
+/// Arm C over the page's WebMCP tools in a headless browser. Parallel tool calls allowed, like B2.
+pub async fn run_webmcp_loop(task: &Task, ctx: &ArmContext, model: &dyn crate::planner::Sampler, facts: &str) -> anyhow::Result<Receipt> {
+    let pool = ctx.browser.clone().ok_or_else(|| anyhow::anyhow!("arm C needs a browser pool"))?;
+    let backend = Arc::new(WebMcpBackend { base: ctx.base.clone(), pool });
+    run_tool_loop(task, ctx, model, facts, true, backend, "C").await
 }

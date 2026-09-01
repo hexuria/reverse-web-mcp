@@ -170,6 +170,7 @@ async fn run(opts: RunOpts) -> anyhow::Result<()> {
                     surfaces: surfaces.clone(),
                     run_id: format!("r{run}"),
                     browser: browser.clone(),
+                    shots_dir: Some(out.join("shots")),
                 };
 
                 let mut used_intent = serde_json::Value::Null;

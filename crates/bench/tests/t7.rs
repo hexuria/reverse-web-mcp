@@ -40,6 +40,7 @@ async fn approve_is_one_screen_lane_inside_a_wide_api_plan() {
         surfaces: vec!["api".into(), "a11y".into()],
         run_id: "r1".into(),
         browser: Some(pool.clone()),
+        shots_dir: None,
     };
     let receipt = run_ours(&task, &ctx, None, Ledger::new(), None).await.unwrap();
     assert_eq!(receipt.status, Status::Committed, "{:?}\n{}", receipt.error, receipt.plan);

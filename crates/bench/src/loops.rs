@@ -380,8 +380,15 @@ pub async fn run_cua_loop(task: &Task, ctx: &ArmContext, model: &dyn crate::plan
     let opening = format!("World facts (read just now):\n{facts}\n\nTask: {}\n\nHere is the screen.", task.goal);
     let mut messages: Vec<Value> = Vec::new();
 
+    let shots = ctx.shots_dir.as_ref().map(|d| d.join(format!("{}-A-{}", task.id, ctx.run_id)));
+    if let Some(d) = &shots {
+        std::fs::create_dir_all(d)?;
+    }
     for turn in 0..max_turns {
         let png = page.screenshot_png().await?;
+        if let Some(d) = &shots {
+            let _ = std::fs::write(d.join(format!("turn-{turn:02}.png")), &png);
+        }
         let image =
             json!({"type": "image", "source": {"type": "base64", "media_type": "image/png", "data": base64::engine::general_purpose::STANDARD.encode(&png)}});
         let text = if turn == 0 { opening.clone() } else { "Here is the screen after your action.".to_string() };

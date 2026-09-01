@@ -73,6 +73,7 @@ async fn the_webmcp_loop_runs_in_a_real_page() {
         surfaces: vec!["api".into()],
         run_id: "r1".into(),
         browser: Some(pool.clone()),
+        shots_dir: None,
     };
 
     let r = run_webmcp_loop(&task, &ctx, &Script(Mutex::new(0)), "  customers (10): Acme, ...").await.unwrap();

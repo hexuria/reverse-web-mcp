@@ -63,6 +63,7 @@ async fn the_pixel_loop_sees_only_screenshots_and_records_pixel_rows() {
         surfaces: vec!["api".into()],
         run_id: "r1".into(),
         browser: Some(pool.clone()),
+        shots_dir: None,
     };
 
     let r = run_cua_loop(&task, &ctx, &Clicks(Mutex::new(0)), "  customers (10): Acme, ...").await.unwrap();

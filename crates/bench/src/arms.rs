@@ -24,6 +24,8 @@ pub struct ArmContext {
     pub run_id: String,
     /// A browser, when a screen surface is in play. One page per screen lane.
     pub browser: Option<Arc<driver::BrowserPool>>,
+    /// Where a pixel arm saves what it saw, one PNG per turn. None means do not save.
+    pub shots_dir: Option<std::path::PathBuf>,
 }
 
 /// The effectors for this run: the API and MCP doors from zerohuman, plus the accessibility door

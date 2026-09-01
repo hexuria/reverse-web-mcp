@@ -50,6 +50,7 @@ async fn a_fork_is_answered_once_and_the_plan_resumes() {
         surfaces: vec!["api".into()],
         run_id: "r1".into(),
         browser: None,
+        shots_dir: None,
     };
 
     let receipt =

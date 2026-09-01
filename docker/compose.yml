@@ -10,17 +10,22 @@ services:
       timeout: 2s
       retries: 15
 
-  lanes:
+  bench:
     build: { context: .., dockerfile: docker/Dockerfile }
     depends_on:
       app: { condition: service_healthy }
     environment:
       APP_URL: http://app:47310
-      DISPLAY_COUNT: "3"
       ARMS: ${ARMS:-D,E}
       RUNS: ${RUNS:-5}
       PHASE: ${PHASE:-3}
+      PLANNER: ${PLANNER:-}
+      MODEL: ${MODEL:-}
+      # A gateway on the host, e.g. opencodex: http://host.docker.internal:8080
+      BASE_URL: ${BASE_URL:-}
+      OUT: ${OUT:-sandbox}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     volumes:
       - ../results:/work/results
-      - ../recordings:/work/recordings
     shm_size: 1g

@@ -37,7 +37,15 @@ async fn ctx() -> ArmContext {
     });
     let base = format!("http://{addr}");
     let world = Arc::new(zerohuman::world_from(&base).await.unwrap());
-    ArmContext { base: base.clone(), world, bus: EventBus::connect(&base).await.unwrap(), surfaces: vec!["api".into()], run_id: "r1".into(), browser: None }
+    ArmContext {
+        base: base.clone(),
+        world,
+        bus: EventBus::connect(&base).await.unwrap(),
+        surfaces: vec!["api".into()],
+        run_id: "r1".into(),
+        browser: None,
+        shots_dir: None,
+    }
 }
 
 fn task() -> Task {

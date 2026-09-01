@@ -124,12 +124,13 @@ anything stored disagrees.
 ## The sandbox
 
 ```sh
-make sandbox     # docker compose: app + N virtual displays with Chromium + ffmpeg recording + the bench
+make sandbox     # docker compose: the app + Chromium + the bench, results mounted back
 ```
 
-Your machine runs the command. The app, the browsers, the displays and the recordings live in
-the container. Each display has its own Chromium profile directory so two screen lanes never
-collide on a profile lock. The scheduler's screen pool is exactly the display count.
+Every screen arm drives a headless Chromium over CDP, on the Mac or in the container, so no run
+anywhere can touch your screen, mouse or keyboard. Arm A saves the screenshot it acted on each
+turn under `results/<run>/shots/`, which is the recording. Point `BASE_URL` at
+`http://host.docker.internal:8080` to reach opencodex from inside the container.
 
 ## Where this is on the road
 

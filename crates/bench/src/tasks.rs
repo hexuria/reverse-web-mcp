@@ -24,6 +24,27 @@ pub struct Expect {
     pub forks: Option<usize>,
     #[serde(default)]
     pub double_sends: Option<usize>,
+    /// What to expect instead when the arm answered a fork and resumed.
+    #[serde(default)]
+    pub after_resume: Option<Box<Expect>>,
+}
+
+impl Expect {
+    /// The expectation that applies: the resumed one when a fork was answered, else this.
+    pub fn applicable(&self, resumed: bool) -> &Expect {
+        match (&self.after_resume, resumed) {
+            (Some(e), true) => e,
+            _ => self,
+        }
+    }
+}
+
+/// True when the receipt's ledger holds a fork-answer sample.
+pub fn resumed_after_fork(receipt: &Value) -> bool {
+    receipt
+        .pointer("/ledger/samples")
+        .and_then(|s| s.as_array())
+        .is_some_and(|a| a.iter().any(|x| x.get("kind").and_then(|k| k.as_str()) == Some("fork_answer")))
 }
 
 fn committed() -> String {

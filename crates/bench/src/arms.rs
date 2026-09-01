@@ -28,22 +28,60 @@ pub struct ArmContext {
 
 /// `intent` is the planner's output when a model planned; otherwise the task file's hand-written wants.
 /// `ledger` already carries the planner's sample and tokens, if any.
-pub async fn run_ours(task: &Task, ctx: &ArmContext, intent: Option<zerohuman::Intent>, mut ledger: Ledger) -> anyhow::Result<Receipt> {
-    let intent = intent.unwrap_or_else(|| task.intent());
+/// What arm D may do when the plan stops with a question.
+pub struct Planner<'a> {
+    pub sampler: &'a dyn crate::planner::Sampler,
+    pub facts: String,
+}
+
+/// `intent` is the planner's output when a model planned; otherwise the task file's hand-written wants.
+/// `ledger` already carries the planner's samples, if any. With a `planner`, one fork is answered
+/// and the plan resumed; nothing already proven done by its key is re-sent.
+pub async fn run_ours(
+    task: &Task,
+    ctx: &ArmContext,
+    intent: Option<zerohuman::Intent>,
+    mut ledger: Ledger,
+    planner: Option<Planner<'_>>,
+) -> anyhow::Result<Receipt> {
+    let mut intent = intent.unwrap_or_else(|| task.intent());
     let opts = CompileOptions { plan_id: format!("{}-{}", task.id, ctx.run_id), surfaces: ctx.surfaces.clone() };
-    let plan = match compile(&intent, &ctx.world, &opts) {
-        Ok(p) => p,
-        Err(e) => {
-            let empty = Plan { plan_id: opts.plan_id.clone(), goal: intent.goal.clone(), nodes: vec![], edges: vec![], gates: vec![] };
-            ledger.ended_ms = now_ms();
-            return Ok(ledger.receipt(&empty, Status::Error, None, None, Some(format!("compile: {e}"))));
-        }
-    };
     let effectors = zerohuman::default_effectors(&ctx.base, ctx.world.clone(), &ctx.surfaces);
     let sched =
         Scheduler { effectors, bus: Some(ctx.bus.clone()), pools: Default::default(), policy: Default::default(), recorder: Recorder::new(ctx.world.clone()) };
-    let outcome = sched.run(&plan, &mut ledger).await;
+
+    let mut plan = match compile(&intent, &ctx.world, &opts) {
+        Ok(p) => p,
+        Err(e) => return Ok(compile_failed(&opts, &intent, ledger, e)),
+    };
+    let mut outcome = sched.run(&plan, &mut ledger).await;
+
+    if outcome.status == Status::NeedThink {
+        if let (Some(p), Some(evidence)) = (&planner, outcome.evidence.clone()) {
+            let fork = crate::planner::ForkQuestion { ask: outcome.yield_reason.clone().unwrap_or_default(), evidence };
+            match crate::planner::answer_fork(task, &ctx.world, &p.facts, &intent, &fork, p.sampler, &mut ledger).await {
+                Ok(answered) => {
+                    intent = answered;
+                    plan = match compile(&intent, &ctx.world, &opts) {
+                        Ok(p) => p,
+                        Err(e) => return Ok(compile_failed(&opts, &intent, ledger, e)),
+                    };
+                    let done = ledger.completed(&plan);
+                    outcome = sched.resume(&plan, &mut ledger, &done).await;
+                }
+                Err(e) => {
+                    outcome.error = Some(format!("fork answer failed: {e}"));
+                }
+            }
+        }
+    }
     Ok(ledger.receipt(&plan, outcome.status, outcome.yield_reason, outcome.evidence, outcome.error))
+}
+
+fn compile_failed(opts: &CompileOptions, intent: &zerohuman::Intent, mut ledger: Ledger, e: zerohuman::compiler::CompileError) -> Receipt {
+    let empty = Plan { plan_id: opts.plan_id.clone(), goal: intent.goal.clone(), nodes: vec![], edges: vec![], gates: vec![] };
+    ledger.ended_ms = now_ms();
+    ledger.receipt(&empty, Status::Error, None, None, Some(format!("compile: {e}")))
 }
 
 // ---------------- E: script ceiling ----------------

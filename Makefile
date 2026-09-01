@@ -20,13 +20,17 @@ SURFACES ?= api
 TASKS ?=
 RUN ?= $(shell ls -d results/*/ 2>/dev/null | sort | tail -1)
 
-.PHONY: build test bench report verify app sandbox clean
+.PHONY: build test gate bench report verify app sandbox clean
 
 build:
 	cargo build --release
 
 test:
 	cargo test --workspace
+
+# fmt + clippy -D warnings + tests. Every commit must pass this.
+gate:
+	./scripts/gate.sh
 
 bench: build
 	./target/release/bench run --spawn --arms $(ARMS) --runs $(RUNS) --phase $(PHASE) --latency-ms $(LATENCY) --surfaces $(SURFACES) \

@@ -182,7 +182,9 @@ name = "bench"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "app",
  "async-trait",
+ "axum",
  "chrono",
  "clap",
  "futures",

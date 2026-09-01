@@ -175,7 +175,14 @@ async fn run(opts: RunOpts) -> anyhow::Result<()> {
                             None
                         };
                         used_intent = serde_json::to_value(intent.clone().unwrap_or_else(|| task.intent()))?;
-                        arms::run_ours(task, &ctx, intent, ledger).await?
+                        let planner_ref = if planner == "model" {
+                            let facts = planner::world_facts(&base).await?;
+                            Some((model_client.as_ref().unwrap().with_effort(&opts.planner_effort), facts))
+                        } else {
+                            None
+                        };
+                        let planner_arg = planner_ref.as_ref().map(|(m, facts)| arms::Planner { sampler: m, facts: facts.clone() });
+                        arms::run_ours(task, &ctx, intent, ledger, planner_arg).await?
                     }
                     "E" => arms::run_script(task, &ctx).await?,
                     "B" => loops::run_mcp_loop(task, &ctx, model_client.as_ref().unwrap(), false).await?,
@@ -205,7 +212,9 @@ async fn run(opts: RunOpts) -> anyhow::Result<()> {
                     zerohuman::Status::NeedThink => "need_think",
                     zerohuman::Status::Error => "error",
                 };
-                let checks = tasks::check(&task.expect, status, receipt.forks_taken, &snapshot, double_sends);
+                let receipt_json = serde_json::to_value(&receipt)?;
+                let expect = task.expect.applicable(tasks::resumed_after_fork(&receipt_json));
+                let checks = tasks::check(expect, status, receipt.forks_taken, &snapshot, double_sends);
                 let correct = checks.iter().all(|c| c.ok);
                 let result = RunResult {
                     task: task.id.clone(),
@@ -236,7 +245,7 @@ async fn run(opts: RunOpts) -> anyhow::Result<()> {
                     yield_reason: receipt.yield_reason.clone(),
                     error: receipt.error.clone(),
                     snapshot,
-                    receipt: serde_json::to_value(&receipt)?,
+                    receipt: receipt_json,
                     intent: used_intent,
                     model: if arm == "E" || (arm == "D" && planner != "model") { String::new() } else { model.clone() },
                     effort: if arm == "E" || (arm == "D" && planner != "model") { String::new() } else { effort.clone() },

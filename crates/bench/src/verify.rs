@@ -52,7 +52,8 @@ pub fn problems_for(r: &RunResult, task: Option<&Task>) -> Vec<String> {
         out.push(format!("{who}: tokens stored {}/{} recomputed {tin}/{tout}", r.tokens_in, r.tokens_out));
     }
     if let Some(t) = task {
-        let checks = check(&t.expect, &r.status, r.forks, &r.snapshot, r.double_sends);
+        let expect = t.expect.applicable(crate::tasks::resumed_after_fork(&r.receipt));
+        let checks = check(expect, &r.status, r.forks, &r.snapshot, r.double_sends);
         let correct = checks.iter().all(|c| c.ok);
         if correct != r.correct {
             out.push(format!("{who}: correctness stored {} recomputed {correct}", r.correct));

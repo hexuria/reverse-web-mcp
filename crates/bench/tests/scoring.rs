@@ -19,6 +19,7 @@ fn check_reads_the_snapshot_not_the_arm() {
         reports: Some(1),
         forks: Some(0),
         double_sends: Some(0),
+        after_resume: None,
     };
     let snap = snapshot(vec![json!({"status": "paid", "receipt_sent": false}), json!({"status": "draft", "receipt_sent": false})], 1);
     let checks = check(&expect, "committed", 0, &snap, 0);

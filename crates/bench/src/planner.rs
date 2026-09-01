@@ -167,3 +167,42 @@ pub async fn plan_intent(task: &Task, world: &World, facts: &str, sampler: &dyn 
     let resp = sampler.sample(ledger, SampleKind::Plan, body).await?;
     intent_from(&resp, task)
 }
+
+/// What the scheduler stopped on.
+pub struct ForkQuestion {
+    pub ask: String,
+    pub evidence: Value,
+}
+
+/// The planner answers a fork: it rewrites only the wants about the ambiguous entity, naming
+/// the chosen one by id, and leaves every other want byte-identical so their keys survive.
+pub async fn answer_fork(
+    task: &Task,
+    world: &World,
+    facts: &str,
+    prior: &Intent,
+    fork: &ForkQuestion,
+    sampler: &dyn Sampler,
+    ledger: &mut Ledger,
+) -> anyhow::Result<Intent> {
+    let (ask, evidence) = (&fork.ask, &fork.evidence);
+    let user = format!(
+        "World model:\n{}\nWorld facts (read just now):\n{}\nGoal: {}\n\nThe plan compiled from your intent stopped with a question:\n  {}\nEvidence:\n{}\n\nYour intent was:\n{}\n\nAnswer by emitting the intent again with emit_intent. Rules: identify the chosen entity by id, e.g. customer(id=11), \
+in every want that referred to the ambiguous one; keep every other want exactly as it was, character for character; \
+if the goal gives no basis to choose, choose the lowest id and say nothing else.",
+        world.summary(),
+        facts,
+        task.goal,
+        ask,
+        serde_json::to_string_pretty(evidence).unwrap_or_default(),
+        prior.wants.iter().map(|w| format!("  {w}")).collect::<Vec<_>>().join("\n")
+    );
+    let body = json!({
+        "max_tokens": 4096,
+        "system": [{"type": "text", "text": PLANNER_SYSTEM, "cache_control": {"type": "ephemeral"}}],
+        "tools": [intent_tool()],
+        "messages": [{"role": "user", "content": user}],
+    });
+    let resp = sampler.sample(ledger, SampleKind::ForkAnswer, body).await?;
+    intent_from(&resp, task)
+}

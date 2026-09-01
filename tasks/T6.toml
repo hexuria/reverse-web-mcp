@@ -18,3 +18,11 @@ invoices = 0
 sent = 0
 forks = 1
 double_sends = 0
+
+# With a planner present, the question is answered and the plan resumes.
+[expect.after_resume]
+status = "committed"
+invoices = 1
+sent = 1
+forks = 1
+double_sends = 0

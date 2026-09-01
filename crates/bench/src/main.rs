@@ -204,7 +204,7 @@ async fn run(o: RunOpts) -> anyhow::Result<()> {
     let arms: Vec<String> = arms.split(',').map(|s| s.trim().to_uppercase()).collect();
     let surfaces: Vec<String> = surfaces.split(',').map(|s| s.trim().to_string()).collect();
 
-    let world = Arc::new(zerohuman::world_from(&base).await.map_err(|e| anyhow::anyhow!(e))?);
+    let world = Arc::new(zerohuman::world_from(&base).await?);
     let needs_model = planner == "model" || arms.iter().any(|a| matches!(a.as_str(), "A" | "B" | "B2" | "C"));
     let model_client =
         if needs_model { Some(loops::ModelClient::from_env(&model, &effort, fallbacks, base_url.as_deref(), api_key.as_deref())?) } else { None };
@@ -225,7 +225,7 @@ async fn run(o: RunOpts) -> anyhow::Result<()> {
                     chaos["latency_ms"] = serde_json::json!(latency_ms);
                 }
                 oracle.chaos(&chaos).await?;
-                let bus = EventBus::connect(&base).await.map_err(|e| anyhow::anyhow!(e))?;
+                let bus = EventBus::connect(&base).await?;
                 let hook = task.hooks.pay_after_create_ms.map(|ms| oracle.pay_on_create(bus.clone(), ms));
                 let ctx = ArmContext { base: base.clone(), world: world.clone(), bus: bus.clone(), surfaces: surfaces.clone(), run_id: format!("r{run}") };
 

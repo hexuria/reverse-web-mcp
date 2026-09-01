@@ -7,7 +7,18 @@ use std::time::Duration;
 use futures::StreamExt;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+use thiserror::Error;
 use tokio::sync::watch;
+
+#[derive(Debug, Clone, PartialEq, Error)]
+pub enum BusError {
+    #[error("timed out waiting for {kind}{}", id.map(|i| format!(" id={i}")).unwrap_or_default())]
+    Timeout { kind: String, id: Option<u64> },
+    #[error("event stream closed")]
+    Closed,
+    #[error("no event bus in this run")]
+    Missing,
+}
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct AppEvent {
@@ -27,7 +38,7 @@ pub struct EventBus {
 
 impl EventBus {
     /// Connects and returns once the stream is open, so no event after this call is missed.
-    pub async fn connect(base: &str) -> Result<Arc<EventBus>, String> {
+    pub async fn connect(base: &str) -> Result<Arc<EventBus>, BusError> {
         let (tx, _) = watch::channel(0u64);
         let (ctx, mut crx) = watch::channel(false);
         let bus = Arc::new(EventBus { seen: Mutex::new(Vec::new()), tx, connected: ctx });
@@ -75,7 +86,7 @@ impl EventBus {
     }
 
     /// Resolve when an event of `kind` (optionally for one entity id) has been seen since connect.
-    pub async fn wait_for(&self, kind: &str, id: Option<u64>, timeout: Duration) -> Result<AppEvent, String> {
+    pub async fn wait_for(&self, kind: &str, id: Option<u64>, timeout: Duration) -> Result<AppEvent, BusError> {
         let deadline = tokio::time::Instant::now() + timeout;
         let mut rx = self.tx.subscribe();
         loop {
@@ -85,12 +96,12 @@ impl EventBus {
             }
             let remaining = deadline.saturating_duration_since(tokio::time::Instant::now());
             if remaining.is_zero() {
-                return Err(format!("timed out waiting for {kind}{}", id.map(|i| format!(" id={i}")).unwrap_or_default()));
+                return Err(BusError::Timeout { kind: kind.to_string(), id });
             }
             match tokio::time::timeout(remaining, rx.changed()).await {
                 Ok(Ok(())) => continue,
-                Ok(Err(_)) => return Err("event stream closed".into()),
-                Err(_) => return Err(format!("timed out waiting for {kind}")),
+                Ok(Err(_)) => return Err(BusError::Closed),
+                Err(_) => return Err(BusError::Timeout { kind: kind.to_string(), id }),
             }
         }
     }

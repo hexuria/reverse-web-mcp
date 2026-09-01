@@ -234,8 +234,8 @@ async fn execute(
         let started = now_us();
         let id = args.get("id").and_then(|v| v.as_u64());
         let res = match &bus {
-            Some(b) => b.wait_for(&node.op, id, policy.wait_timeout).await.map(|ev| serde_json::to_value(ev).unwrap()),
-            None => Err("no event bus".to_string()),
+            Some(b) => b.wait_for(&node.op, id, policy.wait_timeout).await.map(|ev| serde_json::to_value(ev).unwrap()).map_err(|e| e.to_string()),
+            None => Err(crate::events::BusError::Missing.to_string()),
         };
         let ok = res.is_ok();
         rows.lock().unwrap().push(Row {

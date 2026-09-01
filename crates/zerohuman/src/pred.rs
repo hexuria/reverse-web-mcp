@@ -12,6 +12,22 @@
 
 use std::fmt;
 
+use thiserror::Error;
+
+#[derive(Debug, Clone, PartialEq, Error)]
+pub enum ParseError {
+    #[error("expected {what} at byte {at}")]
+    Expected { what: String, at: usize },
+    #[error("unterminated string")]
+    Unterminated,
+    #[error("bad number '{0}'")]
+    BadNumber(String),
+    #[error("unexpected {found:?} at byte {at}")]
+    Unexpected { found: Option<char>, at: usize },
+    #[error("trailing input at byte {at}: {rest}")]
+    Trailing { at: usize, rest: String },
+}
+
 #[derive(Clone, Debug, PartialEq)]
 pub enum Val {
     Str(String),
@@ -36,12 +52,12 @@ pub struct Pred {
 }
 
 impl Pred {
-    pub fn parse(src: &str) -> Result<Pred, String> {
+    pub fn parse(src: &str) -> Result<Pred, ParseError> {
         let mut p = Parser { s: src.as_bytes(), i: 0 };
         let pred = p.pred()?;
         p.ws();
         if p.i != p.s.len() {
-            return Err(format!("trailing input at {}: {}", p.i, &src[p.i..]));
+            return Err(ParseError::Trailing { at: p.i, rest: src[p.i..].to_string() });
         }
         Ok(pred)
     }
@@ -159,27 +175,27 @@ impl<'a> Parser<'a> {
         }
     }
 
-    fn expect(&mut self, c: u8) -> Result<(), String> {
+    fn expect(&mut self, c: u8) -> Result<(), ParseError> {
         if self.eat(c) {
             Ok(())
         } else {
-            Err(format!("expected '{}' at {}", c as char, self.i))
+            Err(ParseError::Expected { what: format!("'{}'", c as char), at: self.i })
         }
     }
 
-    fn ident(&mut self) -> Result<String, String> {
+    fn ident(&mut self) -> Result<String, ParseError> {
         self.ws();
         let start = self.i;
         while self.i < self.s.len() && ((self.s[self.i] as char).is_alphanumeric() || self.s[self.i] == b'_') {
             self.i += 1;
         }
         if start == self.i {
-            return Err(format!("expected identifier at {}", self.i));
+            return Err(ParseError::Expected { what: "identifier".into(), at: self.i });
         }
         Ok(std::str::from_utf8(&self.s[start..self.i]).unwrap().to_string())
     }
 
-    fn pred(&mut self) -> Result<Pred, String> {
+    fn pred(&mut self) -> Result<Pred, ParseError> {
         let entity = self.ident()?;
         self.expect(b'(')?;
         let mut args = Vec::new();
@@ -206,7 +222,7 @@ impl<'a> Parser<'a> {
         Ok(Pred { entity, args, field, value })
     }
 
-    fn value(&mut self) -> Result<Val, String> {
+    fn value(&mut self) -> Result<Val, ParseError> {
         self.ws();
         match self.peek() {
             Some(b'\'') => {
@@ -214,7 +230,7 @@ impl<'a> Parser<'a> {
                 let mut out = String::new();
                 loop {
                     match self.peek() {
-                        None => return Err("unterminated string".into()),
+                        None => return Err(ParseError::Unterminated),
                         Some(b'\\') => {
                             self.i += 1;
                             if let Some(c) = self.peek() {
@@ -269,7 +285,7 @@ impl<'a> Parser<'a> {
                     self.i += 1;
                 }
                 let txt = std::str::from_utf8(&self.s[start..self.i]).unwrap();
-                txt.parse::<i64>().map(Val::Num).map_err(|e| e.to_string())
+                txt.parse::<i64>().map(Val::Num).map_err(|_| ParseError::BadNumber(txt.to_string()))
             }
             Some(c) if (c as char).is_alphabetic() => {
                 let save = self.i;
@@ -284,7 +300,7 @@ impl<'a> Parser<'a> {
                     }
                 }
             }
-            other => Err(format!("unexpected {:?} at {}", other.map(|c| c as char), self.i)),
+            other => Err(ParseError::Unexpected { found: other.map(|c| c as char), at: self.i }),
         }
     }
 }
@@ -306,6 +322,13 @@ mod tests {
             let p = Pred::parse(src).unwrap();
             assert_eq!(p.to_string(), src, "round trip");
         }
+    }
+
+    #[test]
+    fn errors_are_typed() {
+        assert!(matches!(Pred::parse("invoice(").unwrap_err(), ParseError::Expected { .. }));
+        assert_eq!(Pred::parse("invoice(name='x").unwrap_err(), ParseError::Unterminated);
+        assert!(matches!(Pred::parse("invoice() extra").unwrap_err(), ParseError::Trailing { .. }));
     }
 
     #[test]

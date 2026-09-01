@@ -18,7 +18,7 @@ use crate::world::{Op, OpKind, World};
 #[derive(Debug, Error)]
 pub enum CompileError {
     #[error("cannot parse want '{0}': {1}")]
-    Parse(String, String),
+    Parse(String, #[source] crate::pred::ParseError),
     #[error("nothing in the world model can make '{0}' true")]
     Unsatisfiable(String),
     #[error("operation {0} has no available surface among {1:?}")]

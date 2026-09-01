@@ -8,21 +8,14 @@ use serde_json::{json, Map, Value};
 use crate::plan::Node;
 use crate::world::{OpKind, ParamIn, World};
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, thiserror::Error)]
 pub enum EffectError {
     /// Try again with the same key: 429, 5xx, transport.
+    #[error("retryable: {0}")]
     Retryable(String),
     /// The plan's assumption is wrong: 4xx other than 429.
+    #[error("fatal: {0}")]
     Fatal(String),
-}
-
-impl std::fmt::Display for EffectError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            EffectError::Retryable(s) => write!(f, "retryable: {s}"),
-            EffectError::Fatal(s) => write!(f, "fatal: {s}"),
-        }
-    }
 }
 
 #[async_trait]

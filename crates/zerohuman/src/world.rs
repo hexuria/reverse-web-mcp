@@ -9,7 +9,26 @@ use std::collections::BTreeMap;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-use crate::pred::Pred;
+use thiserror::Error;
+
+use crate::pred::{ParseError, Pred};
+
+#[derive(Debug, Error)]
+pub enum WorldError {
+    #[error("openapi document has no paths")]
+    NoPaths,
+    #[error("{method} {path}: no operationId")]
+    MissingOperationId { method: String, path: String },
+    #[error("{op}: {field}: {source}")]
+    Predicate {
+        op: String,
+        field: &'static str,
+        #[source]
+        source: ParseError,
+    },
+    #[error("fetching openapi: {0}")]
+    Fetch(String),
+}
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "lowercase")]
@@ -90,8 +109,12 @@ fn strings(v: Option<&Value>) -> Vec<String> {
     v.and_then(|x| x.as_array()).map(|a| a.iter().filter_map(|s| s.as_str().map(|s| s.to_string())).collect()).unwrap_or_default()
 }
 
-fn preds(v: Option<&Value>) -> Result<Vec<Pred>, String> {
-    strings(v).iter().map(|s| Pred::parse(s)).collect()
+fn preds(v: Option<&Value>, op: &str, field: &'static str) -> Result<Vec<Pred>, WorldError> {
+    strings(v).iter().map(|s| Pred::parse(s).map_err(|source| WorldError::Predicate { op: op.to_string(), field, source })).collect()
+}
+
+fn post(v: Option<&Value>, op: &str) -> Result<Option<Pred>, WorldError> {
+    v.and_then(|p| p.as_str()).map(|s| Pred::parse(s).map_err(|source| WorldError::Predicate { op: op.to_string(), field: "post", source })).transpose()
 }
 
 fn surfaces(v: Option<&Value>) -> BTreeMap<String, u32> {
@@ -104,7 +127,7 @@ fn fork(v: Option<&Value>) -> Option<Fork> {
 }
 
 impl World {
-    pub fn from_openapi(doc: &Value) -> Result<World, String> {
+    pub fn from_openapi(doc: &Value) -> Result<World, WorldError> {
         let mut entities = Vec::new();
         if let Some(es) = doc.get("x-zerohuman-entities").and_then(|e| e.as_object()) {
             for (name, spec) in es {
@@ -117,12 +140,16 @@ impl World {
         }
 
         let mut ops = Vec::new();
-        let paths = doc.get("paths").and_then(|p| p.as_object()).ok_or("openapi: no paths")?;
+        let paths = doc.get("paths").and_then(|p| p.as_object()).ok_or(WorldError::NoPaths)?;
         for (path, methods) in paths {
             let Some(methods) = methods.as_object() else { continue };
             for (method, spec) in methods {
                 let Some(zh) = spec.get("x-zerohuman") else { continue };
-                let name = spec.get("operationId").and_then(|s| s.as_str()).ok_or_else(|| format!("{method} {path}: no operationId"))?.to_string();
+                let name = spec
+                    .get("operationId")
+                    .and_then(|s| s.as_str())
+                    .ok_or_else(|| WorldError::MissingOperationId { method: method.clone(), path: path.clone() })?
+                    .to_string();
                 let mut params = Vec::new();
                 if let Some(ps) = spec.get("parameters").and_then(|p| p.as_array()) {
                     for p in ps {
@@ -139,10 +166,7 @@ impl World {
                         params.push(Param { name: k.clone(), location: ParamIn::Body });
                     }
                 }
-                let post = match zh.get("post").and_then(|p| p.as_str()) {
-                    Some(s) => Some(Pred::parse(s).map_err(|e| format!("{name}: post: {e}"))?),
-                    None => None,
-                };
+                let post = post(zh.get("post"), &name)?;
                 ops.push(Op {
                     name: name.clone(),
                     kind: OpKind::Http,
@@ -150,7 +174,7 @@ impl World {
                     path: path.clone(),
                     params,
                     post,
-                    requires: preds(zh.get("requires")).map_err(|e| format!("{name}: requires: {e}"))?,
+                    requires: preds(zh.get("requires"), &name, "requires")?,
                     produces: zh.get("produces").and_then(|p| p.as_str()).map(|s| s.to_string()),
                     reads: strings(zh.get("reads")),
                     writes: strings(zh.get("writes")),
@@ -169,7 +193,7 @@ impl World {
 
         if let Some(ui) = doc.get("x-zerohuman-ui").and_then(|u| u.as_object()) {
             for (name, zh) in ui {
-                let post = zh.get("post").and_then(|p| p.as_str()).map(Pred::parse).transpose()?;
+                let post = post(zh.get("post"), name)?;
                 let route = zh.get("route").and_then(|r| r.as_str()).unwrap_or("/").to_string();
                 let mut params = Vec::new();
                 for seg in route.split('/') {
@@ -184,7 +208,7 @@ impl World {
                     path: route.clone(),
                     params,
                     post,
-                    requires: preds(zh.get("requires"))?,
+                    requires: preds(zh.get("requires"), name, "requires")?,
                     produces: None,
                     reads: strings(zh.get("reads")),
                     writes: strings(zh.get("writes")),
@@ -199,7 +223,7 @@ impl World {
 
         if let Some(evs) = doc.get("x-zerohuman-events").and_then(|e| e.as_object()) {
             for (name, zh) in evs {
-                let post = zh.get("post").and_then(|p| p.as_str()).map(Pred::parse).transpose()?;
+                let post = post(zh.get("post"), name)?;
                 ops.push(Op {
                     name: name.clone(),
                     kind: OpKind::Event,

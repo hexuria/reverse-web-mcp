@@ -21,15 +21,16 @@ pub use intent::Intent;
 pub use ledger::{Ledger, Receipt, Status};
 pub use plan::Plan;
 pub use scheduler::{Policy, Pools, Scheduler};
-pub use world::World;
+pub use world::{World, WorldError};
 
 use std::collections::HashMap;
 use std::sync::Arc;
 
 /// Fetch the target app's OpenAPI document and derive the world model.
-pub async fn world_from(base: &str) -> Result<World, String> {
+pub async fn world_from(base: &str) -> Result<World, world::WorldError> {
     let url = format!("{}/openapi.json", base.trim_end_matches('/'));
-    let doc: serde_json::Value = reqwest::get(&url).await.map_err(|e| e.to_string())?.json().await.map_err(|e| e.to_string())?;
+    let doc: serde_json::Value =
+        reqwest::get(&url).await.map_err(|e| world::WorldError::Fetch(e.to_string()))?.json().await.map_err(|e| world::WorldError::Fetch(e.to_string()))?;
     World::from_openapi(&doc)
 }
 

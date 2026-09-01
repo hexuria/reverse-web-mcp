@@ -135,7 +135,9 @@ Rules:\n\
 - Do not assume order. The compiler derives order from data dependencies.\n\
 - If a fact depends on something the outside world does (a payment arriving), still want the final fact; \
   the engine waits for the event. Forks are only for genuine ambiguity, not for waiting or retrying.\n\
-- Use the real names from the world facts. Never use variables like $name.\n\n\
+- Use the real names from the world facts. Never use variables like $name.\n\
+- If a name in the goal matches more than one entity in the facts, still refer to it by name. \
+  The engine stops at that point and asks you which one; do not ask now and do not leave wants out.\n\n\
 Example goal: Invoice Acme and Globex, send both, then one report over both.\n\
 Example wants:\n\
   invoice(customer=customer(name='Acme')).exists\n\

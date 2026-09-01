@@ -58,6 +58,8 @@ pub enum LintError {
     WantsAnEntityThatAlreadyExists { want: String },
     #[error("intent cannot be compiled: {reason}")]
     Unsatisfiable { reason: String },
+    #[error("intent has no wants; every goal needs at least one fact that must become true")]
+    Empty,
 }
 
 fn has_var(v: &Val) -> bool {
@@ -87,6 +89,9 @@ fn walk_vals<'a>(v: &'a Val, out: &mut Vec<&'a Pred>) {
 /// Check an intent against the world model before spending anything on it.
 pub fn lint(intent: &Intent, world: &World, opts: &CompileOptions) -> Vec<LintError> {
     let mut errs = Vec::new();
+    if intent.wants.is_empty() {
+        return vec![LintError::Empty];
+    }
     let resolvable: Vec<&str> =
         world.ops.iter().filter(|o| o.post.as_ref().is_some_and(|p| p.field == "resolved")).filter_map(|o| o.produces.as_deref()).collect();
     for want in &intent.wants {
@@ -143,6 +148,12 @@ mod tests {
     }
 
     type Expect = fn(&LintError) -> bool;
+
+    #[test]
+    fn an_empty_intent_is_rejected() {
+        let intent = Intent { goal: "t".into(), ..Default::default() };
+        assert_eq!(lint(&intent, &world(), &CompileOptions::default()), vec![LintError::Empty]);
+    }
 
     #[test]
     fn the_table() {

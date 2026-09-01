@@ -2140,7 +2140,9 @@ dependencies = [
 name = "zerohuman"
 version = "0.1.0"
 dependencies = [
+ "app",
  "async-trait",
+ "axum",
  "futures",
  "hex",
  "reqwest",

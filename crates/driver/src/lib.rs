@@ -104,3 +104,92 @@ impl Lease {
         }
     }
 }
+
+/// Where Chrome lives on this machine: `CHIFFON_CHROME`, else the usual places.
+pub fn find_chrome() -> Option<String> {
+    std::env::var("CHIFFON_CHROME").ok().or_else(|| {
+        [
+            "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
+            "/Applications/Chromium.app/Contents/MacOS/Chromium",
+            "/usr/bin/chromium",
+            "/usr/bin/chromium-browser",
+            "/usr/bin/google-chrome",
+        ]
+        .iter()
+        .find(|p| std::path::Path::new(p).exists())
+        .map(|p| p.to_string())
+    })
+}
+
+/// The accessibility door: a UI-only operation executed by opening its route and clicking the
+/// control by its accessible name. One page per screen; the scheduler's pool decides how many.
+pub struct A11yEffector {
+    pub base: String,
+    pub pool: Arc<BrowserPool>,
+    client: reqwest::Client,
+}
+
+impl A11yEffector {
+    pub fn new(base: &str, pool: Arc<BrowserPool>) -> Self {
+        A11yEffector { base: base.trim_end_matches('/').to_string(), pool, client: reqwest::Client::new() }
+    }
+}
+
+fn fill(template: &str, args: &serde_json::Map<String, Value>) -> String {
+    let mut out = template.to_string();
+    for (k, v) in args {
+        let text = match v {
+            Value::String(s) => s.clone(),
+            other => other.to_string(),
+        };
+        out = out.replace(&format!("{{{k}}}"), &text);
+    }
+    out
+}
+
+#[async_trait::async_trait]
+impl zerohuman::effectors::Effector for A11yEffector {
+    fn surface(&self) -> &str {
+        "a11y"
+    }
+
+    async fn execute(&self, node: &zerohuman::plan::Node, args: &serde_json::Map<String, Value>) -> Result<Value, zerohuman::effectors::EffectError> {
+        use zerohuman::effectors::EffectError;
+        let ui = node.ui.as_ref().ok_or_else(|| EffectError::Fatal(format!("{} is not a UI operation", node.op)))?;
+        let route = fill(&ui.route, args);
+        let role = ui.control.get("role").and_then(|r| r.as_str()).unwrap_or("button");
+        let name = fill(ui.control.get("name").and_then(|n| n.as_str()).unwrap_or(""), args);
+        let page = self.pool.lease().await.map_err(|e| EffectError::Retryable(e.to_string()))?;
+        page.goto(&format!("{}{}", self.base, route)).await.map_err(|e| EffectError::Retryable(format!("goto: {e}")))?;
+        // The page renders from a fetch; give the control a moment to appear.
+        let mut last = None;
+        for _ in 0..30 {
+            match page.click_by_name(role, &name).await {
+                Ok(()) => {
+                    last = None;
+                    break;
+                }
+                Err(e) => {
+                    last = Some(e);
+                    tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+                }
+            }
+        }
+        if let Some(e) = last {
+            return Err(EffectError::Fatal(format!("{e}")));
+        }
+        // Observe the effect through the API, the same way every other door is observed.
+        if let Some(id) = args.get("id") {
+            for _ in 0..30 {
+                let r = self.client.get(format!("{}/api/invoices/{}", self.base, id)).send().await.map_err(|e| EffectError::Retryable(e.to_string()))?;
+                let v: Value = r.json().await.unwrap_or(Value::Null);
+                if v.get("approved") == Some(&Value::Bool(true)) {
+                    return Ok(v);
+                }
+                tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+            }
+            return Err(EffectError::Fatal(format!("clicked {name:?} but the invoice never showed approved")));
+        }
+        Ok(Value::Null)
+    }
+}

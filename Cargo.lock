@@ -233,6 +233,7 @@ dependencies = [
  "axum",
  "chrono",
  "clap",
+ "driver",
  "futures",
  "hex",
  "reqwest 0.12.28",
@@ -576,6 +577,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "app",
+ "async-trait",
  "axum",
  "chromiumoxide",
  "futures",
@@ -583,6 +585,7 @@ dependencies = [
  "serde_json",
  "tokio",
  "tracing",
+ "zerohuman",
 ]
 
 [[package]]

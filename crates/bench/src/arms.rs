@@ -22,6 +22,20 @@ pub struct ArmContext {
     pub bus: Arc<zerohuman::events::EventBus>,
     pub surfaces: Vec<String>,
     pub run_id: String,
+    /// A browser, when a screen surface is in play. One page per screen lane.
+    pub browser: Option<Arc<driver::BrowserPool>>,
+}
+
+/// The effectors for this run: the API and MCP doors from zerohuman, plus the accessibility door
+/// from the driver when a browser is available.
+pub fn effectors_for(ctx: &ArmContext) -> HashMap<String, Arc<dyn zerohuman::effectors::Effector>> {
+    let mut m = zerohuman::default_effectors(&ctx.base, ctx.world.clone(), &ctx.surfaces);
+    if ctx.surfaces.iter().any(|s| s == "a11y") {
+        if let Some(pool) = &ctx.browser {
+            m.insert("a11y".into(), Arc::new(driver::A11yEffector::new(&ctx.base, pool.clone())));
+        }
+    }
+    m
 }
 
 // ---------------- D: ours ----------------
@@ -46,7 +60,7 @@ pub async fn run_ours(
 ) -> anyhow::Result<Receipt> {
     let mut intent = intent.unwrap_or_else(|| task.intent());
     let opts = CompileOptions { plan_id: format!("{}-{}", task.id, ctx.run_id), surfaces: ctx.surfaces.clone() };
-    let effectors = zerohuman::default_effectors(&ctx.base, ctx.world.clone(), &ctx.surfaces);
+    let effectors = effectors_for(ctx);
     let sched =
         Scheduler { effectors, bus: Some(ctx.bus.clone()), pools: Default::default(), policy: Default::default(), recorder: Recorder::new(ctx.world.clone()) };
 

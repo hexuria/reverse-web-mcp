@@ -26,6 +26,8 @@ pub struct RunResult {
     #[serde(default)]
     pub run_ms: u128,
     pub max_parallel: usize,
+    #[serde(default)]
+    pub max_parallel_by_surface: BTreeMap<String, usize>,
     pub nodes: usize,
     pub depth: usize,
     pub correct: bool,

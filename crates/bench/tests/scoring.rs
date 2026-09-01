@@ -47,6 +47,7 @@ fn result(task: &str, arm: &str, run: u32, wall_ms: u128, max_parallel: usize, c
         plan_ms: 0,
         run_ms: wall_ms,
         max_parallel,
+        max_parallel_by_surface: Default::default(),
         nodes: 0,
         depth: 0,
         correct,

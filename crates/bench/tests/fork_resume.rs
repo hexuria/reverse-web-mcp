@@ -43,7 +43,14 @@ async fn a_fork_is_answered_once_and_the_plan_resumes() {
     let base = format!("http://{addr}");
     let task = Task::load(std::path::Path::new(concat!(env!("CARGO_MANIFEST_DIR"), "/../../tasks/T6.toml"))).unwrap();
     let world = Arc::new(zerohuman::world_from(&base).await.unwrap());
-    let ctx = ArmContext { base: base.clone(), world, bus: EventBus::connect(&base).await.unwrap(), surfaces: vec!["api".into()], run_id: "r1".into() };
+    let ctx = ArmContext {
+        base: base.clone(),
+        world,
+        bus: EventBus::connect(&base).await.unwrap(),
+        surfaces: vec!["api".into()],
+        run_id: "r1".into(),
+        browser: None,
+    };
 
     let receipt =
         run_ours(&task, &ctx, None, Ledger::new(), Some(Planner { sampler: &Answer, facts: "  customers (11): Acme, Acme, ...".into() })).await.unwrap();

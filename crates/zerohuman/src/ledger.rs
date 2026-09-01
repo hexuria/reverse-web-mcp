@@ -101,6 +101,9 @@ pub struct Receipt {
     /// Time the kitchen was running: first effect start to last effect end.
     pub run_ms: u128,
     pub max_parallel: usize,
+    /// The same sweep per surface: the screen pool should read 1 while the API stays wide.
+    #[serde(default)]
+    pub max_parallel_by_surface: std::collections::BTreeMap<String, usize>,
     pub nodes: usize,
     pub depth: usize,
     pub effects: Vec<EffectSummary>,
@@ -121,6 +124,17 @@ impl Ledger {
     /// number of effects in flight at one instant. This is the decisive benchmark column.
     pub fn max_parallel(&self) -> usize {
         max_overlap(self.rows.iter().filter(|r| r.surface != "event").map(|r| (r.started_us, r.ended_us)))
+    }
+
+    pub fn max_parallel_by_surface(&self) -> std::collections::BTreeMap<String, usize> {
+        let mut out = std::collections::BTreeMap::new();
+        let mut surfaces: Vec<&str> = self.rows.iter().map(|r| r.surface.as_str()).filter(|s| *s != "event").collect();
+        surfaces.sort();
+        surfaces.dedup();
+        for s in surfaces {
+            out.insert(s.to_string(), max_overlap(self.rows.iter().filter(|r| r.surface == s).map(|r| (r.started_us, r.ended_us))));
+        }
+        out
     }
 
     /// Append a sample; its `seq` is assigned here.
@@ -194,6 +208,7 @@ impl Ledger {
             plan_ms: self.plan_us() / 1000,
             run_ms: self.run_us() / 1000,
             max_parallel: self.max_parallel(),
+            max_parallel_by_surface: self.max_parallel_by_surface(),
             nodes: plan.nodes.len(),
             depth: plan.depth(),
             effects,

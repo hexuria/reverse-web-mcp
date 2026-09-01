@@ -133,6 +133,12 @@ async fn run(opts: RunOpts) -> anyhow::Result<()> {
 
     let world = Arc::new(zerohuman::world_from(&base).await?);
     let needs_model = opts.needs_model();
+    let browser = if surfaces.iter().any(|s| s == "a11y" || s == "pixels") {
+        let chrome = driver::find_chrome();
+        Some(driver::BrowserPool::launch(1, true, chrome.as_deref()).await?)
+    } else {
+        None
+    };
     let model_client =
         if needs_model { Some(loops::ModelClient::from_env(&model, &effort, fallbacks, base_url.as_deref(), api_key.as_deref())?) } else { None };
     println!(
@@ -154,7 +160,14 @@ async fn run(opts: RunOpts) -> anyhow::Result<()> {
                 oracle.chaos(&chaos).await?;
                 let bus = EventBus::connect(&base).await?;
                 let hook = task.hooks.pay_after_create_ms.map(|ms| oracle.pay_on_create(bus.clone(), ms));
-                let ctx = ArmContext { base: base.clone(), world: world.clone(), bus: bus.clone(), surfaces: surfaces.clone(), run_id: format!("r{run}") };
+                let ctx = ArmContext {
+                    base: base.clone(),
+                    world: world.clone(),
+                    bus: bus.clone(),
+                    surfaces: surfaces.clone(),
+                    run_id: format!("r{run}"),
+                    browser: browser.clone(),
+                };
 
                 let mut used_intent = serde_json::Value::Null;
                 let mut cache_hit = false;
@@ -252,6 +265,7 @@ async fn run(opts: RunOpts) -> anyhow::Result<()> {
                     plan_ms: receipt.plan_ms,
                     run_ms: receipt.run_ms,
                     max_parallel: receipt.max_parallel,
+                    max_parallel_by_surface: receipt.max_parallel_by_surface.clone(),
                     nodes: receipt.nodes,
                     depth: receipt.depth,
                     correct,
@@ -287,6 +301,9 @@ async fn run(opts: RunOpts) -> anyhow::Result<()> {
         }
     }
 
+    if let Some(b) = &browser {
+        let _ = b.close().await;
+    }
     let titles = titles(&tasks_dir)?;
     let depths = depths(&tasks_dir)?;
     let results = report::load_results(&out)?;

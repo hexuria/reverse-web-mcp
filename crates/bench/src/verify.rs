@@ -28,6 +28,16 @@ pub fn problems_for(r: &RunResult, task: Option<&Task>) -> Vec<String> {
     if max_par != r.max_parallel {
         out.push(format!("{who}: max_parallel stored {} recomputed {max_par}", r.max_parallel));
     }
+    for (surface, stored) in &r.max_parallel_by_surface {
+        let got = max_overlap(
+            rows.iter()
+                .filter(|x| x.get("surface").and_then(|s| s.as_str()) == Some(surface.as_str()))
+                .map(|x| (x.get("started_us").and_then(|v| v.as_u64()).unwrap_or(0) as u128, x.get("ended_us").and_then(|v| v.as_u64()).unwrap_or(0) as u128)),
+        );
+        if got != *stored {
+            out.push(format!("{who}: max_parallel[{surface}] stored {stored} recomputed {got}"));
+        }
+    }
     let run_ms = {
         let s = rows.iter().filter_map(|x| x.get("started_us").and_then(|v| v.as_u64())).min();
         let e = rows.iter().filter_map(|x| x.get("ended_us").and_then(|v| v.as_u64())).max();

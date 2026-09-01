@@ -2,8 +2,8 @@
 //! key, waits as edges, and a yield to the planner only at a declared fork or a broken
 //! assumption. Zero model calls in here.
 
-use std::collections::HashMap;
-use std::sync::{Arc, Mutex};
+use std::collections::{HashMap, HashSet};
+use std::sync::Arc;
 use std::time::Duration;
 
 use serde_json::{json, Map, Value};
@@ -70,27 +70,80 @@ enum Failure {
     Gate(String),
 }
 
-fn resolve_arg(arg: &Arg, outputs: &HashMap<String, Value>) -> Result<Value, String> {
+fn resolve_arg(arg: &Arg, outputs: &HashMap<String, Value>, guarded: &HashSet<String>) -> Result<Value, String> {
     match arg {
         Arg::Lit(v) => Ok(v.clone()),
         Arg::Ref { node, field } => {
             let out = outputs.get(node).ok_or_else(|| format!("output of {node} missing"))?;
             let obj = match out {
-                Value::Array(a) => a.first().cloned().unwrap_or(Value::Null),
+                // A list is only an acceptable referent when the producing node's fork guard
+                // already proved it has exactly one element.
+                Value::Array(a) if guarded.contains(node) && a.len() == 1 => a[0].clone(),
+                Value::Array(a) => return Err(format!("output of {node} is a list of {} and {node} has no fork guard", a.len())),
                 other => other.clone(),
             };
             obj.get(field).cloned().ok_or_else(|| format!("output of {node} has no field {field}"))
         }
-        Arg::List(xs) => Ok(Value::Array(xs.iter().map(|x| resolve_arg(x, outputs)).collect::<Result<_, _>>()?)),
+        Arg::List(xs) => Ok(Value::Array(xs.iter().map(|x| resolve_arg(x, outputs, guarded)).collect::<Result<_, _>>()?)),
     }
 }
 
-fn resolve_args(node: &Node, outputs: &HashMap<String, Value>) -> Result<Map<String, Value>, String> {
+fn resolve_args(node: &Node, outputs: &HashMap<String, Value>, guarded: &HashSet<String>) -> Result<Map<String, Value>, String> {
     let mut m = Map::new();
     for (k, a) in &node.args {
-        m.insert(k.clone(), resolve_arg(a, outputs)?);
+        m.insert(k.clone(), resolve_arg(a, outputs, guarded)?);
     }
     Ok(m)
+}
+
+/// The mutable state of one run: what is done, what is ready, what waits on what.
+pub struct RunState {
+    indeg: HashMap<String, usize>,
+    succ: HashMap<String, Vec<String>>,
+    outputs: HashMap<String, Value>,
+    ready: Vec<String>,
+    guarded: HashSet<String>,
+}
+
+impl RunState {
+    /// Build from a plan, treating `done` nodes as already completed with those outputs.
+    pub fn new(plan: &Plan, done: &HashMap<String, Value>) -> RunState {
+        let mut indeg: HashMap<String, usize> = plan.nodes.iter().map(|n| (n.id.clone(), 0)).collect();
+        let mut succ: HashMap<String, Vec<String>> = HashMap::new();
+        for (a, b) in &plan.edges {
+            *indeg.entry(b.clone()).or_default() += 1;
+            succ.entry(a.clone()).or_default().push(b.clone());
+        }
+        for id in done.keys() {
+            for s in succ.get(id).cloned().unwrap_or_default() {
+                if let Some(d) = indeg.get_mut(&s) {
+                    *d = d.saturating_sub(1);
+                }
+            }
+        }
+        let ready = plan.nodes.iter().filter(|n| !done.contains_key(&n.id) && indeg[&n.id] == 0).map(|n| n.id.clone()).collect();
+        let guarded = plan.nodes.iter().filter(|n| n.fork.is_some()).map(|n| n.id.clone()).collect();
+        RunState { indeg, succ, outputs: done.clone(), ready, guarded }
+    }
+
+    fn complete(&mut self, id: &str, output: Value) {
+        self.outputs.insert(id.to_string(), output);
+        for s in self.succ.get(id).cloned().unwrap_or_default() {
+            // A successor already proven done (on resume) never re-runs.
+            if self.outputs.contains_key(&s) {
+                continue;
+            }
+            let d = self.indeg.get_mut(&s).unwrap();
+            *d = d.saturating_sub(1);
+            if *d == 0 {
+                self.ready.push(s);
+            }
+        }
+    }
+
+    pub fn completed(&self) -> usize {
+        self.outputs.len()
+    }
 }
 
 /// The only fork conditions the world model uses today.
@@ -109,25 +162,26 @@ fn fork_fires(when: &str, output: &Value) -> Option<Value> {
 }
 
 impl Scheduler {
+    /// Run a plan from the start.
     pub async fn run(&self, plan: &Plan, ledger: &mut Ledger) -> Outcome {
-        let rec = self.recorder.clone();
-        let outputs: Arc<Mutex<HashMap<String, Value>>> = Arc::new(Mutex::new(HashMap::new()));
-        let sems: HashMap<String, Arc<Semaphore>> = self.pools.per_surface.iter().map(|(s, n)| (s.clone(), Arc::new(Semaphore::new(*n)))).collect();
+        let done = ledger.completed(plan);
+        self.resume(plan, ledger, &done).await
+    }
 
-        let mut indeg: HashMap<String, usize> = plan.nodes.iter().map(|n| (n.id.clone(), 0)).collect();
-        let mut succ: HashMap<String, Vec<String>> = HashMap::new();
-        for (a, b) in &plan.edges {
-            *indeg.entry(b.clone()).or_default() += 1;
-            succ.entry(a.clone()).or_default().push(b.clone());
-        }
-        let mut ready: Vec<String> = plan.nodes.iter().filter(|n| indeg[&n.id] == 0).map(|n| n.id.clone()).collect();
+    /// Run a plan, skipping every node in `done` and using its recorded output. The ledger keeps
+    /// its earlier rows; new rows are appended. With content-addressed keys this is safe to call
+    /// after a fork answer or a crash: nothing in `done` is re-sent.
+    pub async fn resume(&self, plan: &Plan, ledger: &mut Ledger, done: &HashMap<String, Value>) -> Outcome {
+        let rec = self.recorder.clone();
+        let sems: HashMap<String, Arc<Semaphore>> = self.pools.per_surface.iter().map(|(s, n)| (s.clone(), Arc::new(Semaphore::new(*n)))).collect();
+        let mut state = RunState::new(plan, done);
         let mut running: JoinSet<(String, Result<Value, Failure>)> = JoinSet::new();
         let mut outcome = Outcome { status: Status::Committed, yield_reason: None, evidence: None, error: None };
         let mut stopping = false;
 
         loop {
             if !stopping {
-                for id in ready.drain(..) {
+                for id in state.ready.drain(..).collect::<Vec<_>>() {
                     let node = plan.node(&id).unwrap().clone();
                     if let Some(gate) = plan.gates.iter().find(|g| g.node == id) {
                         if !gate.allowed {
@@ -136,7 +190,7 @@ impl Scheduler {
                             continue;
                         }
                     }
-                    let args = match resolve_args(&node, &outputs.lock().unwrap()) {
+                    let args = match resolve_args(&node, &state.outputs, &state.guarded) {
                         Ok(a) => a,
                         Err(e) => {
                             running.spawn(async move { (id, Err(Failure::Fatal(e))) });
@@ -154,7 +208,7 @@ impl Scheduler {
                     });
                 }
             } else {
-                ready.clear();
+                state.ready.clear();
             }
 
             let Some(joined) = running.join_next().await else { break };
@@ -163,16 +217,7 @@ impl Scheduler {
                 Err(e) => ("?".into(), Err(Failure::Fatal(format!("task panicked: {e}")))),
             };
             match result {
-                Ok(v) => {
-                    outputs.lock().unwrap().insert(id.clone(), v);
-                    for s in succ.get(&id).cloned().unwrap_or_default() {
-                        let d = indeg.get_mut(&s).unwrap();
-                        *d -= 1;
-                        if *d == 0 {
-                            ready.push(s);
-                        }
-                    }
-                }
+                Ok(v) => state.complete(&id, v),
                 Err(Failure::Fork(ev)) => {
                     stopping = true;
                     let node = plan.node(&id).unwrap();
@@ -199,16 +244,13 @@ impl Scheduler {
 
         rec.drain_into(ledger);
         ledger.ended_ms = now_ms();
-        if outcome.status == Status::Committed {
-            let done = outputs.lock().unwrap().len();
-            if done < plan.nodes.len() {
-                outcome = Outcome {
-                    status: Status::Error,
-                    yield_reason: None,
-                    evidence: None,
-                    error: Some(format!("{done} of {} nodes completed", plan.nodes.len())),
-                };
-            }
+        if outcome.status == Status::Committed && state.completed() < plan.nodes.len() {
+            outcome = Outcome {
+                status: Status::Error,
+                yield_reason: None,
+                evidence: None,
+                error: Some(format!("{} of {} nodes completed", state.completed(), plan.nodes.len())),
+            };
         }
         outcome
     }

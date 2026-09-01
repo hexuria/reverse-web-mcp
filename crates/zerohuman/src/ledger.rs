@@ -143,6 +143,19 @@ impl Ledger {
         union_length(self.samples.iter().map(|s| (s.started_us, s.ended_us)))
     }
 
+    /// Nodes of `plan` this ledger already proves done: a keyed node whose key has an ok row.
+    /// Unkeyed nodes (reads, waits) are never "done"; they re-run on resume, which is harmless.
+    pub fn completed(&self, plan: &Plan) -> std::collections::HashMap<String, Value> {
+        let mut done = std::collections::HashMap::new();
+        for n in &plan.nodes {
+            let Some(key) = &n.key else { continue };
+            if let Some(row) = self.rows.iter().rev().find(|r| r.ok && r.key.as_deref() == Some(key)) {
+                done.insert(n.id.clone(), row.observed.clone());
+            }
+        }
+        done
+    }
+
     /// Microseconds from the first effect starting to the last effect ending.
     pub fn run_us(&self) -> u128 {
         let start = self.rows.iter().map(|r| r.started_us).min();

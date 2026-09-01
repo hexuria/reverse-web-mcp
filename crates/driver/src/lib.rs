@@ -9,6 +9,10 @@ use futures::StreamExt;
 use serde_json::Value;
 use tokio::sync::{Mutex, Semaphore};
 
+/// The fixed screen every pixel lane sees. Coordinates the model returns are in this space.
+pub const SCREEN_W: u32 = 1280;
+pub const SCREEN_H: u32 = 800;
+
 pub struct BrowserPool {
     browser: Mutex<Browser>,
     pages: Mutex<Vec<Page>>,
@@ -33,7 +37,7 @@ impl BrowserPool {
         if let Some(path) = chrome {
             cfg = cfg.chrome_executable(path);
         }
-        cfg = cfg.no_sandbox();
+        cfg = cfg.no_sandbox().window_size(SCREEN_W, SCREEN_H).viewport(None);
         let cfg = cfg.build().map_err(|e| anyhow::anyhow!(e))?;
         let (browser, mut handler) = Browser::launch(cfg).await?;
         let handle = tokio::spawn(async move {
@@ -88,6 +92,36 @@ impl Lease {
     pub async fn eval(&self, js: &str) -> anyhow::Result<Value> {
         let r = self.page().evaluate(js).await?;
         Ok(r.into_value().unwrap_or(Value::Null))
+    }
+
+    /// A PNG of the current viewport: the only thing a pixel arm is allowed to see.
+    pub async fn screenshot_png(&self) -> anyhow::Result<Vec<u8>> {
+        use chromiumoxide::cdp::browser_protocol::page::CaptureScreenshotFormat;
+        use chromiumoxide::page::ScreenshotParams;
+        Ok(self.page().screenshot(ScreenshotParams::builder().format(CaptureScreenshotFormat::Png).full_page(false).build()).await?)
+    }
+
+    /// Click at viewport coordinates through CDP mouse events.
+    pub async fn click_at(&self, x: f64, y: f64) -> anyhow::Result<()> {
+        self.page().click(chromiumoxide::layout::Point { x, y }).await?;
+        Ok(())
+    }
+
+    /// Type text into whatever is focused, as key input.
+    pub async fn type_text(&self, text: &str) -> anyhow::Result<()> {
+        use chromiumoxide::cdp::browser_protocol::input::InsertTextParams;
+        self.page().execute(InsertTextParams::new(text.to_string())).await?;
+        Ok(())
+    }
+
+    /// Press one named key, e.g. "Enter" or "Tab".
+    pub async fn press(&self, key: &str) -> anyhow::Result<()> {
+        use chromiumoxide::cdp::browser_protocol::input::{DispatchKeyEventParams, DispatchKeyEventType};
+        let down = DispatchKeyEventParams::builder().r#type(DispatchKeyEventType::KeyDown).key(key.to_string()).build().map_err(|e| anyhow::anyhow!(e))?;
+        let up = DispatchKeyEventParams::builder().r#type(DispatchKeyEventType::KeyUp).key(key.to_string()).build().map_err(|e| anyhow::anyhow!(e))?;
+        self.page().execute(down).await?;
+        self.page().execute(up).await?;
+        Ok(())
     }
 
     /// Click the control whose accessible name is `name`. Buttons carry it as aria-label here;

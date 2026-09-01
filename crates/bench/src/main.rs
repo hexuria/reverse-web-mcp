@@ -221,6 +221,10 @@ async fn run(opts: RunOpts) -> anyhow::Result<()> {
                         let facts = planner::world_facts(&base).await?;
                         loops::run_webmcp_loop(task, &ctx, model_client.as_ref().unwrap(), &facts).await?
                     }
+                    "A" => {
+                        let facts = planner::world_facts(&base).await?;
+                        loops::run_cua_loop(task, &ctx, model_client.as_ref().unwrap(), &facts).await?
+                    }
                     other => {
                         let plan =
                             zerohuman::Plan { plan_id: format!("{}-{other}", task.id), goal: task.goal.clone(), nodes: vec![], edges: vec![], gates: vec![] };

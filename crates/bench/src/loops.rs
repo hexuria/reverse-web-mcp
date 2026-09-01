@@ -338,3 +338,127 @@ pub async fn run_webmcp_loop(task: &Task, ctx: &ArmContext, model: &dyn crate::p
     let backend = Arc::new(WebMcpBackend { base: ctx.base.clone(), pool });
     run_tool_loop(task, ctx, model, facts, true, backend, "C").await
 }
+
+const CUA_SYSTEM: &str = "You are operating a web application by looking at screenshots and acting with a mouse and keyboard. \
+You cannot call the application directly; you only see pixels. The screen is 1280 by 800; coordinates are pixels from the top-left. \
+Use the computer tool once per turn. Click a form field before typing into it. After each action you get a fresh screenshot. \
+Customers are listed on the page; invoices default to 10000 cents. Do only what the task asks. If the task is ambiguous in a way \
+that changes what you would do, use the done action with a question instead of guessing. When the task is fully done, use done.";
+
+fn computer_tool() -> Value {
+    json!({
+        "name": "computer",
+        "description": "Act on the screen. Exactly one action per call.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "action": {"type": "string", "enum": ["click", "type", "key", "wait", "done"]},
+                "x": {"type": "integer"}, "y": {"type": "integer"},
+                "text": {"type": "string", "description": "For type: the text. For done: 'done' or a question."},
+                "key": {"type": "string", "description": "For key: Enter, Tab, Escape, Backspace"}
+            },
+            "required": ["action"]
+        }
+    })
+}
+
+/// Arm A: the CUA click loop. Screenshot → model → one action, on a leased headless page.
+/// Nothing here touches the host screen; the screen is the page's viewport.
+pub async fn run_cua_loop(task: &Task, ctx: &ArmContext, model: &dyn crate::planner::Sampler, facts: &str) -> anyhow::Result<Receipt> {
+    use base64::Engine;
+    let pool = ctx.browser.clone().ok_or_else(|| anyhow::anyhow!("arm A needs a browser pool"))?;
+    let page = pool.lease().await?;
+    page.goto(&ctx.base).await?;
+    tokio::time::sleep(Duration::from_millis(300)).await;
+
+    let mut ledger = Ledger::new();
+    let rec = Recorder::new(ctx.world.clone());
+    let mut status = Status::Error;
+    let mut error: Option<String> = None;
+    let mut yield_reason: Option<String> = None;
+    let max_turns = 40;
+    let opening = format!("World facts (read just now):\n{facts}\n\nTask: {}\n\nHere is the screen.", task.goal);
+    let mut messages: Vec<Value> = Vec::new();
+
+    for turn in 0..max_turns {
+        let png = page.screenshot_png().await?;
+        let image =
+            json!({"type": "image", "source": {"type": "base64", "media_type": "image/png", "data": base64::engine::general_purpose::STANDARD.encode(&png)}});
+        let text = if turn == 0 { opening.clone() } else { "Here is the screen after your action.".to_string() };
+        messages.push(json!({"role": "user", "content": [image, {"type": "text", "text": text}]}));
+        let body = json!({
+            "max_tokens": 1024,
+            "system": [{"type": "text", "text": CUA_SYSTEM, "cache_control": {"type": "ephemeral"}}],
+            "tools": [computer_tool()],
+            "tool_choice": {"type": "auto", "disable_parallel_tool_use": true},
+            "messages": messages,
+        });
+        let resp = match model.sample(&mut ledger, SampleKind::Turn, body).await {
+            Ok(r) => r,
+            Err(e) => {
+                error = Some(e.to_string());
+                break;
+            }
+        };
+        let content = resp.get("content").cloned().unwrap_or(json!([]));
+        messages.push(json!({"role": "assistant", "content": content}));
+        let call = content.as_array().and_then(|a| a.iter().find(|b| b["type"] == "tool_use")).cloned();
+        let Some(call) = call else {
+            let t: String =
+                content.as_array().map(|a| a.iter().filter_map(|b| b.get("text").and_then(|t| t.as_str())).collect::<Vec<_>>().join(" ")).unwrap_or_default();
+            if t.trim().to_lowercase().contains("done") {
+                status = Status::Committed;
+            } else {
+                error = Some(format!("gave up: {}", t.chars().take(200).collect::<String>()));
+            }
+            break;
+        };
+        let id = call["id"].as_str().unwrap_or("").to_string();
+        let input = &call["input"];
+        let action = input["action"].as_str().unwrap_or("").to_string();
+        let recording = rec.start(&rec.next_node_id("px"), &format!("cua.{action}"), "pixels", None, 1);
+        let outcome: Result<Value, String> = match action.as_str() {
+            "click" => page
+                .click_at(input["x"].as_f64().unwrap_or(0.0), input["y"].as_f64().unwrap_or(0.0))
+                .await
+                .map(|_| json!({"ok": true}))
+                .map_err(|e| e.to_string()),
+            "type" => page.type_text(input["text"].as_str().unwrap_or("")).await.map(|_| json!({"ok": true})).map_err(|e| e.to_string()),
+            "key" => page.press(input["key"].as_str().unwrap_or("Enter")).await.map(|_| json!({"ok": true})).map_err(|e| e.to_string()),
+            "wait" => {
+                tokio::time::sleep(Duration::from_millis(500)).await;
+                Ok(json!({"ok": true}))
+            }
+            "done" => {
+                let t = input["text"].as_str().unwrap_or("done").trim().to_string();
+                if t.ends_with('?') {
+                    status = Status::NeedThink;
+                    yield_reason = Some(t.clone());
+                    ledger.forks.push(json!({"ask": t}));
+                } else {
+                    status = Status::Committed;
+                }
+                Ok(json!({"ok": true}))
+            }
+            other => Err(format!("unknown action {other}")),
+        };
+        recording.finish(&outcome);
+        if action == "done" {
+            break;
+        }
+        // Let the page settle before the next screenshot.
+        tokio::time::sleep(Duration::from_millis(250)).await;
+        let result_text = match &outcome {
+            Ok(_) => "ok".to_string(),
+            Err(e) => format!("error: {e}"),
+        };
+        messages.push(json!({"role": "user", "content": [{"type": "tool_result", "tool_use_id": id, "content": result_text}]}));
+    }
+    if status == Status::Error && error.is_none() {
+        error = Some(format!("gave up after {max_turns} turns"));
+    }
+    rec.drain_into(&mut ledger);
+    ledger.ended_ms = zerohuman::ledger::now_ms();
+    let plan = Plan { plan_id: format!("{}-A-{}", task.id, ctx.run_id), goal: task.goal.clone(), nodes: vec![], edges: vec![], gates: vec![] };
+    Ok(ledger.receipt(&plan, status, yield_reason, None, error))
+}

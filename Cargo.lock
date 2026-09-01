@@ -231,6 +231,7 @@ dependencies = [
  "app",
  "async-trait",
  "axum",
+ "base64",
  "chrono",
  "clap",
  "driver",

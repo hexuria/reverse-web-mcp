@@ -83,10 +83,10 @@ The compiler derives everything from that file. It is never hand-authored anywhe
 
 | arm | what | status |
 |---|---|---|
-| A | CUA click loop: screenshot → model → one action, on a sandbox display | needs the sandbox and a screen driver; not wired yet |
+| A | CUA click loop: screenshot → model → one action, on a headless page | wired (`loops.rs`); the screen is a CDP viewport, never the host |
 | B | MCP loop, one tool call per turn | wired (`loops.rs`) |
 | B2 | MCP loop, the model may emit several tool calls per turn, run concurrently | wired; the honest baseline |
-| C | WebMCP loop inside a headless browser | needs a browser driver; not wired yet |
+| C | WebMCP loop inside a headless browser | wired (`loops.rs`), pages from the driver pool |
 | D | ours: intent → compiler → scheduler → receipt | wired; `--planner handwritten` or `model` |
 | E | script ceiling: a hand-written parallel program, no model | wired |
 

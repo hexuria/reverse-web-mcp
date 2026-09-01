@@ -1,0 +1,1884 @@
+{
+  "task": "T4",
+  "task_title": "send the receipt only after the payment arrives",
+  "arm": "B",
+  "run": 4,
+  "status": "error",
+  "planner": "grok-4.6@medium",
+  "samples": 60,
+  "tokens_in": 163093,
+  "tokens_out": 1116,
+  "wall_ms": 76004,
+  "plan_ms": 75901,
+  "run_ms": 73152,
+  "max_parallel": 1,
+  "nodes": 0,
+  "depth": 0,
+  "correct": false,
+  "checks": [
+    {
+      "name": "status",
+      "expected": "committed",
+      "actual": "error",
+      "ok": false
+    },
+    {
+      "name": "invoices",
+      "expected": 1,
+      "actual": 1,
+      "ok": true
+    },
+    {
+      "name": "sent",
+      "expected": 1,
+      "actual": 1,
+      "ok": true
+    },
+    {
+      "name": "paid",
+      "expected": 1,
+      "actual": 0,
+      "ok": false
+    },
+    {
+      "name": "receipts",
+      "expected": 1,
+      "actual": 0,
+      "ok": false
+    },
+    {
+      "name": "double_sends",
+      "expected": 0,
+      "actual": 0,
+      "ok": true
+    }
+  ],
+  "double_sends": 0,
+  "forks": 0,
+  "yield_reason": null,
+  "error": "gave up after 60 turns",
+  "snapshot": {
+    "chaos": {
+      "latency_ms": 25,
+      "rate_limit_per_sec": 0,
+      "require_approval": false,
+      "send_fail_rate": 0.0,
+      "ui_modal": false
+    },
+    "customers": [
+      {
+        "email": "billing@acme.example",
+        "id": 1,
+        "name": "Acme"
+      },
+      {
+        "email": "billing@globex.example",
+        "id": 2,
+        "name": "Globex"
+      },
+      {
+        "email": "billing@initech.example",
+        "id": 3,
+        "name": "Initech"
+      },
+      {
+        "email": "billing@umbrella.example",
+        "id": 4,
+        "name": "Umbrella"
+      },
+      {
+        "email": "billing@hooli.example",
+        "id": 5,
+        "name": "Hooli"
+      },
+      {
+        "email": "billing@vandelay.example",
+        "id": 6,
+        "name": "Vandelay"
+      },
+      {
+        "email": "billing@stark.example",
+        "id": 7,
+        "name": "Stark"
+      },
+      {
+        "email": "billing@wayne.example",
+        "id": 8,
+        "name": "Wayne"
+      },
+      {
+        "email": "billing@wonka.example",
+        "id": 9,
+        "name": "Wonka"
+      },
+      {
+        "email": "billing@tyrell.example",
+        "id": 10,
+        "name": "Tyrell"
+      }
+    ],
+    "invoices": [
+      {
+        "amount_cents": 10000,
+        "approved": false,
+        "customer_id": 1,
+        "id": 11,
+        "receipt_sent": false,
+        "status": "sent"
+      }
+    ],
+    "outbox": [
+      {
+        "id": 13,
+        "invoice_id": 11,
+        "key": "send-acme",
+        "kind": "invoice",
+        "subject": "Invoice #11",
+        "to": "billing@acme.example"
+      }
+    ],
+    "payments": [
+      {
+        "id": 12,
+        "invoice_id": 11
+      }
+    ],
+    "reports": [],
+    "seed": 4
+  },
+  "receipt": {
+    "depth": 0,
+    "effects": [],
+    "error": "gave up after 60 turns",
+    "evidence": null,
+    "forks_taken": 0,
+    "ledger": {
+      "ended_ms": 1788298774578,
+      "forks": [],
+      "rows": [
+        {
+          "attempt": 1,
+          "ended_us": 1788298701427341,
+          "error": null,
+          "key": null,
+          "node": "t1",
+          "observed": [
+            {
+              "email": "billing@acme.example",
+              "id": 1,
+              "name": "Acme"
+            }
+          ],
+          "ok": true,
+          "op": "listCustomers",
+          "started_us": 1788298701426070,
+          "surface": "mcp",
+          "write": false
+        },
+        {
+          "attempt": 1,
+          "ended_us": 1788298704051244,
+          "error": null,
+          "key": "inv-acme",
+          "node": "t2",
+          "observed": {
+            "amount_cents": 10000,
+            "approved": false,
+            "customer_id": 1,
+            "id": 11,
+            "receipt_sent": false,
+            "status": "draft"
+          },
+          "ok": true,
+          "op": "createInvoice",
+          "started_us": 1788298704024581,
+          "surface": "mcp",
+          "write": true
+        },
+        {
+          "attempt": 1,
+          "ended_us": 1788298705305784,
+          "error": null,
+          "key": "send-acme",
+          "node": "t3",
+          "observed": {
+            "amount_cents": 10000,
+            "approved": false,
+            "customer_id": 1,
+            "id": 11,
+            "receipt_sent": false,
+            "status": "sent"
+          },
+          "ok": true,
+          "op": "sendInvoice",
+          "started_us": 1788298705277713,
+          "surface": "mcp",
+          "write": true
+        },
+        {
+          "attempt": 1,
+          "ended_us": 1788298707704176,
+          "error": "fatal: error 409: invoice 11 has no payment yet",
+          "key": "receipt-acme",
+          "node": "t4",
+          "observed": null,
+          "ok": false,
+          "op": "sendReceipt",
+          "started_us": 1788298707703946,
+          "surface": "mcp",
+          "write": true
+        },
+        {
+          "attempt": 1,
+          "ended_us": 1788298708950010,
+          "error": null,
+          "key": null,
+          "node": "t5",
+          "observed": {
+            "amount_cents": 10000,
+            "approved": false,
+            "customer_id": 1,
+            "id": 11,
+            "receipt_sent": false,
+            "status": "sent"
+          },
+          "ok": true,
+          "op": "getInvoice",
+          "started_us": 1788298708949744,
+          "surface": "mcp",
+          "write": false
+        },
+        {
+          "attempt": 1,
+          "ended_us": 1788298710034557,
+          "error": null,
+          "key": null,
+          "node": "t6",
+          "observed": {
+            "amount_cents": 10000,
+            "approved": false,
+            "customer_id": 1,
+            "id": 11,
+            "receipt_sent": false,
+            "status": "sent"
+          },
+          "ok": true,
+          "op": "getInvoice",
+          "started_us": 1788298710034371,
+          "surface": "mcp",
+          "write": false
+        },
+        {
+          "attempt": 1,
+          "ended_us": 1788298711088329,
+          "error": null,
+          "key": null,
+          "node": "t7",
+          "observed": {
+            "amount_cents": 10000,
+            "approved": false,
+            "customer_id": 1,
+            "id": 11,
+            "receipt_sent": false,
+            "status": "sent"
+          },
+          "ok": true,
+          "op": "getInvoice",
+          "started_us": 1788298711088082,
+          "surface": "mcp",
+          "write": false
+        },
+        {
+          "attempt": 1,
+          "ended_us": 1788298712169601,
+          "error": null,
+          "key": null,
+          "node": "t8",
+          "observed": {
+            "amount_cents": 10000,
+            "approved": false,
+            "customer_id": 1,
+            "id": 11,
+            "receipt_sent": false,
+            "status": "sent"
+          },
+          "ok": true,
+          "op": "getInvoice",
+          "started_us": 1788298712169402,
+          "surface": "mcp",
+          "write": false
+        },
+        {
+          "attempt": 1,
+          "ended_us": 1788298713238413,
+          "error": null,
+          "key": null,
+          "node": "t9",
+          "observed": {
+            "amount_cents": 10000,
+            "approved": false,
+            "customer_id": 1,
+            "id": 11,
+            "receipt_sent": false,
+            "status": "sent"
+          },
+          "ok": true,
+          "op": "getInvoice",
+          "started_us": 1788298713238230,
+          "surface": "mcp",
+          "write": false
+        },
+        {
+          "attempt": 1,
+          "ended_us": 1788298714494119,
+          "error": "fatal: error 409: invoice 11 has no payment yet",
+          "key": "receipt-acme",
+          "node": "t10",
+          "observed": null,
+          "ok": false,
+          "op": "sendReceipt",
+          "started_us": 1788298714493852,
+          "surface": "mcp",
+          "write": true
+        },
+        {
+          "attempt": 1,
+          "ended_us": 1788298715554517,
+          "error": null,
+          "key": null,
+          "node": "t11",
+          "observed": {
+            "amount_cents": 10000,
+            "approved": false,
+            "customer_id": 1,
+            "id": 11,
+            "receipt_sent": false,
+            "status": "sent"
+          },
+          "ok": true,
+          "op": "getInvoice",
+          "started_us": 1788298715554216,
+          "surface": "mcp",
+          "write": false
+        },
+        {
+          "attempt": 1,
+          "ended_us": 1788298716669178,
+          "error": null,
+          "key": null,
+          "node": "t12",
+          "observed": {
+            "amount_cents": 10000,
+            "approved": false,
+            "customer_id": 1,
+            "id": 11,
+            "receipt_sent": false,
+            "status": "sent"
+          },
+          "ok": true,
+          "op": "getInvoice",
+          "started_us": 1788298716668975,
+          "surface": "mcp",
+          "write": false
+        },
+        {
+          "attempt": 1,
+          "ended_us": 1788298717862848,
+          "error": "fatal: error 409: invoice 11 has no payment yet",
+          "key": "receipt-acme",
+          "node": "t13",
+          "observed": null,
+          "ok": false,
+          "op": "sendReceipt",
+          "started_us": 1788298717862620,
+          "surface": "mcp",
+          "write": true
+        },
+        {
+          "attempt": 1,
+          "ended_us": 1788298718914188,
+          "error": null,
+          "key": null,
+          "node": "t14",
+          "observed": {
+            "amount_cents": 10000,
+            "approved": false,
+            "customer_id": 1,
+            "id": 11,
+            "receipt_sent": false,
+            "status": "sent"
+          },
+          "ok": true,
+          "op": "getInvoice",
+          "started_us": 1788298718912182,
+          "surface": "mcp",
+          "write": false
+        },
+        {
+          "attempt": 1,
+          "ended_us": 1788298719869382,
+          "error": null,
+          "key": null,
+          "node": "t15",
+          "observed": {
+            "amount_cents": 10000,
+            "approved": false,
+            "customer_id": 1,
+            "id": 11,
+            "receipt_sent": false,
+            "status": "sent"
+          },
+          "ok": true,
+          "op": "getInvoice",
+          "started_us": 1788298719869100,
+          "surface": "mcp",
+          "write": false
+        },
+        {
+          "attempt": 1,
+          "ended_us": 1788298721030060,
+          "error": null,
+          "key": null,
+          "node": "t16",
+          "observed": {
+            "amount_cents": 10000,
+            "approved": false,
+            "customer_id": 1,
+            "id": 11,
+            "receipt_sent": false,
+            "status": "sent"
+          },
+          "ok": true,
+          "op": "getInvoice",
+          "started_us": 1788298721025999,
+          "surface": "mcp",
+          "write": false
+        },
+        {
+          "attempt": 1,
+          "ended_us": 1788298722197499,
+          "error": "fatal: error 409: invoice 11 has no payment yet",
+          "key": "receipt-acme",
+          "node": "t17",
+          "observed": null,
+          "ok": false,
+          "op": "sendReceipt",
+          "started_us": 1788298722197257,
+          "surface": "mcp",
+          "write": true
+        },
+        {
+          "attempt": 1,
+          "ended_us": 1788298723168385,
+          "error": null,
+          "key": null,
+          "node": "t18",
+          "observed": {
+            "amount_cents": 10000,
+            "approved": false,
+            "customer_id": 1,
+            "id": 11,
+            "receipt_sent": false,
+            "status": "sent"
+          },
+          "ok": true,
+          "op": "getInvoice",
+          "started_us": 1788298723168016,
+          "surface": "mcp",
+          "write": false
+        },
+        {
+          "attempt": 1,
+          "ended_us": 1788298725826462,
+          "error": null,
+          "key": null,
+          "node": "t19",
+          "observed": {
+            "amount_cents": 10000,
+            "approved": false,
+            "customer_id": 1,
+            "id": 11,
+            "receipt_sent": false,
+            "status": "sent"
+          },
+          "ok": true,
+          "op": "getInvoice",
+          "started_us": 1788298725826199,
+          "surface": "mcp",
+          "write": false
+        },
+        {
+          "attempt": 1,
+          "ended_us": 1788298727877904,
+          "error": null,
+          "key": null,
+          "node": "t20",
+          "observed": {
+            "amount_cents": 10000,
+            "approved": false,
+            "customer_id": 1,
+            "id": 11,
+            "receipt_sent": false,
+            "status": "sent"
+          },
+          "ok": true,
+          "op": "getInvoice",
+          "started_us": 1788298727877303,
+          "surface": "mcp",
+          "write": false
+        },
+        {
+          "attempt": 1,
+          "ended_us": 1788298729066554,
+          "error": "fatal: error 409: invoice 11 has no payment yet",
+          "key": "receipt-acme",
+          "node": "t21",
+          "observed": null,
+          "ok": false,
+          "op": "sendReceipt",
+          "started_us": 1788298729066202,
+          "surface": "mcp",
+          "write": true
+        },
+        {
+          "attempt": 1,
+          "ended_us": 1788298730024654,
+          "error": null,
+          "key": null,
+          "node": "t22",
+          "observed": {
+            "amount_cents": 10000,
+            "approved": false,
+            "customer_id": 1,
+            "id": 11,
+            "receipt_sent": false,
+            "status": "sent"
+          },
+          "ok": true,
+          "op": "getInvoice",
+          "started_us": 1788298730024437,
+          "surface": "mcp",
+          "write": false
+        },
+        {
+          "attempt": 1,
+          "ended_us": 1788298731012635,
+          "error": null,
+          "key": null,
+          "node": "t23",
+          "observed": {
+            "amount_cents": 10000,
+            "approved": false,
+            "customer_id": 1,
+            "id": 11,
+            "receipt_sent": false,
+            "status": "sent"
+          },
+          "ok": true,
+          "op": "getInvoice",
+          "started_us": 1788298731012362,
+          "surface": "mcp",
+          "write": false
+        },
+        {
+          "attempt": 1,
+          "ended_us": 1788298732023965,
+          "error": null,
+          "key": null,
+          "node": "t24",
+          "observed": {
+            "amount_cents": 10000,
+            "approved": false,
+            "customer_id": 1,
+            "id": 11,
+            "receipt_sent": false,
+            "status": "sent"
+          },
+          "ok": true,
+          "op": "getInvoice",
+          "started_us": 1788298732023661,
+          "surface": "mcp",
+          "write": false
+        },
+        {
+          "attempt": 1,
+          "ended_us": 1788298733213985,
+          "error": "fatal: error 409: invoice 11 has no payment yet",
+          "key": "receipt-acme",
+          "node": "t25",
+          "observed": null,
+          "ok": false,
+          "op": "sendReceipt",
+          "started_us": 1788298733213735,
+          "surface": "mcp",
+          "write": true
+        },
+        {
+          "attempt": 1,
+          "ended_us": 1788298734114801,
+          "error": null,
+          "key": null,
+          "node": "t26",
+          "observed": {
+            "amount_cents": 10000,
+            "approved": false,
+            "customer_id": 1,
+            "id": 11,
+            "receipt_sent": false,
+            "status": "sent"
+          },
+          "ok": true,
+          "op": "getInvoice",
+          "started_us": 1788298734114546,
+          "surface": "mcp",
+          "write": false
+        },
+        {
+          "attempt": 1,
+          "ended_us": 1788298735189943,
+          "error": null,
+          "key": null,
+          "node": "t27",
+          "observed": {
+            "amount_cents": 10000,
+            "approved": false,
+            "customer_id": 1,
+            "id": 11,
+            "receipt_sent": false,
+            "status": "sent"
+          },
+          "ok": true,
+          "op": "getInvoice",
+          "started_us": 1788298735189032,
+          "surface": "mcp",
+          "write": false
+        },
+        {
+          "attempt": 1,
+          "ended_us": 1788298736265491,
+          "error": null,
+          "key": null,
+          "node": "t28",
+          "observed": {
+            "amount_cents": 10000,
+            "approved": false,
+            "customer_id": 1,
+            "id": 11,
+            "receipt_sent": false,
+            "status": "sent"
+          },
+          "ok": true,
+          "op": "getInvoice",
+          "started_us": 1788298736258152,
+          "surface": "mcp",
+          "write": false
+        },
+        {
+          "attempt": 1,
+          "ended_us": 1788298737493782,
+          "error": "fatal: error 409: invoice 11 has no payment yet",
+          "key": "receipt-acme",
+          "node": "t29",
+          "observed": null,
+          "ok": false,
+          "op": "sendReceipt",
+          "started_us": 1788298737491799,
+          "surface": "mcp",
+          "write": true
+        },
+        {
+          "attempt": 1,
+          "ended_us": 1788298739483797,
+          "error": null,
+          "key": null,
+          "node": "t30",
+          "observed": {
+            "amount_cents": 10000,
+            "approved": false,
+            "customer_id": 1,
+            "id": 11,
+            "receipt_sent": false,
+            "status": "sent"
+          },
+          "ok": true,
+          "op": "getInvoice",
+          "started_us": 1788298739483327,
+          "surface": "mcp",
+          "write": false
+        },
+        {
+          "attempt": 1,
+          "ended_us": 1788298740465285,
+          "error": null,
+          "key": null,
+          "node": "t31",
+          "observed": {
+            "amount_cents": 10000,
+            "approved": false,
+            "customer_id": 1,
+            "id": 11,
+            "receipt_sent": false,
+            "status": "sent"
+          },
+          "ok": true,
+          "op": "getInvoice",
+          "started_us": 1788298740464307,
+          "surface": "mcp",
+          "write": false
+        },
+        {
+          "attempt": 1,
+          "ended_us": 1788298741485809,
+          "error": null,
+          "key": null,
+          "node": "t32",
+          "observed": {
+            "amount_cents": 10000,
+            "approved": false,
+            "customer_id": 1,
+            "id": 11,
+            "receipt_sent": false,
+            "status": "sent"
+          },
+          "ok": true,
+          "op": "getInvoice",
+          "started_us": 1788298741485532,
+          "surface": "mcp",
+          "write": false
+        },
+        {
+          "attempt": 1,
+          "ended_us": 1788298742749818,
+          "error": "fatal: error 409: invoice 11 has no payment yet",
+          "key": "receipt-acme",
+          "node": "t33",
+          "observed": null,
+          "ok": false,
+          "op": "sendReceipt",
+          "started_us": 1788298742749522,
+          "surface": "mcp",
+          "write": true
+        },
+        {
+          "attempt": 1,
+          "ended_us": 1788298743858963,
+          "error": null,
+          "key": null,
+          "node": "t34",
+          "observed": {
+            "amount_cents": 10000,
+            "approved": false,
+            "customer_id": 1,
+            "id": 11,
+            "receipt_sent": false,
+            "status": "sent"
+          },
+          "ok": true,
+          "op": "getInvoice",
+          "started_us": 1788298743858757,
+          "surface": "mcp",
+          "write": false
+        },
+        {
+          "attempt": 1,
+          "ended_us": 1788298744888472,
+          "error": null,
+          "key": null,
+          "node": "t35",
+          "observed": {
+            "amount_cents": 10000,
+            "approved": false,
+            "customer_id": 1,
+            "id": 11,
+            "receipt_sent": false,
+            "status": "sent"
+          },
+          "ok": true,
+          "op": "getInvoice",
+          "started_us": 1788298744888097,
+          "surface": "mcp",
+          "write": false
+        },
+        {
+          "attempt": 1,
+          "ended_us": 1788298745927238,
+          "error": null,
+          "key": null,
+          "node": "t36",
+          "observed": {
+            "amount_cents": 10000,
+            "approved": false,
+            "customer_id": 1,
+            "id": 11,
+            "receipt_sent": false,
+            "status": "sent"
+          },
+          "ok": true,
+          "op": "getInvoice",
+          "started_us": 1788298745926993,
+          "surface": "mcp",
+          "write": false
+        },
+        {
+          "attempt": 1,
+          "ended_us": 1788298747221191,
+          "error": "fatal: error 409: invoice 11 has no payment yet",
+          "key": "receipt-acme",
+          "node": "t37",
+          "observed": null,
+          "ok": false,
+          "op": "sendReceipt",
+          "started_us": 1788298747220971,
+          "surface": "mcp",
+          "write": true
+        },
+        {
+          "attempt": 1,
+          "ended_us": 1788298748320212,
+          "error": null,
+          "key": null,
+          "node": "t38",
+          "observed": {
+            "amount_cents": 10000,
+            "approved": false,
+            "customer_id": 1,
+            "id": 11,
+            "receipt_sent": false,
+            "status": "sent"
+          },
+          "ok": true,
+          "op": "getInvoice",
+          "started_us": 1788298748319995,
+          "surface": "mcp",
+          "write": false
+        },
+        {
+          "attempt": 1,
+          "ended_us": 1788298749376856,
+          "error": null,
+          "key": null,
+          "node": "t39",
+          "observed": {
+            "amount_cents": 10000,
+            "approved": false,
+            "customer_id": 1,
+            "id": 11,
+            "receipt_sent": false,
+            "status": "sent"
+          },
+          "ok": true,
+          "op": "getInvoice",
+          "started_us": 1788298749376638,
+          "surface": "mcp",
+          "write": false
+        },
+        {
+          "attempt": 1,
+          "ended_us": 1788298751479774,
+          "error": null,
+          "key": null,
+          "node": "t40",
+          "observed": {
+            "amount_cents": 10000,
+            "approved": false,
+            "customer_id": 1,
+            "id": 11,
+            "receipt_sent": false,
+            "status": "sent"
+          },
+          "ok": true,
+          "op": "getInvoice",
+          "started_us": 1788298751479572,
+          "surface": "mcp",
+          "write": false
+        },
+        {
+          "attempt": 1,
+          "ended_us": 1788298752735496,
+          "error": "fatal: error 409: invoice 11 has no payment yet",
+          "key": "receipt-acme",
+          "node": "t41",
+          "observed": null,
+          "ok": false,
+          "op": "sendReceipt",
+          "started_us": 1788298752735194,
+          "surface": "mcp",
+          "write": true
+        },
+        {
+          "attempt": 1,
+          "ended_us": 1788298753774468,
+          "error": null,
+          "key": null,
+          "node": "t42",
+          "observed": {
+            "amount_cents": 10000,
+            "approved": false,
+            "customer_id": 1,
+            "id": 11,
+            "receipt_sent": false,
+            "status": "sent"
+          },
+          "ok": true,
+          "op": "getInvoice",
+          "started_us": 1788298753774248,
+          "surface": "mcp",
+          "write": false
+        },
+        {
+          "attempt": 1,
+          "ended_us": 1788298754741259,
+          "error": null,
+          "key": null,
+          "node": "t43",
+          "observed": {
+            "amount_cents": 10000,
+            "approved": false,
+            "customer_id": 1,
+            "id": 11,
+            "receipt_sent": false,
+            "status": "sent"
+          },
+          "ok": true,
+          "op": "getInvoice",
+          "started_us": 1788298754740952,
+          "surface": "mcp",
+          "write": false
+        },
+        {
+          "attempt": 1,
+          "ended_us": 1788298755813373,
+          "error": null,
+          "key": null,
+          "node": "t44",
+          "observed": {
+            "amount_cents": 10000,
+            "approved": false,
+            "customer_id": 1,
+            "id": 11,
+            "receipt_sent": false,
+            "status": "sent"
+          },
+          "ok": true,
+          "op": "getInvoice",
+          "started_us": 1788298755813137,
+          "surface": "mcp",
+          "write": false
+        },
+        {
+          "attempt": 1,
+          "ended_us": 1788298757208673,
+          "error": "fatal: error 409: invoice 11 has no payment yet",
+          "key": "receipt-acme",
+          "node": "t45",
+          "observed": null,
+          "ok": false,
+          "op": "sendReceipt",
+          "started_us": 1788298757208482,
+          "surface": "mcp",
+          "write": true
+        },
+        {
+          "attempt": 1,
+          "ended_us": 1788298758243403,
+          "error": null,
+          "key": null,
+          "node": "t46",
+          "observed": {
+            "amount_cents": 10000,
+            "approved": false,
+            "customer_id": 1,
+            "id": 11,
+            "receipt_sent": false,
+            "status": "sent"
+          },
+          "ok": true,
+          "op": "getInvoice",
+          "started_us": 1788298758234150,
+          "surface": "mcp",
+          "write": false
+        },
+        {
+          "attempt": 1,
+          "ended_us": 1788298759281878,
+          "error": null,
+          "key": null,
+          "node": "t47",
+          "observed": {
+            "amount_cents": 10000,
+            "approved": false,
+            "customer_id": 1,
+            "id": 11,
+            "receipt_sent": false,
+            "status": "sent"
+          },
+          "ok": true,
+          "op": "getInvoice",
+          "started_us": 1788298759281399,
+          "surface": "mcp",
+          "write": false
+        },
+        {
+          "attempt": 1,
+          "ended_us": 1788298760328416,
+          "error": null,
+          "key": null,
+          "node": "t48",
+          "observed": {
+            "amount_cents": 10000,
+            "approved": false,
+            "customer_id": 1,
+            "id": 11,
+            "receipt_sent": false,
+            "status": "sent"
+          },
+          "ok": true,
+          "op": "getInvoice",
+          "started_us": 1788298760327985,
+          "surface": "mcp",
+          "write": false
+        },
+        {
+          "attempt": 1,
+          "ended_us": 1788298761597877,
+          "error": "fatal: error 409: invoice 11 has no payment yet",
+          "key": "receipt-acme",
+          "node": "t49",
+          "observed": null,
+          "ok": false,
+          "op": "sendReceipt",
+          "started_us": 1788298761597691,
+          "surface": "mcp",
+          "write": true
+        },
+        {
+          "attempt": 1,
+          "ended_us": 1788298762687054,
+          "error": null,
+          "key": null,
+          "node": "t50",
+          "observed": {
+            "amount_cents": 10000,
+            "approved": false,
+            "customer_id": 1,
+            "id": 11,
+            "receipt_sent": false,
+            "status": "sent"
+          },
+          "ok": true,
+          "op": "getInvoice",
+          "started_us": 1788298762686735,
+          "surface": "mcp",
+          "write": false
+        },
+        {
+          "attempt": 1,
+          "ended_us": 1788298763779275,
+          "error": null,
+          "key": null,
+          "node": "t51",
+          "observed": {
+            "amount_cents": 10000,
+            "approved": false,
+            "customer_id": 1,
+            "id": 11,
+            "receipt_sent": false,
+            "status": "sent"
+          },
+          "ok": true,
+          "op": "getInvoice",
+          "started_us": 1788298763779054,
+          "surface": "mcp",
+          "write": false
+        },
+        {
+          "attempt": 1,
+          "ended_us": 1788298764881310,
+          "error": null,
+          "key": null,
+          "node": "t52",
+          "observed": {
+            "amount_cents": 10000,
+            "approved": false,
+            "customer_id": 1,
+            "id": 11,
+            "receipt_sent": false,
+            "status": "sent"
+          },
+          "ok": true,
+          "op": "getInvoice",
+          "started_us": 1788298764881069,
+          "surface": "mcp",
+          "write": false
+        },
+        {
+          "attempt": 1,
+          "ended_us": 1788298767201491,
+          "error": "fatal: error 409: invoice 11 has no payment yet",
+          "key": "receipt-acme",
+          "node": "t53",
+          "observed": null,
+          "ok": false,
+          "op": "sendReceipt",
+          "started_us": 1788298767201187,
+          "surface": "mcp",
+          "write": true
+        },
+        {
+          "attempt": 1,
+          "ended_us": 1788298768248177,
+          "error": null,
+          "key": null,
+          "node": "t54",
+          "observed": {
+            "amount_cents": 10000,
+            "approved": false,
+            "customer_id": 1,
+            "id": 11,
+            "receipt_sent": false,
+            "status": "sent"
+          },
+          "ok": true,
+          "op": "getInvoice",
+          "started_us": 1788298768247936,
+          "surface": "mcp",
+          "write": false
+        },
+        {
+          "attempt": 1,
+          "ended_us": 1788298769240756,
+          "error": null,
+          "key": null,
+          "node": "t55",
+          "observed": {
+            "amount_cents": 10000,
+            "approved": false,
+            "customer_id": 1,
+            "id": 11,
+            "receipt_sent": false,
+            "status": "sent"
+          },
+          "ok": true,
+          "op": "getInvoice",
+          "started_us": 1788298769240483,
+          "surface": "mcp",
+          "write": false
+        },
+        {
+          "attempt": 1,
+          "ended_us": 1788298770288527,
+          "error": null,
+          "key": null,
+          "node": "t56",
+          "observed": {
+            "amount_cents": 10000,
+            "approved": false,
+            "customer_id": 1,
+            "id": 11,
+            "receipt_sent": false,
+            "status": "sent"
+          },
+          "ok": true,
+          "op": "getInvoice",
+          "started_us": 1788298770288205,
+          "surface": "mcp",
+          "write": false
+        },
+        {
+          "attempt": 1,
+          "ended_us": 1788298771550161,
+          "error": "fatal: error 409: invoice 11 has no payment yet",
+          "key": "receipt-acme",
+          "node": "t57",
+          "observed": null,
+          "ok": false,
+          "op": "sendReceipt",
+          "started_us": 1788298771549876,
+          "surface": "mcp",
+          "write": true
+        },
+        {
+          "attempt": 1,
+          "ended_us": 1788298772530461,
+          "error": null,
+          "key": null,
+          "node": "t58",
+          "observed": {
+            "amount_cents": 10000,
+            "approved": false,
+            "customer_id": 1,
+            "id": 11,
+            "receipt_sent": false,
+            "status": "sent"
+          },
+          "ok": true,
+          "op": "getInvoice",
+          "started_us": 1788298772530029,
+          "surface": "mcp",
+          "write": false
+        },
+        {
+          "attempt": 1,
+          "ended_us": 1788298773530013,
+          "error": null,
+          "key": null,
+          "node": "t59",
+          "observed": {
+            "amount_cents": 10000,
+            "approved": false,
+            "customer_id": 1,
+            "id": 11,
+            "receipt_sent": false,
+            "status": "sent"
+          },
+          "ok": true,
+          "op": "getInvoice",
+          "started_us": 1788298773529763,
+          "surface": "mcp",
+          "write": false
+        },
+        {
+          "attempt": 1,
+          "ended_us": 1788298774578236,
+          "error": null,
+          "key": null,
+          "node": "t60",
+          "observed": {
+            "amount_cents": 10000,
+            "approved": false,
+            "customer_id": 1,
+            "id": 11,
+            "receipt_sent": false,
+            "status": "sent"
+          },
+          "ok": true,
+          "op": "getInvoice",
+          "started_us": 1788298774577915,
+          "surface": "mcp",
+          "write": false
+        }
+      ],
+      "samples": [
+        {
+          "effort": "medium",
+          "ended_us": 1788298701426061,
+          "kind": "turn",
+          "model": "grok-4.6",
+          "seq": 1,
+          "started_us": 1788298698574779,
+          "tokens_in": 1092,
+          "tokens_out": 12
+        },
+        {
+          "effort": "medium",
+          "ended_us": 1788298704024572,
+          "kind": "turn",
+          "model": "grok-4.6",
+          "seq": 2,
+          "started_us": 1788298701427359,
+          "tokens_in": 1130,
+          "tokens_out": 34
+        },
+        {
+          "effort": "medium",
+          "ended_us": 1788298705277703,
+          "kind": "turn",
+          "model": "grok-4.6",
+          "seq": 3,
+          "started_us": 1788298704051269,
+          "tokens_in": 1200,
+          "tokens_out": 23
+        },
+        {
+          "effort": "medium",
+          "ended_us": 1788298707703935,
+          "kind": "turn",
+          "model": "grok-4.6",
+          "seq": 4,
+          "started_us": 1788298705305812,
+          "tokens_in": 1260,
+          "tokens_out": 35
+        },
+        {
+          "effort": "medium",
+          "ended_us": 1788298708949735,
+          "kind": "turn",
+          "model": "grok-4.6",
+          "seq": 5,
+          "started_us": 1788298707704200,
+          "tokens_in": 1314,
+          "tokens_out": 17
+        },
+        {
+          "effort": "medium",
+          "ended_us": 1788298710034362,
+          "kind": "turn",
+          "model": "grok-4.6",
+          "seq": 6,
+          "started_us": 1788298708950041,
+          "tokens_in": 1373,
+          "tokens_out": 16
+        },
+        {
+          "effort": "medium",
+          "ended_us": 1788298711088073,
+          "kind": "turn",
+          "model": "grok-4.6",
+          "seq": 7,
+          "started_us": 1788298710034589,
+          "tokens_in": 1431,
+          "tokens_out": 16
+        },
+        {
+          "effort": "medium",
+          "ended_us": 1788298712169394,
+          "kind": "turn",
+          "model": "grok-4.6",
+          "seq": 8,
+          "started_us": 1788298711088357,
+          "tokens_in": 1489,
+          "tokens_out": 17
+        },
+        {
+          "effort": "medium",
+          "ended_us": 1788298713238221,
+          "kind": "turn",
+          "model": "grok-4.6",
+          "seq": 9,
+          "started_us": 1788298712169630,
+          "tokens_in": 1548,
+          "tokens_out": 16
+        },
+        {
+          "effort": "medium",
+          "ended_us": 1788298714493842,
+          "kind": "turn",
+          "model": "grok-4.6",
+          "seq": 10,
+          "started_us": 1788298713238447,
+          "tokens_in": 1606,
+          "tokens_out": 34
+        },
+        {
+          "effort": "medium",
+          "ended_us": 1788298715554208,
+          "kind": "turn",
+          "model": "grok-4.6",
+          "seq": 11,
+          "started_us": 1788298714494178,
+          "tokens_in": 1659,
+          "tokens_out": 18
+        },
+        {
+          "effort": "medium",
+          "ended_us": 1788298716668966,
+          "kind": "turn",
+          "model": "grok-4.6",
+          "seq": 12,
+          "started_us": 1788298715554553,
+          "tokens_in": 1719,
+          "tokens_out": 14
+        },
+        {
+          "effort": "medium",
+          "ended_us": 1788298717862612,
+          "kind": "turn",
+          "model": "grok-4.6",
+          "seq": 13,
+          "started_us": 1788298716669213,
+          "tokens_in": 1775,
+          "tokens_out": 31
+        },
+        {
+          "effort": "medium",
+          "ended_us": 1788298718912172,
+          "kind": "turn",
+          "model": "grok-4.6",
+          "seq": 14,
+          "started_us": 1788298717862882,
+          "tokens_in": 1825,
+          "tokens_out": 14
+        },
+        {
+          "effort": "medium",
+          "ended_us": 1788298719869091,
+          "kind": "turn",
+          "model": "grok-4.6",
+          "seq": 15,
+          "started_us": 1788298718914267,
+          "tokens_in": 1881,
+          "tokens_out": 14
+        },
+        {
+          "effort": "medium",
+          "ended_us": 1788298721025912,
+          "kind": "turn",
+          "model": "grok-4.6",
+          "seq": 16,
+          "started_us": 1788298719869423,
+          "tokens_in": 1937,
+          "tokens_out": 14
+        },
+        {
+          "effort": "medium",
+          "ended_us": 1788298722197244,
+          "kind": "turn",
+          "model": "grok-4.6",
+          "seq": 17,
+          "started_us": 1788298721030128,
+          "tokens_in": 1993,
+          "tokens_out": 29
+        },
+        {
+          "effort": "medium",
+          "ended_us": 1788298723168008,
+          "kind": "turn",
+          "model": "grok-4.6",
+          "seq": 18,
+          "started_us": 1788298722197555,
+          "tokens_in": 2041,
+          "tokens_out": 14
+        },
+        {
+          "effort": "medium",
+          "ended_us": 1788298725826190,
+          "kind": "turn",
+          "model": "grok-4.6",
+          "seq": 19,
+          "started_us": 1788298723168427,
+          "tokens_in": 2097,
+          "tokens_out": 14
+        },
+        {
+          "effort": "medium",
+          "ended_us": 1788298727877293,
+          "kind": "turn",
+          "model": "grok-4.6",
+          "seq": 20,
+          "started_us": 1788298725826523,
+          "tokens_in": 2153,
+          "tokens_out": 14
+        },
+        {
+          "effort": "medium",
+          "ended_us": 1788298729066167,
+          "kind": "turn",
+          "model": "grok-4.6",
+          "seq": 21,
+          "started_us": 1788298727877954,
+          "tokens_in": 2209,
+          "tokens_out": 30
+        },
+        {
+          "effort": "medium",
+          "ended_us": 1788298730024428,
+          "kind": "turn",
+          "model": "grok-4.6",
+          "seq": 22,
+          "started_us": 1788298729066615,
+          "tokens_in": 2258,
+          "tokens_out": 14
+        },
+        {
+          "effort": "medium",
+          "ended_us": 1788298731012353,
+          "kind": "turn",
+          "model": "grok-4.6",
+          "seq": 23,
+          "started_us": 1788298730024716,
+          "tokens_in": 2314,
+          "tokens_out": 14
+        },
+        {
+          "effort": "medium",
+          "ended_us": 1788298732023647,
+          "kind": "turn",
+          "model": "grok-4.6",
+          "seq": 24,
+          "started_us": 1788298731012693,
+          "tokens_in": 2370,
+          "tokens_out": 14
+        },
+        {
+          "effort": "medium",
+          "ended_us": 1788298733213726,
+          "kind": "turn",
+          "model": "grok-4.6",
+          "seq": 25,
+          "started_us": 1788298732024071,
+          "tokens_in": 2426,
+          "tokens_out": 30
+        },
+        {
+          "effort": "medium",
+          "ended_us": 1788298734114538,
+          "kind": "turn",
+          "model": "grok-4.6",
+          "seq": 26,
+          "started_us": 1788298733214035,
+          "tokens_in": 2475,
+          "tokens_out": 14
+        },
+        {
+          "effort": "medium",
+          "ended_us": 1788298735189022,
+          "kind": "turn",
+          "model": "grok-4.6",
+          "seq": 27,
+          "started_us": 1788298734114858,
+          "tokens_in": 2531,
+          "tokens_out": 14
+        },
+        {
+          "effort": "medium",
+          "ended_us": 1788298736258078,
+          "kind": "turn",
+          "model": "grok-4.6",
+          "seq": 28,
+          "started_us": 1788298735190089,
+          "tokens_in": 2587,
+          "tokens_out": 14
+        },
+        {
+          "effort": "medium",
+          "ended_us": 1788298737491789,
+          "kind": "turn",
+          "model": "grok-4.6",
+          "seq": 29,
+          "started_us": 1788298736265639,
+          "tokens_in": 2643,
+          "tokens_out": 30
+        },
+        {
+          "effort": "medium",
+          "ended_us": 1788298739483312,
+          "kind": "turn",
+          "model": "grok-4.6",
+          "seq": 30,
+          "started_us": 1788298737493905,
+          "tokens_in": 2692,
+          "tokens_out": 14
+        },
+        {
+          "effort": "medium",
+          "ended_us": 1788298740464297,
+          "kind": "turn",
+          "model": "grok-4.6",
+          "seq": 31,
+          "started_us": 1788298739483925,
+          "tokens_in": 2748,
+          "tokens_out": 14
+        },
+        {
+          "effort": "medium",
+          "ended_us": 1788298741485523,
+          "kind": "turn",
+          "model": "grok-4.6",
+          "seq": 32,
+          "started_us": 1788298740465415,
+          "tokens_in": 2804,
+          "tokens_out": 14
+        },
+        {
+          "effort": "medium",
+          "ended_us": 1788298742749504,
+          "kind": "turn",
+          "model": "grok-4.6",
+          "seq": 33,
+          "started_us": 1788298741485891,
+          "tokens_in": 2860,
+          "tokens_out": 30
+        },
+        {
+          "effort": "medium",
+          "ended_us": 1788298743858748,
+          "kind": "turn",
+          "model": "grok-4.6",
+          "seq": 34,
+          "started_us": 1788298742749975,
+          "tokens_in": 2909,
+          "tokens_out": 14
+        },
+        {
+          "effort": "medium",
+          "ended_us": 1788298744888087,
+          "kind": "turn",
+          "model": "grok-4.6",
+          "seq": 35,
+          "started_us": 1788298743859034,
+          "tokens_in": 2965,
+          "tokens_out": 14
+        },
+        {
+          "effort": "medium",
+          "ended_us": 1788298745926983,
+          "kind": "turn",
+          "model": "grok-4.6",
+          "seq": 36,
+          "started_us": 1788298744888553,
+          "tokens_in": 3021,
+          "tokens_out": 14
+        },
+        {
+          "effort": "medium",
+          "ended_us": 1788298747220959,
+          "kind": "turn",
+          "model": "grok-4.6",
+          "seq": 37,
+          "started_us": 1788298745927316,
+          "tokens_in": 3077,
+          "tokens_out": 30
+        },
+        {
+          "effort": "medium",
+          "ended_us": 1788298748319986,
+          "kind": "turn",
+          "model": "grok-4.6",
+          "seq": 38,
+          "started_us": 1788298747221271,
+          "tokens_in": 3126,
+          "tokens_out": 14
+        },
+        {
+          "effort": "medium",
+          "ended_us": 1788298749376629,
+          "kind": "turn",
+          "model": "grok-4.6",
+          "seq": 39,
+          "started_us": 1788298748320284,
+          "tokens_in": 3182,
+          "tokens_out": 14
+        },
+        {
+          "effort": "medium",
+          "ended_us": 1788298751479563,
+          "kind": "turn",
+          "model": "grok-4.6",
+          "seq": 40,
+          "started_us": 1788298749376932,
+          "tokens_in": 3238,
+          "tokens_out": 14
+        },
+        {
+          "effort": "medium",
+          "ended_us": 1788298752735182,
+          "kind": "turn",
+          "model": "grok-4.6",
+          "seq": 41,
+          "started_us": 1788298751479876,
+          "tokens_in": 3294,
+          "tokens_out": 30
+        },
+        {
+          "effort": "medium",
+          "ended_us": 1788298753774239,
+          "kind": "turn",
+          "model": "grok-4.6",
+          "seq": 42,
+          "started_us": 1788298752735585,
+          "tokens_in": 3343,
+          "tokens_out": 14
+        },
+        {
+          "effort": "medium",
+          "ended_us": 1788298754740942,
+          "kind": "turn",
+          "model": "grok-4.6",
+          "seq": 43,
+          "started_us": 1788298753774549,
+          "tokens_in": 3399,
+          "tokens_out": 14
+        },
+        {
+          "effort": "medium",
+          "ended_us": 1788298755813125,
+          "kind": "turn",
+          "model": "grok-4.6",
+          "seq": 44,
+          "started_us": 1788298754741345,
+          "tokens_in": 3455,
+          "tokens_out": 14
+        },
+        {
+          "effort": "medium",
+          "ended_us": 1788298757208472,
+          "kind": "turn",
+          "model": "grok-4.6",
+          "seq": 45,
+          "started_us": 1788298755813470,
+          "tokens_in": 3511,
+          "tokens_out": 30
+        },
+        {
+          "effort": "medium",
+          "ended_us": 1788298758234140,
+          "kind": "turn",
+          "model": "grok-4.6",
+          "seq": 46,
+          "started_us": 1788298757208752,
+          "tokens_in": 3560,
+          "tokens_out": 14
+        },
+        {
+          "effort": "medium",
+          "ended_us": 1788298759281389,
+          "kind": "turn",
+          "model": "grok-4.6",
+          "seq": 47,
+          "started_us": 1788298758243509,
+          "tokens_in": 3616,
+          "tokens_out": 14
+        },
+        {
+          "effort": "medium",
+          "ended_us": 1788298760327975,
+          "kind": "turn",
+          "model": "grok-4.6",
+          "seq": 48,
+          "started_us": 1788298759281971,
+          "tokens_in": 3672,
+          "tokens_out": 14
+        },
+        {
+          "effort": "medium",
+          "ended_us": 1788298761597676,
+          "kind": "turn",
+          "model": "grok-4.6",
+          "seq": 49,
+          "started_us": 1788298760328622,
+          "tokens_in": 3728,
+          "tokens_out": 30
+        },
+        {
+          "effort": "medium",
+          "ended_us": 1788298762686726,
+          "kind": "turn",
+          "model": "grok-4.6",
+          "seq": 50,
+          "started_us": 1788298761597962,
+          "tokens_in": 3777,
+          "tokens_out": 14
+        },
+        {
+          "effort": "medium",
+          "ended_us": 1788298763779044,
+          "kind": "turn",
+          "model": "grok-4.6",
+          "seq": 51,
+          "started_us": 1788298762687148,
+          "tokens_in": 3833,
+          "tokens_out": 14
+        },
+        {
+          "effort": "medium",
+          "ended_us": 1788298764881060,
+          "kind": "turn",
+          "model": "grok-4.6",
+          "seq": 52,
+          "started_us": 1788298763779430,
+          "tokens_in": 3889,
+          "tokens_out": 14
+        },
+        {
+          "effort": "medium",
+          "ended_us": 1788298767201177,
+          "kind": "turn",
+          "model": "grok-4.6",
+          "seq": 53,
+          "started_us": 1788298764881418,
+          "tokens_in": 3945,
+          "tokens_out": 30
+        },
+        {
+          "effort": "medium",
+          "ended_us": 1788298768247927,
+          "kind": "turn",
+          "model": "grok-4.6",
+          "seq": 54,
+          "started_us": 1788298767201597,
+          "tokens_in": 3994,
+          "tokens_out": 14
+        },
+        {
+          "effort": "medium",
+          "ended_us": 1788298769240474,
+          "kind": "turn",
+          "model": "grok-4.6",
+          "seq": 55,
+          "started_us": 1788298768248269,
+          "tokens_in": 4050,
+          "tokens_out": 14
+        },
+        {
+          "effort": "medium",
+          "ended_us": 1788298770288195,
+          "kind": "turn",
+          "model": "grok-4.6",
+          "seq": 56,
+          "started_us": 1788298769240988,
+          "tokens_in": 4106,
+          "tokens_out": 14
+        },
+        {
+          "effort": "medium",
+          "ended_us": 1788298771549866,
+          "kind": "turn",
+          "model": "grok-4.6",
+          "seq": 57,
+          "started_us": 1788298770288634,
+          "tokens_in": 4162,
+          "tokens_out": 30
+        },
+        {
+          "effort": "medium",
+          "ended_us": 1788298772530009,
+          "kind": "turn",
+          "model": "grok-4.6",
+          "seq": 58,
+          "started_us": 1788298771550260,
+          "tokens_in": 4211,
+          "tokens_out": 14
+        },
+        {
+          "effort": "medium",
+          "ended_us": 1788298773529749,
+          "kind": "turn",
+          "model": "grok-4.6",
+          "seq": 59,
+          "started_us": 1788298772530797,
+          "tokens_in": 4267,
+          "tokens_out": 14
+        },
+        {
+          "effort": "medium",
+          "ended_us": 1788298774577903,
+          "kind": "turn",
+          "model": "grok-4.6",
+          "seq": 60,
+          "started_us": 1788298773530121,
+          "tokens_in": 4323,
+          "tokens_out": 14
+        }
+      ],
+      "started_ms": 1788298698574
+    },
+    "max_parallel": 1,
+    "nodes": 0,
+    "plan": "plan T4-B-r4  (0 nodes, depth 0)\n",
+    "plan_id": "T4-B-r4",
+    "plan_ms": 75901,
+    "run_ms": 73152,
+    "samples": 60,
+    "status": "error",
+    "tokens_in": 163093,
+    "tokens_out": 1116,
+    "wall_ms": 76004,
+    "yield_reason": null
+  },
+  "intent": null,
+  "model": "grok-4.6",
+  "effort": "medium",
+  "base_url": "http://localhost:8080",
+  "latency_ms": 25,
+  "surfaces": "api"
+}

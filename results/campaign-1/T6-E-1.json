@@ -1,0 +1,186 @@
+{
+  "task": "T6",
+  "task_title": "invoice Acme when two customers are named Acme",
+  "arm": "E",
+  "run": 1,
+  "status": "need_think",
+  "planner": "none",
+  "samples": 0,
+  "tokens_in": 0,
+  "tokens_out": 0,
+  "wall_ms": 1,
+  "plan_ms": 0,
+  "run_ms": 0,
+  "max_parallel": 1,
+  "nodes": 0,
+  "depth": 0,
+  "correct": true,
+  "checks": [
+    {
+      "name": "status",
+      "expected": "need_think",
+      "actual": "need_think",
+      "ok": true
+    },
+    {
+      "name": "invoices",
+      "expected": 0,
+      "actual": 0,
+      "ok": true
+    },
+    {
+      "name": "sent",
+      "expected": 0,
+      "actual": 0,
+      "ok": true
+    },
+    {
+      "name": "forks",
+      "expected": 1,
+      "actual": 1,
+      "ok": true
+    },
+    {
+      "name": "double_sends",
+      "expected": 0,
+      "actual": 0,
+      "ok": true
+    }
+  ],
+  "double_sends": 0,
+  "forks": 1,
+  "yield_reason": "fork:2 customers named Acme",
+  "error": null,
+  "snapshot": {
+    "chaos": {
+      "latency_ms": 25,
+      "rate_limit_per_sec": 0,
+      "require_approval": false,
+      "send_fail_rate": 0.0,
+      "ui_modal": false
+    },
+    "customers": [
+      {
+        "email": "billing@acme.example",
+        "id": 1,
+        "name": "Acme"
+      },
+      {
+        "email": "billing@globex.example",
+        "id": 2,
+        "name": "Globex"
+      },
+      {
+        "email": "billing@initech.example",
+        "id": 3,
+        "name": "Initech"
+      },
+      {
+        "email": "billing@umbrella.example",
+        "id": 4,
+        "name": "Umbrella"
+      },
+      {
+        "email": "billing@hooli.example",
+        "id": 5,
+        "name": "Hooli"
+      },
+      {
+        "email": "billing@vandelay.example",
+        "id": 6,
+        "name": "Vandelay"
+      },
+      {
+        "email": "billing@stark.example",
+        "id": 7,
+        "name": "Stark"
+      },
+      {
+        "email": "billing@wayne.example",
+        "id": 8,
+        "name": "Wayne"
+      },
+      {
+        "email": "billing@wonka.example",
+        "id": 9,
+        "name": "Wonka"
+      },
+      {
+        "email": "billing@tyrell.example",
+        "id": 10,
+        "name": "Tyrell"
+      },
+      {
+        "email": "ap@acme-holdings.example",
+        "id": 11,
+        "name": "Acme"
+      }
+    ],
+    "invoices": [],
+    "outbox": [],
+    "payments": [],
+    "reports": [],
+    "seed": 6
+  },
+  "receipt": {
+    "depth": 0,
+    "effects": [],
+    "error": null,
+    "evidence": null,
+    "forks_taken": 1,
+    "ledger": {
+      "ended_ms": 1788299447200,
+      "forks": [
+        {
+          "reason": "fork:2 customers named Acme"
+        }
+      ],
+      "rows": [
+        {
+          "attempt": 1,
+          "ended_us": 1788299447200178,
+          "error": null,
+          "key": null,
+          "node": "s1",
+          "observed": [
+            {
+              "email": "billing@acme.example",
+              "id": 1,
+              "name": "Acme"
+            },
+            {
+              "email": "ap@acme-holdings.example",
+              "id": 11,
+              "name": "Acme"
+            }
+          ],
+          "ok": true,
+          "op": "listCustomers",
+          "started_us": 1788299447199294,
+          "surface": "api",
+          "write": false
+        }
+      ],
+      "samples": [],
+      "started_ms": 1788299447199
+    },
+    "max_parallel": 1,
+    "nodes": 0,
+    "plan": "plan E-T6-r1  (0 nodes, depth 0)\n",
+    "plan_id": "E-T6-r1",
+    "plan_ms": 0,
+    "run_ms": 0,
+    "samples": 0,
+    "status": "need_think",
+    "tokens_in": 0,
+    "tokens_out": 0,
+    "wall_ms": 1,
+    "yield_reason": "fork:2 customers named Acme"
+  },
+  "intent": null,
+  "model": "",
+  "effort": "",
+  "base_url": "http://localhost:8080",
+  "latency_ms": 25,
+  "surfaces": "api"
+}

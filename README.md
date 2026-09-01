@@ -113,6 +113,50 @@ Each task declares its `depth` (the longest dependency chain) so the report can 
 against depth for every arm, and a `[script]` block that arm E interprets as its hand-written
 parallel program: customers, send, wait for payment, receipt, a report per invoice, a report over all.
 
+## First campaign, 2026-09-02
+
+`results/campaign-1`: grok-4.6 through opencodex, planner at low effort, loops at medium, 25 ms per
+write, 5 runs per cell, 120 results, `bench verify` clean. Medians.
+
+| task | depth | arm | correct | samples | plan ms | run ms | max parallel |
+|---|---|---|---|---|---|---|---|
+| T1 one invoice | 3 | **D ours** | 5/5 | 2 | 4849 | 54 | 1 |
+| | | B2 parallel MCP | 5/5 | 4 | 8646 | 5609 | 1 |
+| | | B sequential MCP | 5/5 | 4 | 10453 | 6055 | 1 |
+| T2 ten invoices | 3 | **D ours** | 5/5 | 1 | 5729 | 57 | 10 |
+| | | B2 | 5/5 | 4 | 12995 | 7886 | 10 |
+| | | B | 5/5 | 22 | 48767 | 44818 | 1 |
+| T3 three + report | 4 | **D ours** | 5/5 | 1 | 4120 | 98 | 3 |
+| | | B2 | 4/5 | 5 | 9859 | 6451 | 3 |
+| | | B | 5/5 | 11 | 21981 | 18005 | 1 |
+| T4 wait for payment | 5 | **D ours** | 5/5 | 1 | 4866 | 679 | 1 |
+| | | B2 | 0/5 | 6 | 18994 | 9604 | 1 |
+| | | B | 0/5 | 60 | 77651 | 75030 | 1 |
+| T5 ten, 30% failures | 3 | **D ours** | 5/5 | 1 | 6262 | 100 | 10 |
+| | | B2 | 5/5 | 5 | 17057 | 12274 | 10 |
+| | | B | 5/5 | 24 | 44654 | 40501 | 1 |
+| T6 two Acmes | 3 | **D ours** | 3/5 | 2 | 5755 | 2608 | 1 |
+| | | B2 | 5/5 | 2 | 5037 | 1 | 1 |
+| | | B | 5/5 | 2 | 5695 | 1 | 1 |
+
+Arm E, the script ceiling, is 5/5 everywhere at 0 samples; its run time equals ours to within a
+few milliseconds on every task. Double-sends were zero for every arm on every task.
+
+What the table says:
+
+- **Samples.** Ours is 1 on every task that needs no question. B2 pays a turn per dependency
+  level (4 at depth 3, 5 at depth 4, 6 at depth 5); B pays a turn per action.
+- **Wall time.** Ours is dominated by the one planner sample; the kitchen itself runs in tens of
+  milliseconds. B2's run time is its own thinking between tool calls.
+- **Waiting.** T4 separates the arms completely: the wait is an edge for us and a thing to
+  remember for a loop. Neither loop managed it in five tries.
+- **The honest losses.** T6: two of our five runs returned an empty fork answer that was compiled
+  as-is; that is fixed in the commit after this campaign (fork answers are linted). T1: the planner
+  needed a lint re-ask in three of five runs, which is why its median is 2 samples.
+
+`results/campaign-1/report.html` has the full table with spread, and every result file carries
+its ledger, snapshot and intent.
+
 ## What a result contains
 
 Per run: status, model samples, tokens, wall time, **max parallel** (a sweep over the ledger's

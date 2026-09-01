@@ -5,6 +5,9 @@ version.workspace = true
 edition.workspace = true
 license.workspace = true
 
+[lib]
+path = "src/lib.rs"
+
 [[bin]]
 name = "app"
 path = "src/main.rs"
@@ -23,3 +26,6 @@ rand.workspace = true
 rand_chacha.workspace = true
 tracing.workspace = true
 tracing-subscriber.workspace = true
+
+[dev-dependencies]
+reqwest.workspace = true

@@ -152,7 +152,6 @@ pub async fn run_script(task: &Task, ctx: &ArmContext) -> anyhow::Result<Receipt
     let rec = Recorder::new(ctx.world.clone());
     let s = Script::new(&ctx.base, rec.clone());
     let mut ledger = Ledger::new();
-    ledger.samples = 0;
     let kp = format!("E-{}-{}", task.id, ctx.run_id);
     let result: Result<(), String> = match task.id.as_str() {
         "T1" => s.invoice_and_send("Acme", &kp).await.map(|_| ()),

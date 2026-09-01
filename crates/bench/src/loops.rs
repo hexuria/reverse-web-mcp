@@ -13,7 +13,7 @@ use std::time::Duration;
 use serde_json::{json, Value};
 use zerohuman::effectors::{EffectError, McpEffector};
 use zerohuman::intent::Intent;
-use zerohuman::ledger::{Ledger, Receipt, Recorder, Status};
+use zerohuman::ledger::{now_us, Ledger, Receipt, Recorder, Sample, SampleKind, Status};
 use zerohuman::plan::Plan;
 use zerohuman::World;
 
@@ -71,6 +71,29 @@ impl ModelClient {
             auth,
             client: reqwest::Client::builder().timeout(Duration::from_secs(600)).build()?,
         })
+    }
+
+    /// The same client at a different effort, for the planner.
+    pub fn with_effort(&self, effort: &str) -> ModelClient {
+        ModelClient { effort: effort.to_string(), ..self.clone() }
+    }
+
+    /// One Messages call recorded as a sample: its span and token usage land in the ledger.
+    pub async fn sample(&self, ledger: &mut Ledger, kind: SampleKind, body: Value) -> anyhow::Result<Value> {
+        let started = now_us();
+        let resp = self.messages(body).await?;
+        let (ti, to) = usage(&resp);
+        ledger.record_sample(Sample {
+            seq: 0,
+            kind,
+            started_us: started,
+            ended_us: now_us(),
+            tokens_in: ti,
+            tokens_out: to,
+            model: self.model.clone(),
+            effort: self.effort.clone(),
+        });
+        Ok(resp)
     }
 
     /// One Messages call. Returns the full response JSON. Retries 429/5xx a few times.
@@ -162,17 +185,13 @@ pub async fn run_mcp_loop(task: &Task, ctx: &ArmContext, model: &ModelClient, pa
         if !parallel {
             body["tool_choice"] = json!({"type": "auto", "disable_parallel_tool_use": true});
         }
-        let resp = match model.messages(body).await {
+        let resp = match model.sample(&mut ledger, SampleKind::Turn, body).await {
             Ok(r) => r,
             Err(e) => {
                 error = Some(e.to_string());
                 break;
             }
         };
-        ledger.samples += 1;
-        let (ti, to) = usage(&resp);
-        ledger.tokens_in += ti;
-        ledger.tokens_out += to;
         let content = resp.get("content").cloned().unwrap_or(json!([]));
         messages.push(json!({"role": "assistant", "content": content}));
         let stop = resp.get("stop_reason").and_then(|s| s.as_str()).unwrap_or("");
@@ -293,11 +312,7 @@ pub async fn plan_intent(task: &Task, world: &World, facts: &str, model: &ModelC
         "tools": [tool],
         "messages": [{"role": "user", "content": user}],
     });
-    let resp = model.messages(body).await?;
-    ledger.samples += 1;
-    let (ti, to) = usage(&resp);
-    ledger.tokens_in += ti;
-    ledger.tokens_out += to;
+    let resp = model.sample(ledger, SampleKind::Plan, body).await?;
     let content = resp.get("content").cloned().unwrap_or(json!([]));
     let call = content.as_array().and_then(|a| a.iter().find(|b| b["type"] == "tool_use" && b["name"] == "emit_intent")).cloned();
     let input = match call {

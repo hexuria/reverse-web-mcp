@@ -40,9 +40,12 @@ pub struct RunOpts {
     /// Model for the planner and the model-driven arms.
     #[arg(long, default_value = "claude-opus-5")]
     pub model: String,
-    /// Effort for every model call: low | medium | high | xhigh | max.
+    /// Effort for the model-driven arms' calls: low | medium | high | xhigh | max.
     #[arg(long, default_value = "medium")]
     pub effort: String,
+    /// Effort for the planner's single sample. Low is the default: the intent is short.
+    #[arg(long, default_value = "low")]
+    pub planner_effort: String,
     /// Disable the server-side refusal fallback.
     #[arg(long)]
     #[serde(default)]

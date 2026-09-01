@@ -7,3 +7,4 @@ pub mod loops;
 pub mod oracle;
 pub mod report;
 pub mod tasks;
+pub mod verify;

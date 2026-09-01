@@ -21,6 +21,10 @@ pub struct RunResult {
     pub tokens_in: u64,
     pub tokens_out: u64,
     pub wall_ms: u128,
+    #[serde(default)]
+    pub plan_ms: u128,
+    #[serde(default)]
+    pub run_ms: u128,
     pub max_parallel: usize,
     pub nodes: usize,
     pub depth: usize,
@@ -59,6 +63,8 @@ pub struct Cell {
     pub wall_ms_median: f64,
     pub wall_ms_min: u128,
     pub wall_ms_max: u128,
+    pub plan_ms_median: f64,
+    pub run_ms_median: f64,
     pub max_parallel_median: f64,
     pub max_parallel_max: usize,
     pub double_sends_total: usize,
@@ -113,6 +119,8 @@ pub fn summarize(results: &[RunResult]) -> Vec<Cell> {
             wall_ms_median: median(rs.iter().map(|r| r.wall_ms as f64).collect()),
             wall_ms_min: rs.iter().map(|r| r.wall_ms).min().unwrap_or(0),
             wall_ms_max: rs.iter().map(|r| r.wall_ms).max().unwrap_or(0),
+            plan_ms_median: median(rs.iter().map(|r| r.plan_ms as f64).collect()),
+            run_ms_median: median(rs.iter().map(|r| r.run_ms as f64).collect()),
             max_parallel_median: median(rs.iter().map(|r| r.max_parallel as f64).collect()),
             max_parallel_max: rs.iter().map(|r| r.max_parallel).max().unwrap_or(0),
             double_sends_total: rs.iter().map(|r| r.double_sends).sum(),
@@ -125,18 +133,19 @@ pub fn summarize(results: &[RunResult]) -> Vec<Cell> {
 pub fn text_table(cells: &[Cell]) -> String {
     let mut s = String::new();
     s.push_str(&format!(
-        "{:<4} {:<3} {:>5} {:>8} {:>9} {:>12} {:>10} {:>7} {:>6}\n",
-        "task", "arm", "runs", "correct", "samples", "wall_ms(med)", "max_par", "double", "forks"
+        "{:<4} {:<3} {:>5} {:>8} {:>9} {:>8} {:>8} {:>10} {:>7} {:>6}\n",
+        "task", "arm", "runs", "correct", "samples", "plan_ms", "run_ms", "max_par", "double", "forks"
     ));
     for c in cells {
         s.push_str(&format!(
-            "{:<4} {:<3} {:>5} {:>8} {:>9} {:>12} {:>10} {:>7} {:>6}\n",
+            "{:<4} {:<3} {:>5} {:>8} {:>9} {:>8} {:>8} {:>10} {:>7} {:>6}\n",
             c.task,
             c.arm,
             c.runs,
             format!("{}/{}", c.correct, c.runs),
             c.samples_median,
-            c.wall_ms_median,
+            c.plan_ms_median,
+            c.run_ms_median,
             c.max_parallel_median,
             c.double_sends_total,
             c.forks_total
@@ -162,12 +171,12 @@ pub fn write_report(dir: &Path, results: &[RunResult], titles: &BTreeMap<String,
     for t in &tasks {
         let title = titles.get(t).cloned().unwrap_or_default();
         html.push_str(&format!("<h2>{t} · {title}</h2>"));
-        html.push_str("<table><thead><tr><th>arm</th><th>what</th><th>runs</th><th>correct</th><th>model samples</th><th>tokens</th><th>wall ms (median)</th><th>wall min–max</th><th>max parallel</th><th>double-sends</th><th>forks</th></tr></thead><tbody>");
+        html.push_str("<table><thead><tr><th>arm</th><th>what</th><th>runs</th><th>correct</th><th>model samples</th><th>tokens</th><th>plan ms</th><th>run ms</th><th>wall ms (median)</th><th>wall min–max</th><th>max parallel</th><th>double-sends</th><th>forks</th></tr></thead><tbody>");
         for c in cells.iter().filter(|c| &c.task == t) {
             let ok = if c.correct == c.runs && c.runs > 0 { "ok" } else { "bad" };
             let hot = if c.max_parallel_max > 1 { "hot" } else { "" };
             html.push_str(&format!(
-                "<tr><td><b>{}</b></td><td>{}</td><td>{}</td><td class=\"{ok}\">{}/{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}–{}</td><td class=\"{hot}\">{}</td><td class=\"{}\">{}</td><td>{}</td></tr>",
+                "<tr><td><b>{}</b></td><td>{}</td><td>{}</td><td class=\"{ok}\">{}/{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}–{}</td><td class=\"{hot}\">{}</td><td class=\"{}\">{}</td><td>{}</td></tr>",
                 c.arm,
                 arms.get(c.arm.as_str()).unwrap_or(&""),
                 c.runs,
@@ -175,6 +184,8 @@ pub fn write_report(dir: &Path, results: &[RunResult], titles: &BTreeMap<String,
                 c.runs,
                 c.samples_median,
                 c.tokens_median,
+                c.plan_ms_median,
+                c.run_ms_median,
                 c.wall_ms_median,
                 c.wall_ms_min,
                 c.wall_ms_max,

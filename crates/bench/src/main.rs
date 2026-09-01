@@ -12,7 +12,6 @@ use std::time::Duration;
 
 use clap::{Parser, Subcommand};
 use zerohuman::events::EventBus;
-use zerohuman::ledger::max_overlap;
 
 use arms::ArmContext;
 use oracle::Oracle;
@@ -59,7 +58,13 @@ async fn main() -> anyhow::Result<()> {
             println!("wrote {}", run.join("report.html").display());
             Ok(())
         }
-        Cmd::Verify { run, tasks_dir } => verify(&run, &tasks_dir),
+        Cmd::Verify { run, tasks_dir } => {
+            let problems = bench::verify::verify_dir(&run, &tasks_dir)?;
+            if problems > 0 {
+                std::process::exit(1);
+            }
+            Ok(())
+        }
     }
 }
 
@@ -155,7 +160,8 @@ async fn run(opts: RunOpts) -> anyhow::Result<()> {
                                 .map(|a| a.iter().filter_map(|c| c.get("name").and_then(|n| n.as_str()).map(|s| s.to_string())).collect())
                                 .unwrap_or_default();
                             let facts = format!("  customers ({}): {}", names.len(), names.join(", "));
-                            match loops::plan_intent(task, &world, &facts, model_client.as_ref().unwrap(), &mut ledger).await {
+                            match loops::plan_intent(task, &world, &facts, &model_client.as_ref().unwrap().with_effort(&opts.planner_effort), &mut ledger).await
+                            {
                                 Ok(i) => Some(i),
                                 Err(e) => {
                                     eprintln!("planner failed: {e}");
@@ -215,6 +221,8 @@ async fn run(opts: RunOpts) -> anyhow::Result<()> {
                     tokens_in: receipt.tokens_in,
                     tokens_out: receipt.tokens_out,
                     wall_ms: receipt.wall_ms,
+                    plan_ms: receipt.plan_ms,
+                    run_ms: receipt.run_ms,
                     max_parallel: receipt.max_parallel,
                     nodes: receipt.nodes,
                     depth: receipt.depth,
@@ -257,48 +265,5 @@ async fn run(opts: RunOpts) -> anyhow::Result<()> {
     println!();
     print!("{}", report::text_table(&cells));
     println!("wrote {}", out.join("report.html").display());
-    Ok(())
-}
-
-fn verify(run: &Path, tasks_dir: &Path) -> anyhow::Result<()> {
-    let tasks: BTreeMap<String, Task> = Task::load_dir(tasks_dir)?.into_iter().map(|t| (t.id.clone(), t)).collect();
-    let results = report::load_results(run)?;
-    let mut problems = 0;
-    for r in &results {
-        let rows = r.receipt.pointer("/ledger/rows").and_then(|v| v.as_array()).cloned().unwrap_or_default();
-        let spans = rows
-            .iter()
-            .filter(|x| x.get("surface").and_then(|s| s.as_str()) != Some("event"))
-            .map(|x| (x.get("started_us").and_then(|v| v.as_u64()).unwrap_or(0) as u128, x.get("ended_us").and_then(|v| v.as_u64()).unwrap_or(0) as u128));
-        let recomputed = max_overlap(spans);
-        if recomputed != r.max_parallel {
-            problems += 1;
-            println!("{} {} run {}: max_parallel stored {} recomputed {}", r.task, r.arm, r.run, r.max_parallel, recomputed);
-        }
-        if let Some(t) = tasks.get(&r.task) {
-            let checks = tasks::check(&t.expect, &r.status, r.forks, &r.snapshot, r.double_sends);
-            let correct = checks.iter().all(|c| c.ok);
-            if correct != r.correct {
-                problems += 1;
-                println!("{} {} run {}: correctness stored {} recomputed {}", r.task, r.arm, r.run, r.correct, correct);
-            }
-        }
-        // The outbox in the snapshot is the second witness for double-sends.
-        let outbox = r.snapshot.get("outbox").and_then(|o| o.as_array()).cloned().unwrap_or_default();
-        let mut seen: BTreeMap<(u64, String), usize> = BTreeMap::new();
-        for m in &outbox {
-            let k = (m.get("invoice_id").and_then(|i| i.as_u64()).unwrap_or(0), m.get("kind").and_then(|k| k.as_str()).unwrap_or("").to_string());
-            *seen.entry(k).or_default() += 1;
-        }
-        let dbl: usize = seen.values().filter(|n| **n > 1).map(|n| n - 1).sum();
-        if dbl != r.double_sends {
-            problems += 1;
-            println!("{} {} run {}: double_sends stored {} recomputed {}", r.task, r.arm, r.run, r.double_sends, dbl);
-        }
-    }
-    println!("{} results verified, {} problems", results.len(), problems);
-    if problems > 0 {
-        std::process::exit(1);
-    }
     Ok(())
 }

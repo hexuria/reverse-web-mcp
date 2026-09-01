@@ -43,6 +43,8 @@ fn result(task: &str, arm: &str, run: u32, wall_ms: u128, max_parallel: usize, c
         tokens_in: 10,
         tokens_out: 5,
         wall_ms,
+        plan_ms: 0,
+        run_ms: wall_ms,
         max_parallel,
         nodes: 0,
         depth: 0,

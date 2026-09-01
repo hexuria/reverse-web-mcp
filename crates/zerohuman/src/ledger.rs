@@ -43,12 +43,36 @@ pub enum Status {
     Error,
 }
 
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "snake_case")]
+pub enum SampleKind {
+    /// The planner turning a goal into an intent.
+    Plan,
+    /// The planner re-asked after lint errors.
+    Lint,
+    /// One turn of an agent loop.
+    Turn,
+    /// The planner answering a fork.
+    ForkAnswer,
+}
+
+/// One model call. Samples are rows too, so cost and thinking time are recomputed, never claimed.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct Sample {
+    pub seq: u32,
+    pub kind: SampleKind,
+    pub started_us: u128,
+    pub ended_us: u128,
+    pub tokens_in: u64,
+    pub tokens_out: u64,
+    pub model: String,
+    pub effort: String,
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize, Default)]
 pub struct Ledger {
     pub rows: Vec<Row>,
-    pub samples: u32,
-    pub tokens_in: u64,
-    pub tokens_out: u64,
+    pub samples: Vec<Sample>,
     pub forks: Vec<Value>,
     pub started_ms: u128,
     pub ended_ms: u128,
@@ -72,6 +96,10 @@ pub struct Receipt {
     pub tokens_in: u64,
     pub tokens_out: u64,
     pub wall_ms: u128,
+    /// Time the model was thinking: the union of sample spans.
+    pub plan_ms: u128,
+    /// Time the kitchen was running: first effect start to last effect end.
+    pub run_ms: u128,
     pub max_parallel: usize,
     pub nodes: usize,
     pub depth: usize,
@@ -95,6 +123,36 @@ impl Ledger {
         max_overlap(self.rows.iter().filter(|r| r.surface != "event").map(|r| (r.started_us, r.ended_us)))
     }
 
+    /// Append a sample; its `seq` is assigned here.
+    pub fn record_sample(&mut self, sample: Sample) {
+        let seq = self.samples.len() as u32 + 1;
+        self.samples.push(Sample { seq, ..sample });
+    }
+
+    pub fn sample_count(&self) -> u32 {
+        self.samples.len() as u32
+    }
+
+    pub fn tokens(&self) -> (u64, u64) {
+        (self.samples.iter().map(|s| s.tokens_in).sum(), self.samples.iter().map(|s| s.tokens_out).sum())
+    }
+
+    /// Microseconds the model was thinking: the union of sample spans, so overlapping samples
+    /// (a parallel fan-out of planners, one day) are not double counted.
+    pub fn plan_us(&self) -> u128 {
+        union_length(self.samples.iter().map(|s| (s.started_us, s.ended_us)))
+    }
+
+    /// Microseconds from the first effect starting to the last effect ending.
+    pub fn run_us(&self) -> u128 {
+        let start = self.rows.iter().map(|r| r.started_us).min();
+        let end = self.rows.iter().map(|r| r.ended_us).max();
+        match (start, end) {
+            (Some(s), Some(e)) => e.saturating_sub(s),
+            _ => 0,
+        }
+    }
+
     pub fn receipt(&self, plan: &Plan, status: Status, yield_reason: Option<String>, evidence: Option<Value>, error: Option<String>) -> Receipt {
         let mut effects: Vec<EffectSummary> = Vec::new();
         for n in &plan.nodes {
@@ -116,10 +174,12 @@ impl Ledger {
         Receipt {
             plan_id: plan.plan_id.clone(),
             status,
-            samples: self.samples,
-            tokens_in: self.tokens_in,
-            tokens_out: self.tokens_out,
+            samples: self.sample_count(),
+            tokens_in: self.tokens().0,
+            tokens_out: self.tokens().1,
             wall_ms: ended.saturating_sub(self.started_ms),
+            plan_ms: self.plan_us() / 1000,
+            run_ms: self.run_us() / 1000,
             max_parallel: self.max_parallel(),
             nodes: plan.nodes.len(),
             depth: plan.depth(),
@@ -203,6 +263,28 @@ impl Attempt {
     }
 }
 
+/// Total length covered by a set of spans, overlaps counted once.
+pub fn union_length<I: Iterator<Item = (u128, u128)>>(spans: I) -> u128 {
+    let mut v: Vec<(u128, u128)> = spans.map(|(s, e)| (s, e.max(s))).collect();
+    v.sort();
+    let mut total = 0u128;
+    let mut cur: Option<(u128, u128)> = None;
+    for (s, e) in v {
+        match cur {
+            Some((cs, ce)) if s <= ce => cur = Some((cs, ce.max(e))),
+            Some((cs, ce)) => {
+                total += ce - cs;
+                cur = Some((s, e));
+            }
+            None => cur = Some((s, e)),
+        }
+    }
+    if let Some((cs, ce)) = cur {
+        total += ce - cs;
+    }
+    total
+}
+
 pub fn max_overlap<I: Iterator<Item = (u128, u128)>>(spans: I) -> usize {
     let mut points: Vec<(u128, i32)> = Vec::new();
     for (s, e) in spans {
@@ -223,6 +305,14 @@ pub fn max_overlap<I: Iterator<Item = (u128, u128)>>(spans: I) -> usize {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn union_counts_overlaps_once() {
+        assert_eq!(union_length([(0, 10), (5, 15)].into_iter()), 15);
+        assert_eq!(union_length([(0, 10), (20, 30)].into_iter()), 20);
+        assert_eq!(union_length([(0, 10), (0, 10)].into_iter()), 10);
+        assert_eq!(union_length(std::iter::empty()), 0);
+    }
 
     #[test]
     fn overlap_counts_in_flight() {

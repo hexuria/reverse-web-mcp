@@ -310,3 +310,76 @@ fn a_saved_run_keeps_its_plan_id() {
     assert_eq!(code(&["--app", &base, "--resume", state, "--run", "--yes"]), 0);
     assert_eq!(get_json(format!("{base}/oracle/state"))["invoices"].as_array().unwrap().len(), 1);
 }
+
+/// --validate is the review `annotate-world-model` describes, made runnable. It has to be quiet on
+/// a model that is right and specific on one that is wrong, or nobody will trust it.
+#[test]
+fn validate_is_quiet_on_a_good_world_model() {
+    let doc = concat!(env!("CARGO_MANIFEST_DIR"), "/../app/static/openapi.json");
+    let (ok, out, err) = rwmcp(&["--app", doc, "--validate", "--json"]);
+    assert!(ok, "{err}");
+    let v: Value = serde_json::from_str(&out).unwrap();
+    assert_eq!(v["ok"], true);
+    assert!(v["errors"].as_array().unwrap().is_empty(), "our own app must validate clean: {}", v["errors"]);
+    // The read-only operations are noted, not condemned.
+    let codes: Vec<&str> = v["warnings"].as_array().unwrap().iter().map(|w| w["code"].as_str().unwrap()).collect();
+    assert!(codes.iter().all(|c| *c == "no_postcondition"), "{codes:?}");
+}
+
+#[test]
+fn validate_names_every_defect_in_a_broken_world_model() {
+    let doc = concat!(env!("CARGO_MANIFEST_DIR"), "/tests/fixtures/broken-openapi.json");
+    let (ok, out, _) = rwmcp(&["--app", doc, "--validate", "--json"]);
+    assert!(!ok);
+    let v: Value = serde_json::from_str(&out).unwrap();
+    assert_eq!(v["ok"], false);
+    let found = |code: &str, list: &str| -> bool { v[list].as_array().unwrap().iter().any(|e| e["code"] == code) };
+    assert!(found("unknown_entity", "errors"), "a footprint on an undeclared entity: {v}");
+    assert!(found("unknown_field", "errors"), "a post about a field the entity lacks: {v}");
+    assert!(found("no_surfaces", "errors"), "an operation nothing can call: {v}");
+    assert!(found("before_unknown_op", "errors"), "before pointing nowhere: {v}");
+    assert!(found("unbound_footprint_param", "errors"), "the silent widening to entity:*: {v}");
+    // And the bug class the review caught: two writers to one thing with no declared order.
+    assert!(found("unordered_writers", "warnings"), "{v}");
+    assert_eq!(code(&["--app", doc, "--validate"]), 10);
+}
+
+/// A plan that changes when the wants are listed in the other order is a plan that depends on
+/// typing order. This is the check both skills end with and nothing could run.
+#[test]
+fn order_check_proves_the_plan_does_not_depend_on_want_order() {
+    let base = serve(2);
+    let w = wants_file(
+        "order",
+        "report(invoices=[all(invoice(customer=each(customer())))]).exists\ninvoice(customer=each(customer())).exists\ninvoice(customer=each(customer())).status='sent'\n",
+    );
+    let (ok, out, err) = rwmcp(&["--app", &base, "--wants", w.to_str().unwrap(), "--order-check", "--json"]);
+    assert!(ok, "{err}");
+    let v: Value = serde_json::from_str(&out).unwrap();
+    assert_eq!(v["ok"], true);
+    assert!(v["differences"].as_array().unwrap().is_empty(), "{v}");
+    assert_eq!(v["steps"], 31);
+}
+
+/// --init turns a plain OpenAPI document into a filled-in-the-blanks exercise.
+#[test]
+fn init_offers_a_block_for_every_unannotated_operation() {
+    let doc = concat!(env!("CARGO_MANIFEST_DIR"), "/tests/fixtures/plain-openapi.json");
+    let (ok, out, err) = rwmcp(&["--app", doc, "--init", "--json"]);
+    assert!(ok, "{err}");
+    let v: Value = serde_json::from_str(&out).unwrap();
+    assert_eq!(v["annotated"], 0);
+    let todo = v["todo"].as_object().unwrap();
+    assert_eq!(todo.len(), 2);
+    assert_eq!(todo["createThing"]["_parameters_you_can_use"], serde_json::json!(["name", "size"]));
+    assert_eq!(todo["createThing"]["writes"], serde_json::json!(["entity:new"]));
+    assert_eq!(todo["listThings"]["reads"], serde_json::json!(["entity:*"]), "a GET is guessed as a read");
+    assert!(todo["listThings"]["writes"].as_array().unwrap().is_empty());
+
+    // Our own app is fully annotated, so there is nothing left to do.
+    let ours = concat!(env!("CARGO_MANIFEST_DIR"), "/../app/static/openapi.json");
+    let (_, out, _) = rwmcp(&["--app", ours, "--init", "--json"]);
+    let v: Value = serde_json::from_str(&out).unwrap();
+    assert_eq!(v["annotated"], 9);
+    assert!(v["todo"].as_object().unwrap().is_empty());
+}

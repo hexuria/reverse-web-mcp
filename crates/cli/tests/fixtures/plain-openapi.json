@@ -1,0 +1,35 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "plain",
+    "version": "1"
+  },
+  "paths": {
+    "/things": {
+      "get": {
+        "operationId": "listThings",
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query"
+          }
+        ]
+      },
+      "post": {
+        "operationId": "createThing",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "properties": {
+                  "name": {},
+                  "size": {}
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

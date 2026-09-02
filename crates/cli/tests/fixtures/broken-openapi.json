@@ -1,0 +1,125 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "broken",
+    "version": "1"
+  },
+  "x-reverse-webmcp-entities": {
+    "widget": {
+      "id": "id",
+      "fields": [
+        "colour",
+        "status"
+      ]
+    }
+  },
+  "paths": {
+    "/widgets": {
+      "post": {
+        "operationId": "createWidget",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "properties": {
+                  "colour": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "x-reverse-webmcp": {
+          "post": "widget(colour=$colour).exists",
+          "produces": "widget",
+          "writes": [
+            "widget:new"
+          ],
+          "reads": [],
+          "surfaces": {
+            "api": 1
+          }
+        }
+      }
+    },
+    "/widgets/{id}/paint": {
+      "post": {
+        "operationId": "paintWidget",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "x-reverse-webmcp": {
+          "post": "widget(id=$id).shade='red'",
+          "writes": [
+            "widget:$id"
+          ],
+          "reads": [],
+          "surfaces": {
+            "api": 1
+          }
+        }
+      }
+    },
+    "/widgets/{id}/ship": {
+      "post": {
+        "operationId": "shipWidget",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "x-reverse-webmcp": {
+          "post": "widget(id=$id).status='shipped'",
+          "writes": [
+            "widget:$wid"
+          ],
+          "reads": [],
+          "before": [
+            "noSuchOp"
+          ],
+          "surfaces": {
+            "api": 1
+          }
+        }
+      }
+    },
+    "/widgets/{id}/scrap": {
+      "post": {
+        "operationId": "scrapWidget",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "x-reverse-webmcp": {
+          "post": "widget(id=$id).status='scrapped'",
+          "writes": [
+            "widget:$id"
+          ],
+          "reads": [],
+          "surfaces": {}
+        }
+      }
+    },
+    "/gadgets": {
+      "get": {
+        "operationId": "listGadgets",
+        "x-reverse-webmcp": {
+          "reads": [
+            "gadget:*"
+          ],
+          "writes": [],
+          "surfaces": {
+            "api": 1
+          }
+        }
+      }
+    }
+  }
+}

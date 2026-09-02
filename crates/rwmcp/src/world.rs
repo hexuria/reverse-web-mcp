@@ -11,7 +11,7 @@ use serde_json::Value;
 
 use thiserror::Error;
 
-use crate::pred::{ParseError, Pred};
+use crate::pred::{ParseError, Pred, Val};
 
 #[derive(Debug, Error)]
 pub enum WorldError {
@@ -292,6 +292,175 @@ impl World {
             }
         }
         out
+    }
+}
+
+/// Something wrong with the world model itself, found by reading it. No app needs to be running.
+///
+/// This is the check `annotate-world-model` describes and could not run: an agent writes the
+/// `x-reverse-webmcp` blocks, and until now nothing told it whether they were coherent. A wrong
+/// block does not fail loudly — it compiles a plan that is quietly incorrect.
+#[derive(Clone, Debug, PartialEq, Serialize)]
+pub struct Finding {
+    /// The operation this is about, or `(document)` for the model as a whole.
+    pub op: String,
+    /// A stable name to branch on.
+    pub code: &'static str,
+    pub message: String,
+    /// `true` when a plan compiled against this model can be *wrong*, not merely poorer.
+    pub fatal: bool,
+}
+
+/// Fields every entity has implicitly: `exists` is "make me one", `resolved` is "find me the one".
+const PSEUDO_FIELDS: [&str; 2] = ["exists", "resolved"];
+
+fn vars_of(v: &Val, out: &mut Vec<String>) {
+    match v {
+        Val::Var(n, _) => out.push(n.clone()),
+        Val::List(xs) | Val::Each(xs) => xs.iter().for_each(|x| vars_of(x, out)),
+        Val::All(x) => vars_of(x, out),
+        Val::Entity(p) => {
+            p.args.iter().for_each(|(_, a)| vars_of(a, out));
+            vars_of(&p.value, out);
+        }
+        _ => {}
+    }
+}
+
+fn pred_vars(p: &Pred) -> Vec<String> {
+    let mut out = Vec::new();
+    p.args.iter().for_each(|(_, a)| vars_of(a, &mut out));
+    vars_of(&p.value, &mut out);
+    out
+}
+
+impl World {
+    /// Read the model and report what cannot be right. Fatal findings mean a plan built on this
+    /// model can be wrong; the rest are things that will merely work less well than they could.
+    pub fn validate(&self) -> Vec<Finding> {
+        let mut f: Vec<Finding> = Vec::new();
+        let entities: BTreeMap<&str, &Entity> = self.entities.iter().map(|e| (e.name.as_str(), e)).collect();
+        let op_names: std::collections::BTreeSet<&str> = self.ops.iter().map(|o| o.name.as_str()).collect();
+
+        let mut add = |op: &str, code: &'static str, message: String, fatal: bool| {
+            f.push(Finding { op: op.to_string(), code, message, fatal });
+        };
+
+        if self.entities.is_empty() {
+            add("(document)", "no_entities", "x-reverse-webmcp-entities is missing or empty, so no want can name anything".into(), true);
+        }
+        if !self.ops.iter().any(|o| o.post.is_some()) {
+            add("(document)", "nothing_plannable", "no operation declares a `post`, so no goal can ever be compiled".into(), true);
+        }
+
+        for o in &self.ops {
+            // What a `$var` in this operation can be filled from.
+            let mut fillable: std::collections::BTreeSet<&str> = o.params.iter().map(|p| p.name.as_str()).collect();
+            fillable.extend(o.defaults.keys().map(|k| k.as_str()));
+
+            for (p, field) in o.post.iter().map(|p| (p, "post")).chain(o.requires.iter().map(|p| (p, "requires"))) {
+                match entities.get(p.entity.as_str()) {
+                    None => add(&o.name, "unknown_entity", format!("{field} names entity '{}', which is not in x-reverse-webmcp-entities", p.entity), true),
+                    Some(e) => {
+                        if !p.field.is_empty() && !PSEUDO_FIELDS.contains(&p.field.as_str()) && !e.fields.contains(&p.field) {
+                            add(&o.name, "unknown_field", format!("{field} asks about '{}.{}', which the entity does not have", p.entity, p.field), true);
+                        }
+                    }
+                }
+                for v in pred_vars(p) {
+                    if !fillable.contains(v.as_str()) {
+                        let m = format!("{field} uses ${v}, but the operation has no parameter or default by that name, so nothing can fill it");
+                        add(&o.name, "unfillable_variable", m, true);
+                    }
+                }
+            }
+
+            if let Some(prod) = &o.produces {
+                if !entities.contains_key(prod.as_str()) {
+                    add(&o.name, "unknown_entity", format!("produces '{prod}', which is not in x-reverse-webmcp-entities"), true);
+                }
+            }
+
+            for (spec, which) in o.reads.iter().map(|s| (s, "reads")).chain(o.writes.iter().map(|s| (s, "writes"))) {
+                let Some((entity, sel)) = spec.split_once(':') else {
+                    add(&o.name, "malformed_footprint", format!("{which} entry '{spec}' is not `entity:selector`"), true);
+                    continue;
+                };
+                if !entities.contains_key(entity) {
+                    add(&o.name, "unknown_entity", format!("{which} names entity '{entity}', which is not in x-reverse-webmcp-entities"), true);
+                }
+                if let Some(var) = sel.strip_prefix('$') {
+                    let var = var.trim_end_matches("[]");
+                    if !fillable.contains(var) {
+                        // This is the silent one: an unbindable selector widens to `entity:*`,
+                        // which conflicts with every other step touching that entity, so the
+                        // plan serialises and nobody is told why.
+                        let m = format!("{which} '{spec}' names ${var}, which is not a parameter; it widens to '{entity}:*' and serialises the plan");
+                        add(&o.name, "unbound_footprint_param", m, true);
+                    }
+                }
+            }
+
+            for b in &o.before {
+                if !op_names.contains(b.as_str()) {
+                    add(&o.name, "before_unknown_op", format!("before names '{b}', which is not an operation in this document"), true);
+                }
+            }
+
+            match o.kind {
+                OpKind::Http | OpKind::Ui if o.surfaces.is_empty() => {
+                    add(&o.name, "no_surfaces", "no surfaces, so nothing can ever call it".into(), true);
+                }
+                OpKind::Http if o.post.is_none() => {
+                    add(&o.name, "no_postcondition", "no post, so no want can ask for it; it can still serve a `requires` or a check".into(), false);
+                }
+                OpKind::Event if o.check.is_none() => {
+                    add(&o.name, "event_without_check", "no check, so a lost event can only be waited for, never confirmed by reading".into(), false);
+                }
+                _ => {}
+            }
+        }
+
+        f.extend(self.unordered_writers());
+        f
+    }
+
+    /// Two operations that write the same thing have no order in a footprint — a footprint says
+    /// *what* is touched, never *when*. Only the world model knows, and it says so with `before`.
+    /// Creators are exempt: `entity:new` is always ordered first by the data dependency on what
+    /// it produces.
+    fn unordered_writers(&self) -> Vec<Finding> {
+        let writers: Vec<&Op> = self.ops.iter().filter(|o| o.writes.iter().any(|w| !w.ends_with(":new"))).collect();
+        let mut out = Vec::new();
+        for (i, a) in writers.iter().enumerate() {
+            for b in writers.iter().skip(i + 1) {
+                let shared: Vec<&String> = a.writes.iter().filter(|w| !w.ends_with(":new") && b.writes.contains(w)).collect();
+                if shared.is_empty() || self.ordered(&a.name, &b.name) || self.ordered(&b.name, &a.name) {
+                    continue;
+                }
+                let m =
+                    format!("writes {} as well, and neither declares `before` the other, so their order is whatever the want order happens to be", shared[0]);
+                out.push(Finding { op: format!("{} / {}", a.name, b.name), code: "unordered_writers", message: m, fatal: false });
+            }
+        }
+        out
+    }
+
+    /// Does `from` come before `to`, directly or through a chain of `before`?
+    fn ordered(&self, from: &str, to: &str) -> bool {
+        let mut seen = std::collections::BTreeSet::new();
+        let mut stack = vec![from.to_string()];
+        while let Some(n) = stack.pop() {
+            if !seen.insert(n.clone()) {
+                continue;
+            }
+            let Some(op) = self.op(&n) else { continue };
+            if op.before.iter().any(|b| b == to) {
+                return true;
+            }
+            stack.extend(op.before.iter().cloned());
+        }
+        false
     }
 }
 

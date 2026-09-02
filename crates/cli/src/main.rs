@@ -59,6 +59,18 @@ struct Cli {
     /// Print what the app can be asked for, and stop.
     #[arg(long)]
     world: bool,
+    /// Check the world model itself and stop: entities, fields, footprints, ordering, surfaces.
+    /// This is the review `annotate-world-model` describes; it needs no app running.
+    #[arg(long)]
+    validate: bool,
+    /// Compile the wants, compile them again in the opposite order, and prove the two plans are
+    /// the same. A plan that depends on the order the wants were typed in is a bug.
+    #[arg(long)]
+    order_check: bool,
+    /// Read a plain OpenAPI document and print a skeleton x-reverse-webmcp block per operation,
+    /// for an agent to fill in. The cure for the blank page.
+    #[arg(long)]
+    init: bool,
     /// Save these wants as a recipe under this name.
     #[arg(long, value_name = "NAME")]
     save: Option<String>,
@@ -262,6 +274,12 @@ async fn go(cli: &Cli) -> Result<(), Fail> {
     if cli.list {
         return list_recipes(cli).map_err(unreachable_fail);
     }
+    if cli.init {
+        return init_blocks(cli).await;
+    }
+    if cli.validate {
+        return validate_world(cli).await;
+    }
     if cli.world {
         return show_world(cli).await;
     }
@@ -304,6 +322,15 @@ impl Cli {
         }
         self.app = Some(DEFAULT_APP.to_string());
         Ok(())
+    }
+
+    /// The raw OpenAPI document, from a file or from the running app.
+    async fn openapi(&self) -> anyhow::Result<Value> {
+        if self.offline() {
+            return serde_json::from_str(&std::fs::read_to_string(self.app())?).with_context(|| format!("reading {}", self.app()));
+        }
+        let url = format!("{}/openapi.json", self.app().trim_end_matches('/'));
+        reqwest::get(&url).await.with_context(|| format!("fetching {url}"))?.json().await.with_context(|| format!("parsing {url}"))
     }
 
     async fn world(&self) -> anyhow::Result<World> {
@@ -405,6 +432,173 @@ fn list_recipes(cli: &Cli) -> anyhow::Result<()> {
     if !found {
         println!("No recipes in {}. Save one with --save NAME.", dir.display());
     }
+    Ok(())
+}
+
+/// The review `annotate-world-model` describes, made runnable. Nothing needs to be running: this
+/// reads the document and says what cannot be right.
+async fn validate_world(cli: &Cli) -> Result<(), Fail> {
+    let world = cli.world().await.map_err(unreachable_fail)?;
+    let findings = world.validate();
+    let (bad, warn): (Vec<_>, Vec<_>) = findings.iter().partition(|f| f.fatal);
+
+    // One object on stdout whichever way this goes. Printing the report here and then letting the
+    // failure print its own left a parser with two objects and a syntax error.
+    let body = serde_json::json!({
+        "ok": bad.is_empty(),
+        "operations": world.ops.len(),
+        "entities": world.entities.len(),
+        "errors": bad,
+        "warnings": warn,
+    });
+    if cli.json {
+        if bad.is_empty() {
+            println!("{}", serde_json::to_string_pretty(&body).unwrap_or_default());
+        }
+    } else {
+        println!("{} operations, {} entities.\n", world.ops.len(), world.entities.len());
+        for f in &bad {
+            println!("  ERROR  {}: {}", f.op, f.message);
+        }
+        for f in &warn {
+            println!("  note   {}: {}", f.op, f.message);
+        }
+        if findings.is_empty() {
+            println!("  Nothing to report. Every operation names entities and fields that exist,");
+            println!("  every footprint selector binds, every `before` points somewhere, and every");
+            println!("  pair of writers to one thing has a declared order.");
+        }
+    }
+    if bad.is_empty() {
+        return Ok(());
+    }
+    Err(Fail::new(Exit::WantsRejected, "world_invalid", format!("{} problem(s) in the world model", bad.len())).with_body(body))
+}
+
+/// Compile the wants, compile them reversed, and compare. A plan that changes when the wants are
+/// listed in a different order is a plan that depends on typing order, which is the bug the
+/// compiler's edge orientation once had: a report want listed first got a report over drafts.
+fn order_check(intent: &Intent, world: &World, opts: &CompileOptions, json: bool) -> Result<(), Fail> {
+    let forward =
+        compile(intent, world, opts).map_err(|e| Fail::new(Exit::WantsRejected, "compile_failed", e.to_string()).with(serde_json::json!({ "error": e })))?;
+    let mut reversed_wants = intent.wants.clone();
+    reversed_wants.reverse();
+    let reversed = compile(&Intent { wants: reversed_wants, ..intent.clone() }, world, opts)
+        .map_err(|e| Fail::new(Exit::WantsRejected, "compile_failed_reversed", e.to_string()).with(serde_json::json!({ "error": e })))?;
+
+    let differences = plan_diff(&forward, &reversed);
+    let body = serde_json::json!({
+        "ok": differences.is_empty(),
+        "wants": intent.wants.len(),
+        "steps": forward.nodes.len(),
+        "differences": differences,
+    });
+    if json {
+        if differences.is_empty() {
+            println!("{}", serde_json::to_string_pretty(&body).unwrap_or_default());
+        }
+    } else if differences.is_empty() {
+        println!("{} wants, {} steps, {} deep.", intent.wants.len(), forward.nodes.len(), forward.depth());
+        println!("Reversing the wants gives the same plan, so nothing here depends on the order they were written in.");
+    } else {
+        println!("Reversing the wants changes the plan:\n");
+        for d in &differences {
+            println!("  {d}");
+        }
+    }
+    if differences.is_empty() {
+        return Ok(());
+    }
+    Err(Fail::new(Exit::WantsRejected, "order_dependent", "the plan depends on the order the wants were written in").with_body(body))
+}
+
+/// What changed between two compilations of the same wants. Keys are content-addressed, so the
+/// same work has the same key whatever order it was found in; node ids are not, so compare on
+/// keys and on the ordering between them.
+fn plan_diff(a: &Plan, b: &Plan) -> Vec<String> {
+    let mut out = Vec::new();
+    if a.nodes.len() != b.nodes.len() {
+        out.push(format!("{} steps one way, {} the other", a.nodes.len(), b.nodes.len()));
+    }
+    if a.depth() != b.depth() {
+        out.push(format!("{} deep one way, {} the other", a.depth(), b.depth()));
+    }
+    let sig = |p: &Plan| -> std::collections::BTreeSet<String> {
+        let by_id: BTreeMap<&str, &str> = p.nodes.iter().map(|n| (n.id.as_str(), n.op.as_str())).collect();
+        p.edges.iter().map(|(from, to)| format!("{} -> {}", by_id.get(from.as_str()).unwrap_or(&"?"), by_id.get(to.as_str()).unwrap_or(&"?"))).collect()
+    };
+    let (ea, eb) = (sig(a), sig(b));
+    for e in ea.difference(&eb) {
+        out.push(format!("only in the declared order: {e}"));
+    }
+    for e in eb.difference(&ea) {
+        out.push(format!("only in the reversed order: {e}"));
+    }
+    out
+}
+
+/// Read a plain OpenAPI document and print the block each operation still needs. An agent fills
+/// these in; the skill says how, and --validate says whether it worked.
+async fn init_blocks(cli: &Cli) -> Result<(), Fail> {
+    let doc = cli.openapi().await.map_err(unreachable_fail)?;
+    let paths = doc
+        .get("paths")
+        .and_then(|p| p.as_object())
+        .ok_or_else(|| Fail::new(Exit::WantsRejected, "no_paths", "that OpenAPI document has no `paths`, so there is nothing to annotate"))?;
+
+    let mut ops = serde_json::Map::new();
+    let mut already = 0usize;
+    for (path, methods) in paths {
+        let Some(methods) = methods.as_object() else { continue };
+        for (method, spec) in methods {
+            if spec.get("x-reverse-webmcp").is_some() {
+                already += 1;
+                continue;
+            }
+            let name = spec.get("operationId").and_then(|s| s.as_str()).unwrap_or("").to_string();
+            let mut params: Vec<String> = spec
+                .get("parameters")
+                .and_then(|p| p.as_array())
+                .map(|a| a.iter().filter_map(|p| p.get("name").and_then(|n| n.as_str()).map(str::to_string)).collect())
+                .unwrap_or_default();
+            if let Some(props) = spec.pointer("/requestBody/content/application~1json/schema/properties").and_then(|p| p.as_object()) {
+                params.extend(props.keys().cloned());
+            }
+            // A GET reads and a POST writes, more often than not. It is a starting point, not a guess
+            // to trust: the skill says how to check it, and --validate says whether it holds up.
+            let reading = method.eq_ignore_ascii_case("get");
+            let reads: Vec<&str> = if reading { vec!["entity:*"] } else { vec![] };
+            let writes: Vec<&str> = if reading { vec![] } else { vec!["entity:new"] };
+            ops.insert(
+                if name.is_empty() { format!("{} {path}", method.to_uppercase()) } else { name },
+                serde_json::json!({
+                    "post": "entity(arg=$param).field=value   # what is true afterwards; drop the whole block for a read",
+                    "requires": [],
+                    "produces": null,
+                    "reads": reads,
+                    "writes": writes,
+                    "external": false,
+                    "before": [],
+                    "surfaces": {"api": 1},
+                    "_parameters_you_can_use": params,
+                }),
+            );
+        }
+    }
+
+    if cli.json {
+        println!("{}", serde_json::to_string_pretty(&serde_json::json!({"ok": true, "annotated": already, "todo": ops})).unwrap_or_default());
+        return Ok(());
+    }
+    println!("{already} operation(s) already annotated, {} still to do.\n", ops.len());
+    println!("x-reverse-webmcp-entities goes at the document root:\n");
+    println!(
+        "{}",
+        serde_json::to_string_pretty(&serde_json::json!({"x-reverse-webmcp-entities": {"entity": {"id": "id", "fields": ["a_field"]}}})).unwrap_or_default()
+    );
+    println!("\nAnd one x-reverse-webmcp block per operation:\n");
+    println!("{}", serde_json::to_string_pretty(&Value::Object(ops)).unwrap_or_default());
+    println!("\nFill them in, then run --validate.");
     Ok(())
 }
 
@@ -535,6 +729,10 @@ async fn act(cli: &Cli) -> Result<(), Fail> {
         }
         return Err(Fail::new(Exit::WantsRejected, "wants_rejected", prose.trim_end())
             .with(serde_json::json!({"errors": errs, "codes": errs.iter().map(|e| e.code()).collect::<Vec<_>>()})));
+    }
+
+    if cli.order_check {
+        return order_check(&intent, &world, &opts, cli.json);
     }
 
     let plan =

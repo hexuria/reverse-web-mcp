@@ -1,0 +1,431 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="What does this do? The idea, the doors your app needs, the annotation, and a receipt.">
+<title>rwmcp in Pictures</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=Atkinson+Hyperlegible:wght@400;700&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+  :root{color-scheme:light dark}
+  html{-webkit-text-size-adjust:100%}
+  body{margin:0}
+  img{max-width:100%}
+  [hidden]{display:none!important}
+  .guide-nav{font:13px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif;padding:11px 20px;border-bottom:1px solid rgba(128,128,128,.28)}
+  .guide-nav a{text-decoration:none;opacity:.75;color:inherit}
+  .guide-nav a:hover{opacity:1;text-decoration:underline}
+</style>
+</head>
+<body>
+<nav class="guide-nav"><a href="./index.html">&larr; all rwmcp guides</a></nav>
+<style>
+:root{
+  --paper:#F2F5F4; --card:#FFFFFF; --ink:#16211E; --muted:#5C6B67; --line:#C9D4D0;
+  --tile:#1F7A63; --tile-soft:#D7EBE4; --ticket:#D9A441; --ticket-soft:#F6E9C8;
+  --bad:#B23A2E; --bad-soft:#F4D9D5; --ok:#2F7D4F;
+  --mono:"JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
+  --body:"Atkinson Hyperlegible",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --display:"Bricolage Grotesque","Atkinson Hyperlegible",system-ui,sans-serif;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --paper:#10181A; --card:#182326; --ink:#E6EEEB; --muted:#9FB0AB; --line:#2E3E3B;
+    --tile:#4FC39F; --tile-soft:#1C3A33; --ticket:#E8B85A; --ticket-soft:#3D3320;
+    --bad:#E07A6E; --bad-soft:#3F2320; --ok:#5FCB8A;
+  }
+}
+:root[data-theme="dark"]{
+  --paper:#10181A; --card:#182326; --ink:#E6EEEB; --muted:#9FB0AB; --line:#2E3E3B;
+  --tile:#4FC39F; --tile-soft:#1C3A33; --ticket:#E8B85A; --ticket-soft:#3D3320;
+  --bad:#E07A6E; --bad-soft:#3F2320; --ok:#5FCB8A;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--paper);color:var(--ink);font:18px/1.55 var(--body)}
+main{max-width:760px;margin:0 auto;padding:48px 20px 96px;display:flex;flex-direction:column;gap:72px}
+h1,h2,h3{font-family:var(--display);text-wrap:balance;margin:0;line-height:1.1}
+h1{font-size:clamp(40px,7vw,64px);font-weight:800;letter-spacing:-.02em}
+h2{font-size:clamp(28px,4.5vw,36px);font-weight:700;letter-spacing:-.015em}
+h3{font-size:20px;font-weight:700}
+p{margin:0;max-width:62ch}
+.lede{font-size:22px;color:var(--muted);max-width:40ch}
+.eyebrow{font-family:var(--mono);font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:var(--tile);font-weight:600}
+section{display:flex;flex-direction:column;gap:20px}
+figure{margin:0;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:18px;overflow-x:auto}
+figure svg{display:block;width:100%;height:auto;max-width:100%}
+figcaption{font-size:15px;color:var(--muted);margin-top:10px}
+.big{font-size:22px;line-height:1.45}
+code,pre{font-family:var(--mono)}
+code{font-size:.9em;background:var(--tile-soft);padding:1px 6px;border-radius:5px}
+pre{margin:0;font-size:14px;line-height:1.5;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px 18px;overflow-x:auto}
+pre code{background:none;padding:0;font-size:inherit}
+.steps{display:grid;gap:14px}
+.step{display:grid;grid-template-columns:52px 1fr;gap:14px;align-items:start}
+.step .n{width:52px;height:52px;border-radius:50%;background:var(--tile);color:#fff;font-family:var(--display);font-weight:800;font-size:24px;display:grid;place-items:center}
+.step h3{margin-top:10px}
+.step p{margin-top:4px;color:var(--muted)}
+.two{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:14px}
+.list{display:grid;gap:10px;padding:0;margin:0;list-style:none}
+.list li{display:grid;grid-template-columns:28px 1fr;gap:10px;align-items:start}
+.list .m{width:24px;height:24px;border-radius:6px;display:grid;place-items:center;font-family:var(--mono);font-size:12px;font-weight:600;margin-top:4px}
+.must .m{background:var(--tile);color:#fff}
+.nice .m{background:var(--ticket-soft);color:var(--ink);border:1px solid var(--ticket)}
+.no .m{background:var(--bad-soft);color:var(--bad)}
+.glossary{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px}
+.term{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px 16px}
+.term b{font-family:var(--display);font-size:18px;display:block;margin-bottom:4px}
+.term span{color:var(--muted);font-size:16px}
+.note{border-left:4px solid var(--ticket);background:var(--ticket-soft);padding:12px 16px;border-radius:0 10px 10px 0}
+/* svg text and shapes read from the theme */
+.t{fill:var(--ink);font-family:var(--body);font-size:15px}
+.tb{fill:var(--ink);font-family:var(--display);font-weight:700;font-size:17px}
+.tm{fill:var(--muted);font-family:var(--body);font-size:13px}
+.tc{fill:var(--ink);font-family:var(--mono);font-size:12px}
+.tw{fill:#fff;font-family:var(--display);font-weight:700;font-size:16px}
+.box{fill:var(--card);stroke:var(--line);stroke-width:1.5}
+.tile{fill:var(--tile)}
+.tilesoft{fill:var(--tile-soft);stroke:var(--tile);stroke-width:1.5}
+.tick{fill:var(--ticket-soft);stroke:var(--ticket);stroke-width:1.5}
+.ln{stroke:var(--muted);stroke-width:2;fill:none}
+.lnt{stroke:var(--tile);stroke-width:2.5;fill:none}
+.lnd{stroke:var(--muted);stroke-width:2;fill:none;stroke-dasharray:6 5}
+.bad{fill:var(--bad-soft);stroke:var(--bad);stroke-width:1.5}
+.tbad{fill:var(--bad);font-family:var(--display);font-weight:700;font-size:15px}
+.tok{fill:var(--ok)}
+a{color:var(--tile)}
+:focus-visible{outline:3px solid var(--ticket);outline-offset:2px}
+@media (prefers-reduced-motion:no-preference){ .step .n{transition:transform .2s} .step:hover .n{transform:scale(1.06)} }
+</style>
+
+<main>
+
+<header style="display:flex;flex-direction:column;gap:18px">
+  <div class="eyebrow">rwmcp · reverse-WebMCP · explained with pictures</div>
+  <h1>rwmcp in Pictures</h1>
+  <p class="lede">You tell it what should be true. It thinks <b>once</b>, then does everything at the same time, and hands you a receipt.</p>
+  <div class="note" style="border-left-color:var(--tile);background:var(--tile-soft)"><b>Also called reverse-WebMCP.</b> WebMCP declares the <i>actions</i> and lets a model pick the order. This declares what those actions <i>mean</i> and lets a compiler pick both. Reversed arrow, not reversed effort — somebody still writes the declaration.</div>
+</header>
+
+<!-- 1. The one picture -->
+<section>
+  <div class="eyebrow">1 · the whole idea</div>
+  <h2>A kitchen with one chef and many cooks</h2>
+  <figure>
+    <svg viewBox="0 0 720 250" role="img" aria-label="Goal goes to the chef who thinks once, writes one ticket, the kitchen runs many cooks in parallel, a receipt comes out">
+      <defs>
+        <marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="var(--muted)"/></marker>
+        <marker id="art" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="var(--tile)"/></marker>
+      </defs>
+      <!-- goal -->
+      <rect x="10" y="90" width="130" height="70" rx="12" class="box"/>
+      <text x="75" y="120" text-anchor="middle" class="tb">Your goal</text>
+      <text x="75" y="142" text-anchor="middle" class="tm">"invoice 10 people"</text>
+      <path d="M142 125 H178" class="ln" marker-end="url(#ar)"/>
+      <!-- chef -->
+      <circle cx="235" cy="100" r="28" class="tile"/>
+      <text x="235" y="106" text-anchor="middle" class="tw">chef</text>
+      <rect x="185" y="140" width="100" height="42" rx="8" class="tick"/>
+      <text x="235" y="158" text-anchor="middle" class="tc">ONE ticket</text>
+      <text x="235" y="174" text-anchor="middle" class="tm">thinks once</text>
+      <path d="M287 125 H323" class="ln" marker-end="url(#ar)"/>
+      <!-- kitchen -->
+      <rect x="330" y="30" width="230" height="190" rx="14" class="tilesoft"/>
+      <text x="445" y="54" text-anchor="middle" class="tb">the kitchen</text>
+      <g>
+        <rect x="350" y="70" width="60" height="26" rx="6" class="box"/><text x="380" y="88" text-anchor="middle" class="tc">cook</text>
+        <rect x="350" y="105" width="60" height="26" rx="6" class="box"/><text x="380" y="123" text-anchor="middle" class="tc">cook</text>
+        <rect x="350" y="140" width="60" height="26" rx="6" class="box"/><text x="380" y="158" text-anchor="middle" class="tc">cook</text>
+        <rect x="350" y="175" width="60" height="26" rx="6" class="box"/><text x="380" y="193" text-anchor="middle" class="tc">cook</text>
+        <path d="M414 83 H470 M414 118 H470 M414 153 H470 M414 188 H470" class="lnt" marker-end="url(#art)"/>
+        <rect x="474" y="70" width="70" height="131" rx="8" class="box"/>
+        <text x="509" y="128" text-anchor="middle" class="tm">all at</text>
+        <text x="509" y="146" text-anchor="middle" class="tm">once</text>
+      </g>
+      <path d="M562 125 H598" class="ln" marker-end="url(#ar)"/>
+      <!-- receipt -->
+      <path d="M605 70 h100 v110 l-8 -6 l-8 6 l-8 -6 l-8 6 l-8 -6 l-8 6 l-8 -6 l-8 6 l-8 -6 l-8 6 l-8 -6 l-8 6 l-8 -6 l-4 3 z" class="box"/>
+      <text x="655" y="95" text-anchor="middle" class="tb">receipt</text>
+      <text x="655" y="118" text-anchor="middle" class="tc">thoughts: 1</text>
+      <text x="655" y="136" text-anchor="middle" class="tc">at once: 10</text>
+      <text x="655" y="154" text-anchor="middle" class="tc">doubles: 0</text>
+    </svg>
+    <figcaption>Chef = the AI model (called the <i>planner</i>). Ticket = the plan. Cooks = HTTP calls to your app. Receipt = proof of what happened.</figcaption>
+  </figure>
+  <p class="big">Most AI agents think, do one thing, think again, do one thing… rwmcp thinks <b>one time</b>, writes a plan with everything on it, and runs the plan as wide as your data allows.</p>
+</section>
+
+<!-- 2. loop vs plan -->
+<section>
+  <div class="eyebrow">2 · why it matters</div>
+  <h2>Stairs versus a wide door</h2>
+  <figure>
+    <svg viewBox="0 0 720 260" role="img" aria-label="Left: an agent loop climbing stairs think-do-think-do. Right: one thought then ten actions side by side">
+      <text x="170" y="26" text-anchor="middle" class="tb">the usual agent loop</text>
+      <g>
+        <rect x="20" y="200" width="60" height="30" rx="6" class="bad"/><text x="50" y="220" text-anchor="middle" class="tbad">think</text>
+        <rect x="85" y="200" width="60" height="30" rx="6" class="box"/><text x="115" y="220" text-anchor="middle" class="tc">do</text>
+        <rect x="85" y="160" width="60" height="30" rx="6" class="bad"/><text x="115" y="180" text-anchor="middle" class="tbad">think</text>
+        <rect x="150" y="160" width="60" height="30" rx="6" class="box"/><text x="180" y="180" text-anchor="middle" class="tc">do</text>
+        <rect x="150" y="120" width="60" height="30" rx="6" class="bad"/><text x="180" y="140" text-anchor="middle" class="tbad">think</text>
+        <rect x="215" y="120" width="60" height="30" rx="6" class="box"/><text x="245" y="140" text-anchor="middle" class="tc">do</text>
+        <rect x="215" y="80" width="60" height="30" rx="6" class="bad"/><text x="245" y="100" text-anchor="middle" class="tbad">think</text>
+        <rect x="280" y="80" width="60" height="30" rx="6" class="box"/><text x="310" y="100" text-anchor="middle" class="tc">do</text>
+        <text x="170" y="250" text-anchor="middle" class="tm">4 thoughts for 4 steps · 16 seconds on T2</text>
+      </g>
+      <line x1="360" y1="40" x2="360" y2="240" class="lnd"/>
+      <text x="545" y="26" text-anchor="middle" class="tb">rwmcp</text>
+      <g>
+        <rect x="400" y="80" width="70" height="34" rx="6" class="tile"/><text x="435" y="102" text-anchor="middle" class="tw">think</text>
+        <path d="M472 97 H500" class="ln" marker-end="url(#ar)"/>
+        <g>
+          <rect x="505" y="45" width="26" height="22" rx="4" class="box"/>
+          <rect x="537" y="45" width="26" height="22" rx="4" class="box"/>
+          <rect x="569" y="45" width="26" height="22" rx="4" class="box"/>
+          <rect x="601" y="45" width="26" height="22" rx="4" class="box"/>
+          <rect x="633" y="45" width="26" height="22" rx="4" class="box"/>
+          <rect x="505" y="75" width="26" height="22" rx="4" class="box"/>
+          <rect x="537" y="75" width="26" height="22" rx="4" class="box"/>
+          <rect x="569" y="75" width="26" height="22" rx="4" class="box"/>
+          <rect x="601" y="75" width="26" height="22" rx="4" class="box"/>
+          <rect x="633" y="75" width="26" height="22" rx="4" class="box"/>
+          <rect x="505" y="105" width="26" height="22" rx="4" class="box"/>
+          <rect x="537" y="105" width="26" height="22" rx="4" class="box"/>
+          <rect x="569" y="105" width="26" height="22" rx="4" class="box"/>
+          <rect x="601" y="105" width="26" height="22" rx="4" class="box"/>
+          <rect x="633" y="105" width="26" height="22" rx="4" class="box"/>
+          <rect x="505" y="135" width="26" height="22" rx="4" class="box"/>
+          <rect x="537" y="135" width="26" height="22" rx="4" class="box"/>
+          <rect x="569" y="135" width="26" height="22" rx="4" class="box"/>
+          <rect x="601" y="135" width="26" height="22" rx="4" class="box"/>
+          <rect x="633" y="135" width="26" height="22" rx="4" class="box"/>
+        </g>
+        <text x="582" y="185" text-anchor="middle" class="tc">20 calls, 10 at a time</text>
+        <text x="545" y="250" text-anchor="middle" class="tm">1 thought · 3.5 seconds on T2</text>
+      </g>
+    </svg>
+    <figcaption>Numbers from the stored benchmark (task T2, ten invoices, grok-4.6). The loop is the honest baseline: it also runs things in parallel, it just can't stop thinking between levels.</figcaption>
+  </figure>
+</section>
+
+<!-- 3. what your app needs -->
+<section>
+  <div class="eyebrow">3 · what your app needs</div>
+  <h2>Doors into your app</h2>
+  <p>rwmcp never touches your code. It talks to your app the way any client would: through HTTP. Your app just needs a few doors.</p>
+  <figure>
+    <svg viewBox="0 0 720 300" role="img" aria-label="Your app in the middle with five doors: OpenAPI with notes, idempotency key, events stream, MCP, and a web page">
+      <rect x="250" y="95" width="220" height="110" rx="16" class="tilesoft"/>
+      <text x="360" y="140" text-anchor="middle" class="tb">your app</text>
+      <text x="360" y="164" text-anchor="middle" class="tm">any language · any framework</text>
+      <!-- must doors -->
+      <g>
+        <rect x="20" y="30" width="190" height="60" rx="10" class="box"/>
+        <rect x="20" y="30" width="8" height="60" rx="4" class="tile"/>
+        <text x="40" y="54" class="tb">/openapi.json</text>
+        <text x="40" y="76" class="tm">with x-reverse-webmcp notes</text>
+        <path d="M212 60 L250 110" class="lnt"/>
+      </g>
+      <g>
+        <rect x="20" y="210" width="190" height="60" rx="10" class="box"/>
+        <rect x="20" y="210" width="8" height="60" rx="4" class="tile"/>
+        <text x="40" y="234" class="tb">idempotency-key</text>
+        <text x="40" y="256" class="tm">same key → same answer</text>
+        <path d="M212 240 L250 190" class="lnt"/>
+      </g>
+      <!-- nice doors -->
+      <g>
+        <rect x="510" y="30" width="190" height="60" rx="10" class="box"/>
+        <rect x="510" y="30" width="8" height="60" rx="4" fill="var(--ticket)"/>
+        <text x="530" y="54" class="tb">/events</text>
+        <text x="530" y="76" class="tm">so it can wait, not poll</text>
+        <path d="M508 60 L470 110" class="lnd"/>
+      </g>
+      <g>
+        <rect x="510" y="120" width="190" height="60" rx="10" class="box"/>
+        <rect x="510" y="120" width="8" height="60" rx="4" fill="var(--ticket)"/>
+        <text x="530" y="144" class="tb">/mcp</text>
+        <text x="530" y="166" class="tm">a second door, optional</text>
+        <path d="M508 150 L472 150" class="lnd"/>
+      </g>
+      <g>
+        <rect x="510" y="210" width="190" height="60" rx="10" class="box"/>
+        <rect x="510" y="210" width="8" height="60" rx="4" fill="var(--ticket)"/>
+        <text x="530" y="234" class="tb">a web page</text>
+        <text x="530" y="256" class="tm">for button-only steps</text>
+        <path d="M508 240 L470 190" class="lnd"/>
+      </g>
+      <rect x="290" y="240" width="14" height="14" rx="3" class="tile"/><text x="310" y="252" class="tm">must have</text>
+      <rect x="390" y="240" width="14" height="14" rx="3" fill="var(--ticket)"/><text x="410" y="252" class="tm">nice to have</text>
+    </svg>
+  </figure>
+  <div class="two">
+    <ul class="list must">
+      <li><span class="m">1</span><div><b>An OpenAPI file</b> at <code>/openapi.json</code>, with an <code>operationId</code> on every operation and small <code>x-reverse-webmcp</code> notes (next picture).</div></li>
+      <li><span class="m">2</span><div><b>Idempotency.</b> Every write accepts an <code>idempotency-key</code> header. Same key twice = return the first answer, do nothing new. This is what makes "zero double-sends" true.</div></li>
+    </ul>
+    <ul class="list nice">
+      <li><span class="m">+</span><div><b><code>/events</code></b>, a server-sent-events stream (<code>data: {"seq","kind","entity","id"}</code>). Without it, "wait for payment" polls instead of waiting.</div></li>
+      <li><span class="m">+</span><div><b><code>/mcp</code></b> JSON-RPC door, and a <b>web page</b> where every control has a role and a name. Only needed for steps that exist only as a button.</div></li>
+    </ul>
+  </div>
+</section>
+
+<!-- 4. the note on the door -->
+<section>
+  <div class="eyebrow">4 · the notes</div>
+  <h2>A sticky note on every door</h2>
+  <p>Each operation in your OpenAPI gets a note saying <b>what becomes true</b> when you call it, <b>what must already be true</b>, and <b>what it touches</b>. That's the whole "world model". rwmcp reads it; nobody writes plans by hand.</p>
+  <figure>
+    <svg viewBox="0 0 720 230" role="img" aria-label="A door labelled POST /invoices/{id}/send with a sticky note listing post, requires, reads and writes">
+      <rect x="30" y="20" width="180" height="190" rx="10" class="box"/>
+      <rect x="45" y="35" width="150" height="160" rx="6" class="tilesoft"/>
+      <circle cx="180" cy="120" r="5" class="tile"/>
+      <text x="120" y="70" text-anchor="middle" class="tc">POST</text>
+      <text x="120" y="92" text-anchor="middle" class="tc">/invoices/{id}/send</text>
+      <text x="120" y="120" text-anchor="middle" class="tm">operationId</text>
+      <text x="120" y="140" text-anchor="middle" class="tb">sendInvoice</text>
+      <g transform="translate(250 28) rotate(-2)">
+        <rect x="0" y="0" width="440" height="176" rx="6" class="tick"/>
+        <text x="18" y="34" class="tc">"post":     "invoice(id=$id).status='sent'"</text>
+        <text x="18" y="62" class="tc">"requires": ["invoice(id=$id).exists"]</text>
+        <text x="18" y="90" class="tc">"reads":    ["invoice:$id", "customer:*"]</text>
+        <text x="18" y="118" class="tc">"writes":   ["invoice:$id", "outbox:new"]</text>
+        <text x="18" y="146" class="tc">"surfaces": {"api": 1, "mcp": 3, "a11y": 50}</text>
+        <text x="18" y="168" class="tm">what becomes true · what must be true first · what it touches · which doors, and their cost</text>
+      </g>
+    </svg>
+    <figcaption>From the sample app's <code>crates/app/static/openapi.json</code>. Reads and writes are how rwmcp knows two steps are independent (run together) or not (one waits).</figcaption>
+  </figure>
+  <p>Three more notes live at the top of the file: <code>x-reverse-webmcp-entities</code> (your nouns and their fields), <code>x-reverse-webmcp-events</code> (things the outside world does, like a payment), and <code>x-reverse-webmcp-ui</code> (button-only actions).</p>
+</section>
+
+<!-- 5. what you do -->
+<section>
+  <div class="eyebrow">5 · what you actually do</div>
+  <h2>Five steps, start to finish</h2>
+  <div class="steps">
+    <div class="step"><div class="n">1</div><div><h3>Get the tools</h3><p>A Rust toolchain (<code>cargo</code>). A model endpoint: an <code>ANTHROPIC_API_KEY</code>, or any local gateway that speaks the Messages shape (opencodex on <code>localhost:8080</code> works with no key). Chrome and Docker only if you want screen steps or the sandbox.</p></div></div>
+    <div class="step"><div class="n">2</div><div><h3>Install</h3><pre><code>git clone &lt;rwmcp&gt; &amp;&amp; cd rwmcp
+cargo build --release
+make app      # sample invoicing app on :47310
+make bench    # see it work before touching your own app</code></pre></div></div>
+    <div class="step"><div class="n">3</div><div><h3>Put the doors on your app</h3><p>Serve <code>/openapi.json</code> with the notes. Honor <code>idempotency-key</code> on writes. Add <code>/events</code> if anything needs waiting for.</p><p>You do not write the notes by hand: run <code>/annotate-world-model</code> and your coding agent drafts them, then proves each one by calling the operation and diffing what changed.</p></div></div>
+    <div class="step"><div class="n">4</div><div><h3>Point rwmcp at it</h3><pre><code>let world = Arc::new(rwmcp::world_from("http://localhost:8000").await?);
+let intent = Intent { goal: "invoice Acme and send it".into(),
+    wants: vec!["invoice(customer=customer(name='Acme')).status='sent'".into()],
+    ..Default::default() };                 // or let the planner write the wants
+let opts = CompileOptions { plan_id: "job-42".into(), surfaces: vec!["api".into()] };
+let plan = rwmcp::compile(&amp;intent, &amp;world, &amp;opts)?;   // the ticket
+let sched = Scheduler { effectors: rwmcp::default_effectors(base, world.clone(), &amp;opts.surfaces),
+    bus: Some(EventBus::connect(base).await?), pools: Default::default(),
+    policy: Default::default(), recorder: Recorder::new(world.clone()) };
+let mut ledger = Ledger::new();
+let outcome = sched.run(&amp;plan, &amp;mut ledger).await;             // the kitchen
+let receipt = ledger.receipt(&amp;plan, outcome.status, outcome.yield_reason, outcome.evidence, outcome.error);</code></pre></div></div>
+    <div class="step"><div class="n">5</div><div><h3>Read the receipt</h3><p><code>committed</code> means every step is proven done by its key. <code>need_think</code> means it stopped at a question (two customers named Acme, which one?). <code>error</code> means a step failed and it says which.</p></div></div>
+  </div>
+  <div class="note"><b>Two different chefs.</b> The <b>planner</b> is a model call rwmcp makes at runtime (<code>crates/rwmcp/src/planner.rs</code>) — it turns your goal into wants, once. Your <b>coding agent</b> (Claude Code, Codex, Grok Build) is the other one: it does the setup, and there are two skills for exactly that — <code>/annotate-world-model</code> for the notes and <code>/write-wants</code> for the wants. Both end by checking their own work against the running app, because a drafted footprint is a guess until something proves it.</div>
+</section>
+
+<!-- 6. framework agnostic -->
+<section>
+  <div class="eyebrow">6 · does it work with my stack?</div>
+  <h2>Your app: anything. The engine: Rust.</h2>
+  <figure>
+    <svg viewBox="0 0 720 220" role="img" aria-label="rwmcp engine box connected by HTTP to many kinds of apps; a phone app connects through its backend">
+      <rect x="20" y="70" width="170" height="80" rx="14" class="tile"/>
+      <text x="105" y="104" text-anchor="middle" class="tw">rwmcp engine</text>
+      <text x="105" y="128" text-anchor="middle" fill="#fff" font-family="var(--mono)" font-size="12">Rust crate + CLI</text>
+      <path d="M192 110 H255" class="lnt" marker-end="url(#art)"/>
+      <text x="223" y="100" text-anchor="middle" class="tc">HTTP</text>
+      <g>
+        <rect x="260" y="20" width="130" height="38" rx="8" class="box"/><text x="325" y="44" text-anchor="middle" class="t">Rust · axum</text>
+        <rect x="260" y="66" width="130" height="38" rx="8" class="box"/><text x="325" y="90" text-anchor="middle" class="t">Node · Express</text>
+        <rect x="260" y="112" width="130" height="38" rx="8" class="box"/><text x="325" y="136" text-anchor="middle" class="t">Python · FastAPI</text>
+        <rect x="260" y="158" width="130" height="38" rx="8" class="box"/><text x="325" y="182" text-anchor="middle" class="t">Laravel · Rails · Go</text>
+      </g>
+      <text x="325" y="212" text-anchor="middle" class="tm">any backend with an HTTP API</text>
+      <!-- phone -->
+      <rect x="560" y="30" width="80" height="150" rx="14" class="box"/>
+      <rect x="570" y="45" width="60" height="110" rx="4" class="tilesoft"/>
+      <circle cx="600" cy="168" r="5" class="tile"/>
+      <text x="600" y="105" text-anchor="middle" class="tc">React</text>
+      <text x="600" y="121" text-anchor="middle" class="tc">Native</text>
+      <path d="M392 85 C450 85 480 60 558 60" class="lnd"/>
+      <text x="480" y="52" text-anchor="middle" class="tm">its backend</text>
+      <text x="600" y="205" text-anchor="middle" class="tm">drive the API, not the phone</text>
+    </svg>
+  </figure>
+  <ul class="list">
+    <li class="must"><span class="m">✓</span><div><b>Target app: framework-agnostic.</b> rwmcp only sends HTTP requests and reads JSON. Rust, Node, Python, PHP, Go, an app that already exists: all the same to it, as long as the doors are there.</div></li>
+    <li class="must"><span class="m">✓</span><div><b>Already-built app?</b> Add the notes to the OpenAPI you already have, add the idempotency header to writes, done. No rewrite.</div></li>
+    <li class="nice"><span class="m">~</span><div><b>React Native / mobile.</b> rwmcp drives your <i>backend</i>. It can also click a <i>web</i> page through headless Chrome (the a11y door). It does not drive a phone screen.</div></li>
+    <li class="no"><span class="m">✗</span><div><b>Not yet:</b> a JavaScript or Python SDK, a hosted service, or an HTTP wrapper around the engine. Today you embed the Rust crate or run the <code>bench</code> binary. The Python project in <code>OSS/rwmcp</code> is the earlier idea; rwmcp is its Rust rebuild.</div></li>
+  </ul>
+</section>
+
+<!-- 7. the receipt -->
+<section>
+  <div class="eyebrow">7 · what you get back</div>
+  <h2>The receipt is the proof</h2>
+  <figure>
+    <svg viewBox="0 0 720 300" role="img" aria-label="A receipt listing status committed, model calls 1, max parallel 10, nodes 30, double sends 0, and a plan with keyed steps">
+      <path d="M40 20 h300 v256 l-10 -8 l-10 8 l-10 -8 l-10 8 l-10 -8 l-10 8 l-10 -8 l-10 8 l-10 -8 l-10 8 l-10 -8 l-10 8 l-10 -8 l-10 8 l-10 -8 l-10 8 l-10 -8 l-10 8 l-10 -8 l-10 8 l-10 -8 l-10 8 l-10 -8 l-10 8 l-10 -8 l-10 8 l-10 -8 l-10 8 l-10 -8 l-10 8 z" class="box"/>
+      <text x="190" y="52" text-anchor="middle" class="tb">RECEIPT · T2-r1</text>
+      <line x1="60" y1="64" x2="320" y2="64" class="lnd"/>
+      <text x="60" y="92" class="tc">status</text><text x="320" y="92" text-anchor="end" class="tc" style="fill:var(--ok);font-weight:600">committed</text>
+      <text x="60" y="118" class="tc">model calls</text><text x="320" y="118" text-anchor="end" class="tc">1</text>
+      <text x="60" y="144" class="tc">thinking</text><text x="320" y="144" text-anchor="end" class="tc">3.3 s</text>
+      <text x="60" y="170" class="tc">executing</text><text x="320" y="170" text-anchor="end" class="tc">57 ms</text>
+      <text x="60" y="196" class="tc">max at once</text><text x="320" y="196" text-anchor="end" class="tc">10</text>
+      <text x="60" y="222" class="tc">steps</text><text x="320" y="222" text-anchor="end" class="tc">30</text>
+      <text x="60" y="248" class="tc">double sends</text><text x="320" y="248" text-anchor="end" class="tc" style="fill:var(--ok);font-weight:600">0</text>
+      <!-- plan -->
+      <text x="380" y="52" class="tb">the ticket it ran</text>
+      <g>
+        <circle cx="400" cy="100" r="16" class="box"/><text x="400" y="105" text-anchor="middle" class="tc">A</text>
+        <text x="425" y="96" class="tc">find Acme</text><text x="425" y="110" class="tm">read · no key</text>
+        <path d="M400 118 V140" class="lnt" marker-end="url(#art)"/>
+        <circle cx="400" cy="160" r="16" class="tick"/><text x="400" y="165" text-anchor="middle" class="tc">B</text>
+        <text x="425" y="156" class="tc">create invoice</text><text x="425" y="170" class="tm">key T2-r1/cac417…</text>
+        <path d="M400 178 V200" class="lnt" marker-end="url(#art)"/>
+        <circle cx="400" cy="220" r="16" class="tick"/><text x="400" y="225" text-anchor="middle" class="tc">C</text>
+        <text x="425" y="216" class="tc">send invoice</text><text x="425" y="230" class="tm">key T2-r1/77c40e…</text>
+        <text x="560" y="100" class="tm">× 10 lanes,</text>
+        <text x="560" y="118" class="tm">no edges between</text>
+        <text x="560" y="136" class="tm">them, so they</text>
+        <text x="560" y="154" class="tm">run together</text>
+      </g>
+      <text x="380" y="272" class="tm">every write carries a key: retry safely, resume safely, never twice</text>
+    </svg>
+    <figcaption>Real numbers from <code>results/campaign-5-final/T2-D-1.json</code>. <code>bench verify</code> recomputes them from the raw rows, so a receipt is a measurement, not a claim.</figcaption>
+  </figure>
+</section>
+
+<!-- 8. glossary -->
+<section>
+  <div class="eyebrow">8 · the words</div>
+  <h2>Ten words, kid-sized</h2>
+  <div class="glossary">
+    <div class="term"><b>goal</b><span>What you type. "Invoice everyone and send each."</span></div>
+    <div class="term"><b>want</b><span>One fact that must be true at the end. The planner writes these.</span></div>
+    <div class="term"><b>intent</b><span>Your goal + the wants + the forks, in one bundle.</span></div>
+    <div class="term"><b>world model</b><span>The sticky notes on your doors, read from your OpenAPI.</span></div>
+    <div class="term"><b>plan</b><span>The ticket: steps, arrows between them, a key on every write.</span></div>
+    <div class="term"><b>node</b><span>One step on the ticket. One HTTP call, one click, or one wait.</span></div>
+    <div class="term"><b>key</b><span>A stamp on a write so doing it twice does nothing new.</span></div>
+    <div class="term"><b>wait</b><span>A step that sits until the outside world does something (a payment).</span></div>
+    <div class="term"><b>fork</b><span>A question the chef agreed to be woken for. "Two Acmes, which one?"</span></div>
+    <div class="term"><b>door / surface</b><span>How a step reaches your app: API, MCP, or a screen.</span></div>
+    <div class="term"><b>receipt</b><span>Proof of what ran, recomputed from the log, never trusted on its word.</span></div>
+  </div>
+</section>
+
+<footer style="color:var(--muted);font-size:15px">
+  Source: <code>/Volumes/goldcoders/rwmcp</code> at commit 3456de8 · README, <code>crates/rwmcp/src/lib.rs</code>, <code>crates/app/static/openapi.json</code>. Benchmark figures from <code>results/campaign-5-final</code>.
+</footer>
+
+</main>
+
+</body>
+</html>

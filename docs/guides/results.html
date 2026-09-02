@@ -1,0 +1,279 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="Does it work? The benchmark results, with every caveat that comes with them.">
+<title>The Falsifiable Number</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Newsreader:opsz,wght@6..72,400;6..72,600&family=IBM+Plex+Sans:wght@400;500;600&family=Spline+Sans+Mono:wght@400;500&display=swap">
+<style>
+  :root{color-scheme:light dark}
+  html{-webkit-text-size-adjust:100%}
+  body{margin:0}
+  img{max-width:100%}
+  [hidden]{display:none!important}
+  .guide-nav{font:13px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif;padding:11px 20px;border-bottom:1px solid rgba(128,128,128,.28)}
+  .guide-nav a{text-decoration:none;opacity:.75;color:inherit}
+  .guide-nav a:hover{opacity:1;text-decoration:underline}
+</style>
+</head>
+<body>
+<nav class="guide-nav"><a href="./index.html">&larr; all rwmcp guides</a></nav>
+<style>
+:root{
+  --surface-1:#fcfcfb; --page:#F1F0EE; --sunk:#E9E8E4;
+  --text-primary:#0b0b0b; --text-secondary:#52514e; --text-muted:#78766f;
+  --line:#D6D4CE;
+  --s1:#2a78d6; --s2:#eb6834; --s3:#1baf7a;
+  --good:#1e7a4d; --bad:#b3382c;
+  --mono:"Spline Sans Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
+  --body:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --display:"Newsreader",Georgia,"Times New Roman",serif;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --surface-1:#1a1a19; --page:#111110; --sunk:#232322;
+    --text-primary:#ffffff; --text-secondary:#c3c2b7; --text-muted:#94938b;
+    --line:#33322F;
+    --s1:#3987e5; --s2:#d95926; --s3:#199e70;
+    --good:#54c48c; --bad:#e07a6e;
+  }
+}
+:root[data-theme="dark"]{
+  --surface-1:#1a1a19; --page:#111110; --sunk:#232322;
+  --text-primary:#ffffff; --text-secondary:#c3c2b7; --text-muted:#94938b;
+  --line:#33322F;
+  --s1:#3987e5; --s2:#d95926; --s3:#199e70;
+  --good:#54c48c; --bad:#e07a6e;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--page);color:var(--text-primary);font:16px/1.6 var(--body)}
+main{max-width:840px;margin:0 auto;padding:52px 20px 100px;display:flex;flex-direction:column;gap:64px}
+h1,h2{font-family:var(--display);margin:0;line-height:1.1;text-wrap:balance;font-weight:600}
+h1{font-size:clamp(38px,6.5vw,60px);letter-spacing:-.015em}
+h2{font-size:clamp(25px,4vw,33px)}
+h3{font-family:var(--body);font-weight:600;font-size:16px;margin:0}
+p{margin:0;max-width:66ch;color:var(--text-secondary)}
+p strong,p b{color:var(--text-primary)}
+.lede{font-size:19px;max-width:47ch}
+.eyebrow{font-family:var(--mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--text-muted)}
+section{display:flex;flex-direction:column;gap:18px}
+/* KPI row */
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px}
+.kpi{background:var(--surface-1);border:1px solid var(--line);border-radius:9px;padding:15px 17px;display:flex;flex-direction:column;gap:3px}
+.kpi .v{font-family:var(--display);font-size:38px;line-height:1;font-variant-numeric:tabular-nums;color:var(--text-primary)}
+.kpi .k{font-family:var(--mono);font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--text-muted)}
+.kpi .s{font-size:13.5px;color:var(--text-secondary)}
+/* chart */
+.viz{background:var(--surface-1);border:1px solid var(--line);border-radius:10px;padding:20px;position:relative}
+.legend{display:flex;flex-wrap:wrap;gap:16px;margin-bottom:18px;font-size:13.5px;color:var(--text-secondary)}
+.legend span{display:flex;align-items:center;gap:6px}
+.legend i{width:11px;height:11px;border-radius:2px;display:block}
+.grp{display:flex;flex-direction:column;gap:5px;margin-bottom:16px}
+.grp:last-child{margin-bottom:0}
+.grp .lab{font-size:13.5px;color:var(--text-primary);font-weight:500;display:flex;justify-content:space-between;gap:10px}
+.grp .lab em{font-style:normal;font-family:var(--mono);font-size:11px;color:var(--text-muted)}
+.row{display:flex;align-items:center;gap:9px;min-height:20px}
+.row .nm{width:82px;flex:none;font-family:var(--mono);font-size:11px;color:var(--text-muted);text-align:right}
+.track{flex:1;position:relative;height:15px}
+.bar{position:absolute;left:0;top:0;height:15px;border-radius:0 4px 4px 0;transition:filter .12s}
+.row:hover .bar{filter:brightness(1.12)}
+.val{position:absolute;top:-1px;font-family:var(--mono);font-size:11.5px;color:var(--text-primary);font-variant-numeric:tabular-nums;white-space:nowrap}
+.axis{display:flex;justify-content:space-between;font-family:var(--mono);font-size:10.5px;color:var(--text-muted);border-top:1px solid var(--line);padding-top:5px;margin-top:4px;margin-left:91px}
+.tip{position:fixed;pointer-events:none;background:var(--text-primary);color:var(--surface-1);font-family:var(--mono);font-size:11.5px;padding:6px 9px;border-radius:5px;opacity:0;transition:opacity .1s;z-index:9;max-width:240px;line-height:1.45}
+.tip.on{opacity:1}
+/* tables */
+.wrap{overflow-x:auto;border:1px solid var(--line);border-radius:10px;background:var(--surface-1)}
+table{border-collapse:collapse;width:100%;font-size:14.5px;margin:0}
+th,td{padding:9px 12px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
+thead th{font-family:var(--mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--text-muted);font-weight:500;border-bottom:1.5px solid var(--line)}
+tbody tr:last-child td{border-bottom:none}
+th:first-child,td:first-child{padding-left:15px}
+th:last-child,td:last-child{padding-right:15px}
+td.n{font-family:var(--mono);font-variant-numeric:tabular-nums}
+td.ok{color:var(--good);font-weight:600}
+td.no{color:var(--bad);font-weight:600}
+details{background:var(--surface-1);border:1px solid var(--line);border-radius:10px;padding:0}
+details summary{cursor:pointer;padding:12px 16px;font-size:14px;color:var(--text-secondary);font-family:var(--mono)}
+details[open] summary{border-bottom:1px solid var(--line)}
+details .wrap{border:none;border-radius:0}
+.note{border-left:3px solid var(--s2);background:var(--surface-1);border-top:1px solid var(--line);border-right:1px solid var(--line);border-bottom:1px solid var(--line);padding:13px 16px;border-radius:0 9px 9px 0;font-size:15px}
+code{font-family:var(--mono);font-size:.87em;background:var(--sunk);padding:1px 5px;border-radius:3px}
+ul{margin:0;padding-left:20px;display:grid;gap:7px;color:var(--text-secondary);max-width:66ch}
+a{color:var(--s1)}
+:focus-visible{outline:2px solid var(--s1);outline-offset:3px}
+</style>
+
+<main>
+
+<header style="display:flex;flex-direction:column;gap:16px">
+  <div class="eyebrow">rwmcp · campaign-6 · grok-4.6 · recomputed from raw ledgers</div>
+  <h1>The Falsifiable Number</h1>
+  <p class="lede">Model calls do not grow with the work. Here is the evidence, and every caveat that comes with it.</p>
+  <div class="kpis">
+    <div class="kpi"><span class="k">correct</span><span class="v">120/120</span><span class="s">12 tasks × 2 arms × 5 runs</span></div>
+    <div class="kpi"><span class="k">model calls</span><span class="v">1</span><span class="s">median, depth 3–6, width 1–300</span></div>
+    <div class="kpi"><span class="k">double-sends</span><span class="v">0</span><span class="s">counted by the app, not by us</span></div>
+    <div class="kpi"><span class="k">verify problems</span><span class="v">0</span><span class="s">143 results recomputed</span></div>
+  </div>
+</header>
+
+<!-- CHART -->
+<section>
+  <div class="eyebrow">01 · the claim</div>
+  <h2>Thinking does not scale with the work</h2>
+  <p>One model call for rwmcp whatever the depth or width. A tool loop pays roughly one per dependency level, and fourteen at three hundred rows. Medians; same app, same model, same machine.</p>
+
+  <div class="viz" id="viz">
+    <div class="legend">
+      <span><i style="background:var(--s1)"></i> rwmcp</span>
+      <span><i style="background:var(--s2)"></i> MCP loop (B2)</span>
+      <span><i style="background:var(--s3)"></i> WebMCP loop (C)</span>
+    </div>
+    <div id="bars"></div>
+    <div class="axis"><span>0</span><span>10</span><span>20</span><span>30</span><span>40 model calls</span></div>
+  </div>
+  <div class="tip" id="tip"></div>
+  <p style="font-size:14px;color:var(--text-muted)"><b>The WebMCP loop's 40 on T11 is the turn cap, not a result.</b> It was stopped there having finished nothing: 0 of 3 runs correct. Every other cell in the chart was correct on every run.</p>
+
+  <details>
+    <summary>the same numbers as a table</summary>
+    <div class="wrap"><table>
+      <thead><tr><th>task</th><th>depth</th><th>arm</th><th>model calls</th><th>thinking</th><th>executing</th><th>at once</th><th>correct</th></tr></thead>
+      <tbody id="tbl"></tbody>
+    </table></div>
+  </details>
+</section>
+
+<!-- CEILING -->
+<section>
+  <div class="eyebrow">02 · the ceiling</div>
+  <h2>Execution matches a hand-written program</h2>
+  <p>Arm E is a hand-written parallel script with no model in it at all — the speed of light for this app. rwmcp's execution lands within tens of milliseconds of it, which says the planning call is nearly all the wall time.</p>
+  <div class="wrap"><table>
+    <thead><tr><th>task</th><th>rwmcp executing</th><th>script ceiling</th><th>difference</th></tr></thead>
+    <tbody>
+      <tr><td>T2 · ten invoices</td><td class="n">65 ms</td><td class="n">63 ms</td><td class="n">+2 ms</td></tr>
+      <tr><td>T4 · wait for payment</td><td class="n">658 ms</td><td class="n">695 ms</td><td class="n">−37 ms</td></tr>
+      <tr><td>T9 · ten chains, six deep</td><td class="n">712 ms</td><td class="n">727 ms</td><td class="n">−15 ms</td></tr>
+      <tr><td>T8 · three chains, six deep</td><td class="n">699 ms</td><td class="n">724 ms</td><td class="n">−25 ms</td></tr>
+      <tr><td>T11 · three hundred invoices</td><td class="n">302 ms</td><td class="n">126 ms</td><td class="n">+176 ms</td></tr>
+    </tbody>
+  </table></div>
+  <div class="note"><b>T11 is the honest exception.</b> The script goes 300 wide because it simply spawns 300 futures. rwmcp's API pool caps at 64 concurrent effects, so it takes three waves. That is a deliberate default, not a limit of the design — but it is slower here, and the table says so.</div>
+</section>
+
+<!-- FULL -->
+<section>
+  <div class="eyebrow">03 · every task</div>
+  <h2>The full run</h2>
+  <p><code>campaign-6-ours</code>: twelve tasks, arms D and E, five runs each, planner on grok-4.6 at low effort.</p>
+  <div class="wrap"><table>
+    <thead><tr><th>task</th><th>what it isolates</th><th>depth</th><th>correct</th><th>calls</th><th>thinking</th><th>executing</th><th>at once</th></tr></thead>
+    <tbody>
+      <tr><td>T1</td><td>one invoice, sent — sanity</td><td class="n">3</td><td class="ok n">5/5</td><td class="n">1</td><td class="n">2.2 s</td><td class="n">56 ms</td><td class="n">1</td></tr>
+      <tr><td>T2</td><td>fan-out, disjoint writes</td><td class="n">3</td><td class="ok n">5/5</td><td class="n">1</td><td class="n">2.6 s</td><td class="n">65 ms</td><td class="n">10</td></tr>
+      <tr><td>T3</td><td>a real DAG with a join</td><td class="n">4</td><td class="ok n">5/5</td><td class="n">1</td><td class="n">5.1 s</td><td class="n">85 ms</td><td class="n">3</td></tr>
+      <tr><td>T4</td><td>waiting as an edge</td><td class="n">5</td><td class="ok n">5/5</td><td class="n">1</td><td class="n">3.3 s</td><td class="n">658 ms</td><td class="n">1</td></tr>
+      <tr><td>T5</td><td>30% send failures, same keys</td><td class="n">3</td><td class="ok n">5/5</td><td class="n">1</td><td class="n">3.5 s</td><td class="n">102 ms</td><td class="n">10</td></tr>
+      <tr><td>T6</td><td>a declared fork, exactly one yield</td><td class="n">3</td><td class="ok n">5/5</td><td class="n">1</td><td class="n">3.9 s</td><td class="n">57 ms</td><td class="n">1</td></tr>
+      <tr><td>T8</td><td>six deep, three wide</td><td class="n">6</td><td class="ok n">5/5</td><td class="n">1</td><td class="n">6.8 s</td><td class="n">699 ms</td><td class="n">3</td></tr>
+      <tr><td>T9</td><td>six deep, ten wide</td><td class="n">6</td><td class="ok n">5/5</td><td class="n">1</td><td class="n">3.9 s</td><td class="n">712 ms</td><td class="n">10</td></tr>
+      <tr><td>T10</td><td>six deep, ten wide, eleven joins</td><td class="n">6</td><td class="ok n">5/5</td><td class="n">1</td><td class="n">4.9 s</td><td class="n">696 ms</td><td class="n">11</td></tr>
+      <tr><td>T11</td><td>300 invoices from one <code>each(…)</code></td><td class="n">3</td><td class="ok n">5/5</td><td class="n">1</td><td class="n">3.5 s</td><td class="n">302 ms</td><td class="n">64</td></tr>
+      <tr><td>T12</td><td>a limit of eight writes per second</td><td class="n">3</td><td class="ok n">5/5</td><td class="n">1</td><td class="n">3.2 s</td><td class="n">2.1 s</td><td class="n">10</td></tr>
+      <tr><td>T13</td><td>the payment lands, the webhook is lost</td><td class="n">5</td><td class="ok n">5/5</td><td class="n">1</td><td class="n">3.7 s</td><td class="n">3.1 s</td><td class="n">1</td></tr>
+    </tbody>
+  </table></div>
+  <p style="font-size:14px;color:var(--text-muted)">T13 executes in 3.1 s against the ceiling's 0.7 s, and that is the design working: the webhook never arrives, so the wait falls back to reading the world every three seconds and picks the fact up on the first glance.</p>
+</section>
+
+<!-- CAVEATS -->
+<section>
+  <div class="eyebrow">04 · what these numbers are not</div>
+  <h2>Read this before quoting anything above</h2>
+  <ul>
+    <li><b>Five runs per cell is a smoke signal, not a proof.</b> Three for the loop arms. One cell — the WebMCP loop on T9 — has only two, because that campaign was interrupted.</li>
+    <li><b>"One model call" is a median.</b> Five of sixty rwmcp runs took two: <code>T5-D-2</code>, <code>T8-D-4</code>, <code>T9-D-5</code>, <code>T11-D-3</code>, <code>T11-D-5</code>. In each the planner's first intent failed lint and was re-asked once.</li>
+    <li><b>Do not add the thinking and executing columns for a loop.</b> A loop's execution span covers its thinking turns too, so for the loops those two overlap and sum to more than the wall time. For rwmcp they are disjoint.</li>
+    <li><b>The pixel arm finished nothing</b> and is not in this campaign at all.</li>
+    <li><b>The target app is in-memory by design</b>, with 25 ms of artificial latency on every write so it behaves like a network service.</li>
+    <li><b>One app, two models.</b> Enough to falsify the claim, not enough to call it settled.</li>
+  </ul>
+  <div class="note"><b>Nothing here is taken on an arm's own word.</b> <code>bench verify</code> recomputes max-parallel, plan and run time, sample and token counts, correctness against the oracle, and double-sends from the raw ledger rows, then fails if anything stored disagrees. All 143 results across both campaigns verify clean.</div>
+</section>
+
+<footer style="color:var(--text-muted);font-size:13.5px;display:flex;flex-direction:column;gap:8px">
+  <div style="height:1px;background:var(--line)"></div>
+  <div>Sources: <code>results/campaign-6-ours</code> (120 runs) and <code>results/campaign-6-loops</code> (23 runs), both verified clean. Reproduce with <code>make bench</code>, then <code>make verify RUN=results/&lt;stamp&gt;</code>.</div>
+</footer>
+
+</main>
+
+<script>
+const DATA = [
+  {task:'T2',  name:'ten invoices',        depth:3, rows:[
+    {arm:'rwmcp',  key:'s1', calls:1,  think:'2.6 s',  exec:'65 ms',  par:10, correct:'5/5'},
+    {arm:'MCP B2', key:'s2', calls:4,  think:'16 s',   exec:'9.3 s',  par:10, correct:'3/3'},
+    {arm:'WebMCP', key:'s3', calls:8,  think:'29 s',   exec:'23 s',   par:10, correct:'3/3'}]},
+  {task:'T4',  name:'wait for payment',    depth:5, rows:[
+    {arm:'rwmcp',  key:'s1', calls:1,  think:'3.3 s',  exec:'658 ms', par:1,  correct:'5/5'},
+    {arm:'MCP B2', key:'s2', calls:5,  think:'10 s',   exec:'6.1 s',  par:1,  correct:'3/3'},
+    {arm:'WebMCP', key:'s3', calls:5,  think:'12 s',   exec:'8.2 s',  par:1,  correct:'3/3'}]},
+  {task:'T9',  name:'ten chains, six deep',depth:6, rows:[
+    {arm:'rwmcp',  key:'s1', calls:1,  think:'3.9 s',  exec:'712 ms', par:10, correct:'5/5'},
+    {arm:'MCP B2', key:'s2', calls:6,  think:'21 s',   exec:'15 s',   par:10, correct:'3/3'},
+    {arm:'WebMCP', key:'s3', calls:10, think:'36 s',   exec:'29 s',   par:10, correct:'2/2'}]},
+  {task:'T11', name:'three hundred',       depth:3, rows:[
+    {arm:'rwmcp',  key:'s1', calls:1,  think:'3.5 s',  exec:'302 ms', par:64, correct:'5/5'},
+    {arm:'MCP B2', key:'s2', calls:14, think:'206 s',  exec:'201 s',  par:50, correct:'3/3'},
+    {arm:'WebMCP', key:'s3', calls:40, think:'206 s',  exec:'206 s',  par:50, correct:'0/3', cap:true}]},
+];
+const MAX = 40;
+const bars = document.getElementById('bars');
+const tbl  = document.getElementById('tbl');
+const tip  = document.getElementById('tip');
+
+for (const g of DATA) {
+  const wrap = document.createElement('div');
+  wrap.className = 'grp';
+  wrap.innerHTML = `<div class="lab"><span>${g.task} · ${g.name}</span><em>depth ${g.depth}</em></div>`;
+  for (const r of g.rows) {
+    const pct = Math.max(r.calls / MAX * 100, 0.6);
+    const row = document.createElement('div');
+    row.className = 'row';
+    const inside = pct > 22;
+    row.innerHTML =
+      `<span class="nm">${r.arm}</span>` +
+      `<span class="track"><span class="bar" style="width:${pct}%;background:var(--${r.key})"></span>` +
+      `<span class="val" style="${inside ? `left:calc(${pct}% - 8px);transform:translateX(-100%);color:var(--surface-1)` : `left:calc(${pct}% + 7px)`}">${r.calls}${r.cap ? ' cap' : ''}</span></span>`;
+    const label = `${g.task} · ${r.arm}\n${r.calls} model call${r.calls === 1 ? '' : 's'}${r.cap ? ' (turn cap, finished nothing)' : ''}\nthinking ${r.think} · executing ${r.exec}\nmax at once ${r.par} · correct ${r.correct}`;
+    row.tabIndex = 0;
+    const show = e => {
+      tip.textContent = label;
+      tip.classList.add('on');
+      const x = (e.clientX ?? row.getBoundingClientRect().left + 40);
+      const y = (e.clientY ?? row.getBoundingClientRect().top);
+      tip.style.left = Math.min(x + 14, window.innerWidth - 250) + 'px';
+      tip.style.top  = (y + 18) + 'px';
+    };
+    const hide = () => tip.classList.remove('on');
+    row.addEventListener('mousemove', show);
+    row.addEventListener('mouseleave', hide);
+    row.addEventListener('focus', show);
+    row.addEventListener('blur', hide);
+    wrap.appendChild(row);
+
+    const tr = document.createElement('tr');
+    tr.innerHTML =
+      `<td>${g.task} · ${g.name}</td><td class="n">${g.depth}</td><td>${r.arm}</td>` +
+      `<td class="n">${r.calls}${r.cap ? ' (cap)' : ''}</td><td class="n">${r.think}</td><td class="n">${r.exec}</td>` +
+      `<td class="n">${r.par}</td><td class="n ${r.correct.startsWith('0') ? 'no' : 'ok'}">${r.correct}</td>`;
+    tbl.appendChild(tr);
+  }
+  bars.appendChild(wrap);
+}
+</script>
+
+</body>
+</html>

@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>rwmcp guides</title>
+<meta name="description" content="Six illustrated guides to rwmcp: what it does, how it differs from MCP and WebMCP, how to set it up, what the code is, and whether it works.">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Familjen+Grotesk:wght@600;700&family=Karla:wght@400;500&family=DM+Mono:wght@400&display=swap">
+<style>
+:root{
+  --paper:#F0EEEA; --card:#FFFFFF; --ink:#1C1B19; --muted:#6B6862; --line:#D3CFC7; --acc:#A8402D;
+  --mono:"DM Mono",ui-monospace,Menlo,monospace;
+  --body:"Karla",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --display:"Familjen Grotesk",system-ui,sans-serif;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --paper:#14130F; --card:#1E1C18; --ink:#EDEAE3; --muted:#9A968D; --line:#33302A; --acc:#E08466;
+  }
+}
+:root[data-theme="dark"]{
+  --paper:#14130F; --card:#1E1C18; --ink:#EDEAE3; --muted:#9A968D; --line:#33302A; --acc:#E08466;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--paper);color:var(--ink);font:17px/1.6 var(--body)}
+main{max-width:760px;margin:0 auto;padding:64px 20px 90px;display:flex;flex-direction:column;gap:30px}
+h1{font-family:var(--display);font-weight:700;font-size:clamp(38px,7vw,58px);margin:0;letter-spacing:-.025em;line-height:1.05}
+.lede{color:var(--muted);font-size:19px;max-width:46ch;margin:0}
+.eyebrow{font-family:var(--mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
+.grid{display:grid;gap:11px}
+.card{display:grid;grid-template-columns:34px 1fr;gap:4px 14px;background:var(--card);border:1px solid var(--line);
+  border-radius:10px;padding:16px 18px;text-decoration:none;color:inherit;transition:border-color .15s,transform .15s}
+.card:hover{border-color:var(--acc);transform:translateY(-1px)}
+.card .n{grid-row:1/3;font-family:var(--mono);font-size:12px;color:var(--acc);padding-top:3px}
+.card .t{font-family:var(--display);font-weight:600;font-size:19px}
+.card .b{color:var(--muted);font-size:15px}
+footer{color:var(--muted);font-size:14px;border-top:1px solid var(--line);padding-top:16px}
+code{font-family:var(--mono);font-size:.87em}
+a{color:var(--acc)}
+:focus-visible{outline:2px solid var(--acc);outline-offset:3px}
+</style>
+</head>
+<body>
+<main>
+  <header style="display:flex;flex-direction:column;gap:14px">
+    <div class="eyebrow">rwmcp · reverse-WebMCP</div>
+    <h1>The guides</h1>
+    <p class="lede">WebMCP declares an app's <i>actions</i> and lets a model pick the order. rwmcp declares what those actions <i>mean</i> and lets a compiler pick both.</p>
+  </header>
+  <div class="grid">
+    <a class="card" href="./pictures.html">
+      <span class="n">01</span>
+      <span class="t">rwmcp in Pictures</span>
+      <span class="b">What does this do? The idea, the doors your app needs, the annotation, and a receipt.</span>
+    </a>
+    <a class="card" href="./reverse-webmcp.html">
+      <span class="n">02</span>
+      <span class="t">Reverse-WebMCP</span>
+      <span class="b">How is this different from MCP and WebMCP? The same operation declared both ways.</span>
+    </a>
+    <a class="card" href="./setup.html">
+      <span class="n">03</span>
+      <span class="t">Zero to First Plan</span>
+      <span class="b">How do I use it on my own app? Install, the two skills, and five steps end to end.</span>
+    </a>
+    <a class="card" href="./stack-map.html">
+      <span class="n">04</span>
+      <span class="t">rwmcp Stack Map</span>
+      <span class="b">What is the code? Five crates, three layers, and every external dependency.</span>
+    </a>
+    <a class="card" href="./results.html">
+      <span class="n">05</span>
+      <span class="t">The Falsifiable Number</span>
+      <span class="b">Does it work? The benchmark results, with every caveat that comes with them.</span>
+    </a>
+    <a class="card" href="./benchmark.html">
+      <span class="n">06</span>
+      <span class="t">The Benchmark Bench</span>
+      <span class="b">How is it measured? The target app, the six arms, the thirteen tasks.</span>
+    </a>
+  </div>
+  <footer>New here: start with the first. Already know MCP: the second. Wiring your own app: the third. Reading the source: the fourth.<br>
+  Source and issues in the repository; these pages are generated from the same content as the published guides.</footer>
+</main>
+</body>
+</html>

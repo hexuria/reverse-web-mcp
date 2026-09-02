@@ -1,0 +1,351 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="What is the code? Five crates, three layers, and every external dependency.">
+<title>rwmcp Stack Map</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700&family=Source+Sans+3:wght@400;600&family=Roboto+Mono:wght@400;500&display=swap">
+<style>
+  :root{color-scheme:light dark}
+  html{-webkit-text-size-adjust:100%}
+  body{margin:0}
+  img{max-width:100%}
+  [hidden]{display:none!important}
+  .guide-nav{font:13px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif;padding:11px 20px;border-bottom:1px solid rgba(128,128,128,.28)}
+  .guide-nav a{text-decoration:none;opacity:.75;color:inherit}
+  .guide-nav a:hover{opacity:1;text-decoration:underline}
+</style>
+</head>
+<body>
+<nav class="guide-nav"><a href="./index.html">&larr; all rwmcp guides</a></nav>
+<style>
+:root{
+  --paper:#EAEDEC; --card:#FFFFFF; --sunk:#DFE4E2;
+  --ink:#151A18; --muted:#5F6A67; --line:#C4CDC9;
+  --ours:#12525F; --ours-soft:#D5E6EA;
+  --dep:#7C8783; --dep-soft:#E4E8E6;
+  --ext:#B5651B; --ext-soft:#F7E5D0;
+  --mono:"Roboto Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
+  --body:"Source Sans 3",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --display:"Archivo",system-ui,sans-serif;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --paper:#0F1413; --card:#181F1E; --sunk:#131A19;
+    --ink:#E4EAE8; --muted:#8F9C98; --line:#2B3634;
+    --ours:#5FBACC; --ours-soft:#12313A;
+    --dep:#8A9591; --dep-soft:#1E2725;
+    --ext:#DE9B4E; --ext-soft:#382613;
+  }
+}
+:root[data-theme="dark"]{
+  --paper:#0F1413; --card:#181F1E; --sunk:#131A19;
+  --ink:#E4EAE8; --muted:#8F9C98; --line:#2B3634;
+  --ours:#5FBACC; --ours-soft:#12313A;
+  --dep:#8A9591; --dep-soft:#1E2725;
+  --ext:#DE9B4E; --ext-soft:#382613;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--paper);color:var(--ink);font:17px/1.6 var(--body)}
+main{max-width:860px;margin:0 auto;padding:52px 20px 100px;display:flex;flex-direction:column;gap:70px}
+h1,h2{font-family:var(--display);margin:0;line-height:1.08;text-wrap:balance}
+h1{font-size:clamp(38px,6.5vw,60px);font-weight:700;letter-spacing:-.02em}
+h2{font-size:clamp(26px,4vw,34px);font-weight:600;letter-spacing:-.015em}
+h3{font-family:var(--display);font-weight:600;font-size:18px;margin:0}
+p{margin:0;max-width:66ch}
+.lede{font-size:20px;color:var(--muted);max-width:46ch}
+.eyebrow{font-family:var(--mono);font-size:11px;letter-spacing:.15em;text-transform:uppercase;color:var(--muted)}
+section{display:flex;flex-direction:column;gap:20px}
+figure{margin:0;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:20px;overflow-x:auto}
+figure svg{display:block;width:100%;height:auto}
+figcaption{font-size:14px;color:var(--muted);margin-top:12px;max-width:66ch}
+code{font-family:var(--mono);font-size:.87em;background:var(--sunk);padding:1px 5px;border-radius:3px}
+.wrap{overflow-x:auto;border:1px solid var(--line);border-radius:10px;background:var(--card)}
+table{border-collapse:collapse;width:100%;font-size:15px;margin:0}
+th,td{padding:10px 12px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
+thead th{font-family:var(--mono);font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);font-weight:500;border-bottom:1.5px solid var(--line)}
+tbody tr:last-child td{border-bottom:none}
+th:first-child,td:first-child{padding-left:16px}
+th:last-child,td:last-child{padding-right:16px}
+td code,th code{white-space:nowrap}
+.key{display:flex;flex-wrap:wrap;gap:18px;align-items:center;font-size:14px;color:var(--muted)}
+.key span{display:flex;gap:7px;align-items:center}
+.key i{width:13px;height:13px;border-radius:3px;display:block}
+.k-ours{background:var(--ours)}.k-dep{background:var(--dep)}.k-ext{background:var(--ext)}
+.cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:14px}
+.cell{border:1px solid var(--line);border-radius:10px;background:var(--card);padding:16px;display:flex;flex-direction:column;gap:8px}
+.cell .h{font-family:var(--mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.cell ul{margin:0;padding-left:18px;display:grid;gap:5px;font-size:15px}
+.stripe{border-left:3px solid var(--ext);background:var(--ext-soft);padding:12px 16px;border-radius:0 8px 8px 0;font-size:15.5px}
+/* svg */
+.t{fill:var(--ink);font-family:var(--body);font-size:14px}
+.tb{fill:var(--ink);font-family:var(--display);font-weight:600;font-size:15px}
+.tm{fill:var(--muted);font-family:var(--body);font-size:12px}
+.tc{fill:var(--ink);font-family:var(--mono);font-size:11.5px}
+.tcm{fill:var(--muted);font-family:var(--mono);font-size:10.5px;letter-spacing:.08em}
+.tw{fill:#fff;font-family:var(--display);font-weight:600;font-size:14px}
+.tw2{fill:#fff;font-family:var(--mono);font-size:11px}
+.box{fill:var(--card);stroke:var(--line);stroke-width:1.3}
+.ours{fill:var(--ours)}
+.ourss{fill:var(--ours-soft);stroke:var(--ours);stroke-width:1.4}
+.exts{fill:var(--ext-soft);stroke:var(--ext);stroke-width:1.4}
+.deps{fill:var(--dep-soft);stroke:var(--dep);stroke-width:1.3}
+.ln{stroke:var(--muted);stroke-width:1.6;fill:none}
+.lno{stroke:var(--ours);stroke-width:2;fill:none}
+.lne{stroke:var(--ext);stroke-width:2;fill:none}
+.lnd{stroke:var(--line);stroke-width:1.4;fill:none;stroke-dasharray:5 4}
+.bnd{stroke:var(--ext);stroke-width:1.6;fill:none;stroke-dasharray:8 5}
+a{color:var(--ours)}
+:focus-visible{outline:2px solid var(--ours);outline-offset:3px}
+</style>
+
+<main>
+
+<header style="display:flex;flex-direction:column;gap:18px">
+  <div class="eyebrow">rwmcp · reverse-WebMCP · five crates, three layers, four things outside</div>
+  <h1>rwmcp Stack Map</h1>
+  <p class="lede">What the code behind reverse-WebMCP actually is, where the process ends, and every external thing it depends on.</p>
+  <div class="key">
+    <span><i class="k-ours"></i> ours (code in this repo)</span>
+    <span><i class="k-dep"></i> a crate we pull in</span>
+    <span><i class="k-ext"></i> outside the process</span>
+  </div>
+</header>
+
+<!-- 1 THE STACK -->
+<section>
+  <div class="eyebrow">01 · the layers</div>
+  <h2>Three layers, one boundary</h2>
+  <figure>
+    <svg viewBox="0 0 820 630" role="img" aria-label="A layered stack: the harness on top, the engine in the middle containing the planner, compiler, scheduler, ledger and event bus, adapters at the bottom, then a dashed process boundary with the target app, Chromium, the model endpoint and the filesystem outside it.">
+      <defs>
+        <marker id="s-o" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="var(--ours)"/></marker>
+        <marker id="s-e" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="var(--ext)"/></marker>
+      </defs>
+
+      <text x="0" y="16" class="tcm">L2 · HARNESS · crates/cli + crates/bench</text>
+      <rect x="0" y="26" width="600" height="86" rx="9" class="ourss"/>
+      <rect x="16" y="42" width="132" height="54" rx="6" class="box"/>
+      <text x="82" y="64" text-anchor="middle" class="tc">cli</text>
+      <text x="82" y="82" text-anchor="middle" class="tm">the rwmcp command</text>
+      <rect x="158" y="42" width="132" height="54" rx="6" class="box"/>
+      <text x="224" y="64" text-anchor="middle" class="tc">arms · loops</text>
+      <text x="224" y="82" text-anchor="middle" class="tm">D, E, A, B, B2, C</text>
+      <rect x="300" y="42" width="132" height="54" rx="6" class="box"/>
+      <text x="366" y="64" text-anchor="middle" class="tc">tasks.rs</text>
+      <text x="366" y="82" text-anchor="middle" class="tm">T1…T13 + oracle</text>
+      <rect x="442" y="42" width="142" height="54" rx="6" class="box"/>
+      <text x="513" y="64" text-anchor="middle" class="tc">report / verify</text>
+      <text x="513" y="82" text-anchor="middle" class="tm">recompute, don't claim</text>
+
+      <path d="M300 116 V138" class="lno" marker-end="url(#s-o)"/>
+      <text x="312" y="132" class="tm">a goal, or wants</text>
+
+      <text x="0" y="160" class="tcm">L1 · ENGINE · crates/rwmcp</text>
+      <rect x="0" y="170" width="600" height="240" rx="9" class="ourss"/>
+
+      <rect x="16" y="186" width="568" height="52" rx="6" class="box"/>
+      <text x="300" y="207" text-anchor="middle" class="tb">planner.rs</text>
+      <text x="300" y="227" text-anchor="middle" class="tm">goal → wants + forks · the only module here that calls a model, once</text>
+      <path d="M586 212 H676" class="lne" marker-end="url(#s-e)"/>
+      <text x="631" y="203" text-anchor="middle" class="tcm">HTTPS</text>
+      <rect x="680" y="183" width="140" height="58" rx="9" class="exts"/>
+      <text x="750" y="207" text-anchor="middle" class="tb">model endpoint</text>
+      <text x="750" y="227" text-anchor="middle" class="tm">/v1/messages</text>
+
+      <rect x="16" y="248" width="272" height="70" rx="6" class="box"/>
+      <text x="152" y="270" text-anchor="middle" class="tb">compiler.rs</text>
+      <text x="152" y="290" text-anchor="middle" class="tm">wants + world → DAG, keys, edges</text>
+      <text x="152" y="308" text-anchor="middle" class="tc">pred · world · intent · plan</text>
+      <rect x="300" y="248" width="284" height="70" rx="6" class="box"/>
+      <text x="442" y="270" text-anchor="middle" class="tb">scheduler.rs</text>
+      <text x="442" y="290" text-anchor="middle" class="tm">runs the DAG, retries, waits, resumes</text>
+      <text x="442" y="308" text-anchor="middle" class="tc">"zero model calls in here"</text>
+
+      <rect x="16" y="330" width="272" height="66" rx="6" class="box"/>
+      <text x="152" y="352" text-anchor="middle" class="tb">ledger.rs</text>
+      <text x="152" y="372" text-anchor="middle" class="tm">every attempt, one row · the receipt</text>
+      <text x="152" y="389" text-anchor="middle" class="tc">max_parallel is swept from these rows</text>
+      <rect x="300" y="330" width="284" height="66" rx="6" class="box"/>
+      <text x="442" y="352" text-anchor="middle" class="tb">events.rs</text>
+      <text x="442" y="372" text-anchor="middle" class="tm">one SSE connection, shared by every wait</text>
+      <text x="442" y="389" text-anchor="middle" class="tc">a wait is an edge that hasn't fired</text>
+
+      <path d="M300 414 V436" class="lno" marker-end="url(#s-o)"/>
+      <text x="312" y="430" class="tm">Node + args</text>
+
+      <text x="0" y="458" class="tcm">L0 · ADAPTERS · effectors.rs + crates/driver — decide nothing</text>
+      <rect x="0" y="468" width="600" height="76" rx="9" class="ourss"/>
+      <rect x="16" y="484" width="132" height="46" rx="6" class="box"/>
+      <text x="82" y="503" text-anchor="middle" class="tc">ApiEffector</text>
+      <text x="82" y="521" text-anchor="middle" class="tm">surface: api</text>
+      <rect x="158" y="484" width="132" height="46" rx="6" class="box"/>
+      <text x="224" y="503" text-anchor="middle" class="tc">McpEffector</text>
+      <text x="224" y="521" text-anchor="middle" class="tm">surface: mcp</text>
+      <rect x="300" y="484" width="140" height="46" rx="6" class="box"/>
+      <text x="370" y="503" text-anchor="middle" class="tc">A11yEffector</text>
+      <text x="370" y="521" text-anchor="middle" class="tm">surface: a11y, pixels</text>
+      <rect x="450" y="484" width="134" height="46" rx="6" class="box"/>
+      <text x="517" y="503" text-anchor="middle" class="tc">Unavailable</text>
+      <text x="517" y="521" text-anchor="middle" class="tm">fails loudly</text>
+
+      <path d="M0 566 H820" class="bnd"/>
+      <text x="820" y="560" text-anchor="end" class="tcm" style="fill:var(--ext)">PROCESS BOUNDARY</text>
+
+      <path d="M82 544 V584" class="lne" marker-end="url(#s-e)"/>
+      <path d="M224 544 V584" class="lne" marker-end="url(#s-e)"/>
+      <path d="M370 544 V584" class="lne" marker-end="url(#s-e)"/>
+      <rect x="0" y="586" width="300" height="38" rx="8" class="exts"/>
+      <text x="150" y="604" text-anchor="middle" class="tb">your app</text>
+      <text x="150" y="619" text-anchor="middle" class="tm">HTTP · /mcp · /events · a page</text>
+      <rect x="316" y="586" width="180" height="38" rx="8" class="exts"/>
+      <text x="406" y="604" text-anchor="middle" class="tb">Chromium</text>
+      <text x="406" y="619" text-anchor="middle" class="tm">over CDP, headless</text>
+      <rect x="512" y="586" width="150" height="38" rx="8" class="exts"/>
+      <text x="587" y="604" text-anchor="middle" class="tb">the disk</text>
+      <text x="587" y="619" text-anchor="middle" class="tm">recipes, results</text>
+      <rect x="678" y="586" width="142" height="38" rx="8" class="exts"/>
+      <text x="749" y="604" text-anchor="middle" class="tb">clock + RNG</text>
+      <text x="749" y="619" text-anchor="middle" class="tm">spans, seeds</text>
+    </svg>
+    <figcaption>The layer names are in the source: <code>effectors.rs</code> opens "L0. One interface, one adapter per surface. Effectors never decide anything." <code>scheduler.rs</code> opens "L1. Runs the DAG as wide as its edges allow… Zero model calls in here."</figcaption>
+  </figure>
+  <p><b>The line that matters</b> is not the crate boundary — it is <code>planner.rs</code>. That one module makes exactly one model call per goal, behind a <code>Sampler</code> trait so it is testable without a network. Everything below it is deterministic: the compiler and the scheduler take an <code>Intent</code> struct and never ask where it came from, and <code>scheduler.rs</code> says so in its first three lines. That is why "one sample per goal" is structural rather than a discipline someone maintains — there is no second place a call could come from.</p>
+</section>
+
+<!-- 2 CRATES -->
+<section>
+  <div class="eyebrow">02 · the crates</div>
+  <h2>Five crates, and who depends on whom</h2>
+  <figure>
+    <svg viewBox="0 0 820 260" role="img" aria-label="Crate graph: the cli and bench crates depend on rwmcp; bench also depends on driver; driver depends on rwmcp; the app stands alone as a dev-dependency.">
+      <defs>
+        <marker id="c-o" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="var(--ours)"/></marker>
+        <marker id="c-d" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="var(--line)"/></marker>
+      </defs>
+      <rect x="0" y="14" width="190" height="70" rx="9" class="ours"/>
+      <text x="95" y="42" text-anchor="middle" class="tw">crates/cli</text>
+      <text x="95" y="62" text-anchor="middle" class="tw2">the rwmcp command</text>
+      <text x="95" y="78" text-anchor="middle" class="tw2">what you install</text>
+
+      <rect x="210" y="14" width="190" height="70" rx="9" class="ours"/>
+      <text x="305" y="42" text-anchor="middle" class="tw">crates/bench</text>
+      <text x="305" y="62" text-anchor="middle" class="tw2">the harness</text>
+      <text x="305" y="78" text-anchor="middle" class="tw2">arms, report, verify</text>
+
+      <rect x="420" y="14" width="190" height="70" rx="9" class="ourss"/>
+      <text x="515" y="42" text-anchor="middle" class="tb">crates/driver</text>
+      <text x="515" y="62" text-anchor="middle" class="tc">CDP page pool</text>
+      <text x="515" y="78" text-anchor="middle" class="tm">the a11y effector</text>
+
+      <rect x="180" y="150" width="230" height="72" rx="9" class="ourss"/>
+      <text x="295" y="178" text-anchor="middle" class="tb">crates/rwmcp</text>
+      <text x="295" y="198" text-anchor="middle" class="tc">the engine · library</text>
+      <text x="295" y="214" text-anchor="middle" class="tm">the only crate you embed</text>
+
+      <rect x="590" y="150" width="230" height="72" rx="9" class="exts"/>
+      <text x="705" y="178" text-anchor="middle" class="tb">crates/app</text>
+      <text x="705" y="198" text-anchor="middle" class="tc">the target we own</text>
+      <text x="705" y="214" text-anchor="middle" class="tm">stands in for your app</text>
+
+      <path d="M95 86 C95 120 200 130 240 148" class="lno" marker-end="url(#c-o)"/>
+      <path d="M305 86 V148" class="lno" marker-end="url(#c-o)"/>
+      <text x="316" y="120" class="tm">depends on</text>
+      <path d="M400 50 H416" class="lno" marker-end="url(#c-o)"/>
+      <path d="M515 86 C515 120 420 130 392 146" class="lno" marker-end="url(#c-o)"/>
+      <path d="M586 186 H414" class="lnd" marker-end="url(#c-d)"/>
+      <text x="500" y="178" text-anchor="middle" class="tm">dev-dependency only</text>
+      <text x="500" y="200" text-anchor="middle" class="tm">(in-process door tests)</text>
+      <text x="0" y="248" class="tm">The app is a dev-dependency of the others, never a runtime one. Nothing in the engine knows this app exists.</text>
+    </svg>
+  </figure>
+  <div class="cols">
+    <div class="cell"><div class="h">embed this</div><h3>crates/rwmcp</h3><p style="font-size:15px;color:var(--muted)">A library: world model, predicates, compiler, scheduler, ledger, effectors, and the planner. Pulls <code>reqwest</code>, <code>tokio</code>, <code>serde</code>, <code>sha2</code>. No browser. This is the product.</p></div>
+    <div class="cell"><div class="h">only if you want screens</div><h3>crates/driver</h3><p style="font-size:15px;color:var(--muted)">Wraps <code>chromiumoxide</code>. Leases pages from a pool and clicks controls by accessible name.</p></div>
+    <div class="cell"><div class="h">only if you want the benchmark</div><h3>crates/bench</h3><p style="font-size:15px;color:var(--muted)">The arms, the tasks runner, the report. Delete it and the engine still works.</p></div>
+    <div class="cell"><div class="h">the command line</div><h3>crates/cli</h3><p style="font-size:15px;color:var(--muted)">Installs as <code>rwmcp</code>. Plans, prints, and runs on request — the path that needs no Rust from you.</p></div>
+    <div class="cell"><div class="h">replace with your own</div><h3>crates/app</h3><p style="font-size:15px;color:var(--muted)">The invoicing target. In real use this is <i>your</i> service, in any language, reached over HTTP.</p></div>
+  </div>
+</section>
+
+<!-- 3 EXTERNAL -->
+<section>
+  <div class="eyebrow">03 · outside the process</div>
+  <h2>Every external thing, and what breaks without it</h2>
+  <div class="wrap">
+    <table>
+      <thead><tr><th>external</th><th>reached by</th><th>needed for</th><th>if it's missing</th></tr></thead>
+      <tbody>
+        <tr><td><b>Your app's HTTP API</b></td><td><code>ApiEffector</code> → <code>reqwest</code></td><td>everything</td><td>nothing runs; the node fails <code>Fatal</code> and the plan stops</td></tr>
+        <tr><td><b>Its <code>/openapi.json</code></b></td><td><code>world_from(base)</code>, one GET at startup</td><td>the world model</td><td><code>WorldError::Fetch</code>. You can bypass it: <code>World::from_openapi(&amp;json)</code> takes any JSON you supply</td></tr>
+        <tr><td><b>Its <code>/events</code> SSE</b></td><td><code>EventBus::connect</code>, one long-lived stream</td><td>waiting on the outside world</td><td>the wait falls back to a read every 3 s (<code>check_every</code>); with no <code>check</code> either, it times out at 30 s</td></tr>
+        <tr><td><b>A model endpoint</b></td><td><code>planner.rs</code> → <code>POST /v1/messages</code></td><td>turning a goal into wants</td><td>not needed if you supply wants yourself — nothing outside <code>planner.rs</code> calls it</td></tr>
+        <tr><td><b>Chromium</b></td><td><code>chromiumoxide</code> over CDP</td><td><code>a11y</code> and <code>pixels</code> surfaces</td><td>compile fails with <code>NoSurface</code> rather than silently using another door</td></tr>
+        <tr><td><b>Its <code>/mcp</code> door</b></td><td><code>McpEffector</code> → JSON-RPC</td><td>the <code>mcp</code> surface, baselines B/B2</td><td>the compiler just picks another surface, if one is allowed</td></tr>
+        <tr><td><b>The filesystem</b></td><td><code>std::fs</code></td><td>recipes, results, the plan cache, screenshots</td><td>the cli and the harness only; the engine library writes nothing to disk</td></tr>
+        <tr><td><b>System clock</b></td><td><code>SystemTime::now</code>, microseconds</td><td>every ledger row's span</td><td>the parallelism figure is only as good as this clock's resolution</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="stripe"><b>Credentials are read in one place.</b> The key is read once in <code>ModelClient::from_env</code> (<code>--api-key</code>, then <code>ANTHROPIC_API_KEY</code>, then <code>ANTHROPIC_AUTH_TOKEN</code>, then the <code>ant</code> CLI) and each run directory's <code>config.json</code> is written with the key omitted. Nothing outside the planner ever sees it.</div>
+</section>
+
+<!-- 4 DEPS -->
+<section>
+  <div class="eyebrow">04 · the third parties</div>
+  <h2>What we didn't write</h2>
+  <div class="cols">
+    <div class="cell"><div class="h">in the engine</div><ul>
+      <li><code>tokio</code> — the async runtime</li>
+      <li><code>reqwest</code> (rustls) — HTTP + the SSE stream</li>
+      <li><code>serde</code> / <code>serde_json</code></li>
+      <li><code>sha2</code> + <code>hex</code> — the content-addressed keys</li>
+      <li><code>thiserror</code>, <code>tracing</code>, <code>futures</code>, <code>async-trait</code></li>
+    </ul></div>
+    <div class="cell"><div class="h">in the driver</div><ul>
+      <li><code>chromiumoxide</code> 0.9 — the CDP client</li>
+    </ul><p style="font-size:15px;color:var(--muted)">The one heavyweight dependency, and it's isolated in a crate you can leave out.</p></div>
+    <div class="cell"><div class="h">in the cli and harness</div><ul>
+      <li><code>clap</code> — the command line</li>
+      <li><code>toml</code> — task files</li>
+      <li><code>base64</code>, <code>chrono</code>, <code>async-recursion</code></li>
+    </ul></div>
+    <div class="cell"><div class="h">in the sample app</div><ul>
+      <li><code>axum</code> + <code>tower-http</code></li>
+      <li><code>rand_chacha</code> — seeded chaos</li>
+    </ul><p style="font-size:15px;color:var(--muted)">Yours instead, in whatever you already use.</p></div>
+  </div>
+  <p>No ORM, no message broker, no database, no vector store, no agent framework. The engine's whole runtime is an async executor and an HTTP client.</p>
+</section>
+
+<!-- 5 WHAT YOU TOUCH -->
+<section>
+  <div class="eyebrow">05 · your side</div>
+  <h2>What you actually write</h2>
+  <div class="wrap">
+    <table>
+      <thead><tr><th>you write</th><th>where it lives</th><th>how often</th></tr></thead>
+      <tbody>
+        <tr><td>the <code>x-reverse-webmcp</code> notes<br><span style="color:var(--muted);font-size:13.5px">skill: <code>/annotate-world-model</code></span></td><td>your OpenAPI document</td><td>once per operation</td></tr>
+        <tr><td><code>idempotency-key</code> handling</td><td>your write handlers</td><td>once per write</td></tr>
+        <tr><td>an SSE endpoint</td><td>your app</td><td>once, if anything waits</td></tr>
+        <tr><td>the wants<br><span style="color:var(--muted);font-size:13.5px">skill: <code>/write-wants</code>, or the runtime planner</span></td><td>an <code>Intent</code>: your goal + wants + forks</td><td>per goal</td></tr>
+        <tr><td>surfaces + pool sizes</td><td><code>CompileOptions</code>, <code>Pools</code></td><td>per run</td></tr>
+        <tr><td>retry and timeout budgets</td><td><code>Policy</code></td><td>once, or take the defaults</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p>Everything else — the DAG, the edges, the keys, the ordering, the concurrency, the receipt — is derived. There is no place to hand-write a plan, and that is deliberate: the README says the world model "is never hand-authored anywhere else."</p>
+  <div class="stripe" style="border-left-color:var(--ours);background:var(--ours-soft)"><b>Two agents, don't merge them.</b> The <b>planner</b> is a model call rwmcp makes at runtime, inside L2 — one sample per goal, a fixed system prompt, no skills involved. Your <b>coding agent</b> works one layer out, at setup time, and that is where <code>/annotate-world-model</code> and <code>/write-wants</code> apply. The engine itself never calls either.</div>
+</section>
+
+<footer style="color:var(--muted);font-size:14px;display:flex;flex-direction:column;gap:8px">
+  <div style="height:1px;background:var(--line)"></div>
+  <div>Read from <code>Cargo.toml</code> (workspace + four crates), the module headers in <code>crates/rwmcp/src/</code>, and <code>crates/bench/src/loops.rs</code>. rwmcp @ 3456de8.</div>
+</footer>
+
+</main>
+
+</body>
+</html>

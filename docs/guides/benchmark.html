@@ -1,0 +1,256 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="How is it measured? The target app, the six arms, the thirteen tasks.">
+<title>The Benchmark Bench</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700&family=Asap:wght@400;500;600&family=Fira+Mono:wght@400;500&display=swap">
+<style>
+  :root{color-scheme:light dark}
+  html{-webkit-text-size-adjust:100%}
+  body{margin:0}
+  img{max-width:100%}
+  [hidden]{display:none!important}
+  .guide-nav{font:13px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif;padding:11px 20px;border-bottom:1px solid rgba(128,128,128,.28)}
+  .guide-nav a{text-decoration:none;opacity:.75;color:inherit}
+  .guide-nav a:hover{opacity:1;text-decoration:underline}
+</style>
+</head>
+<body>
+<nav class="guide-nav"><a href="./index.html">&larr; all rwmcp guides</a></nav>
+<style>
+:root{
+  --paper:#ECEEF1; --card:#FFFFFF; --sunk:#E1E5EA;
+  --ink:#161920; --muted:#5D6675; --line:#CBD2DA;
+  --acc:#3B4E9B; --acc-soft:#DEE3F5;
+  --off:#9E5163; --off-soft:#F4DFE4;
+  --mono:"Fira Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
+  --body:"Asap",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --display:"Sora",system-ui,sans-serif;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --paper:#0F1216; --card:#181C23; --sunk:#13171C;
+    --ink:#E5E9EF; --muted:#909BAA; --line:#2A313B;
+    --acc:#8296E8; --acc-soft:#1C2340;
+    --off:#D98CA0; --off-soft:#38222A;
+  }
+}
+:root[data-theme="dark"]{
+  --paper:#0F1216; --card:#181C23; --sunk:#13171C;
+  --ink:#E5E9EF; --muted:#909BAA; --line:#2A313B;
+  --acc:#8296E8; --acc-soft:#1C2340;
+  --off:#D98CA0; --off-soft:#38222A;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--paper);color:var(--ink);font:16px/1.6 var(--body)}
+main{max-width:850px;margin:0 auto;padding:52px 20px 100px;display:flex;flex-direction:column;gap:64px}
+h1,h2{font-family:var(--display);margin:0;line-height:1.1;text-wrap:balance}
+h1{font-size:clamp(36px,6vw,56px);font-weight:700;letter-spacing:-.03em}
+h2{font-size:clamp(24px,3.8vw,32px);font-weight:600;letter-spacing:-.02em}
+h3{font-family:var(--display);font-weight:600;font-size:16px;margin:0}
+p{margin:0;max-width:66ch;color:var(--muted)}
+p b,p strong{color:var(--ink)}
+.lede{font-size:19px;max-width:46ch}
+.eyebrow{font-family:var(--mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--acc)}
+section{display:flex;flex-direction:column;gap:18px}
+.wrap{overflow-x:auto;border:1px solid var(--line);border-radius:9px;background:var(--card)}
+table{border-collapse:collapse;width:100%;font-size:14.5px;margin:0}
+th,td{padding:9px 12px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
+thead th{font-family:var(--mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);font-weight:500;border-bottom:1.5px solid var(--line)}
+tbody tr:last-child td{border-bottom:none}
+th:first-child,td:first-child{padding-left:15px}
+th:last-child,td:last-child{padding-right:15px}
+td.n{font-family:var(--mono);font-variant-numeric:tabular-nums;white-space:nowrap}
+td.id{font-family:var(--mono);font-weight:500;color:var(--acc)}
+code{font-family:var(--mono);font-size:.86em;background:var(--sunk);padding:1px 5px;border-radius:3px}
+figure{margin:0;background:var(--card);border:1px solid var(--line);border-radius:9px;padding:20px;overflow-x:auto}
+figure svg{display:block;width:100%;height:auto}
+figcaption{font-size:14px;color:var(--muted);margin-top:12px;max-width:66ch}
+.note{border-left:3px solid var(--off);background:var(--off-soft);padding:13px 16px;border-radius:0 8px 8px 0;font-size:15px}
+.note.a{border-left-color:var(--acc);background:var(--acc-soft)}
+ul{margin:0;padding-left:19px;display:grid;gap:6px;color:var(--muted);max-width:66ch}
+ul b{color:var(--ink)}
+.pill{display:inline-block;font-family:var(--mono);font-size:10.5px;padding:1px 6px;border-radius:3px;background:var(--acc-soft);color:var(--acc);font-weight:500}
+.pill.o{background:var(--off-soft);color:var(--off)}
+.t{fill:var(--ink);font-family:var(--body);font-size:13px}
+.tm{fill:var(--muted);font-family:var(--body);font-size:12px}
+.tc{fill:var(--ink);font-family:var(--mono);font-size:11px}
+.tcm{fill:var(--muted);font-family:var(--mono);font-size:10px;letter-spacing:.08em}
+.dot{fill:var(--acc)}
+.dotw{fill:var(--card);stroke:var(--acc);stroke-width:1.6}
+.grid{stroke:var(--line);stroke-width:1;fill:none}
+a{color:var(--acc)}
+:focus-visible{outline:2px solid var(--acc);outline-offset:3px}
+</style>
+
+<main>
+
+<header style="display:flex;flex-direction:column;gap:16px">
+  <div class="eyebrow">rwmcp · the benchmark, in full</div>
+  <h1>The Benchmark Bench</h1>
+  <p class="lede">The target app, the six arms, the thirteen tasks, and what a result file actually holds.</p>
+</header>
+
+<!-- THE APP -->
+<section>
+  <div class="eyebrow">01 · the target</div>
+  <h2>One app, five doors, one oracle</h2>
+  <p>Customers, invoices, an outbox, payments. The <b>same handler set</b> behind every door, so no arm gets a different app — only a different way in.</p>
+  <div class="wrap"><table>
+    <thead><tr><th>door</th><th>path</th><th>who uses it</th></tr></thead>
+    <tbody>
+      <tr><td>REST + OpenAPI</td><td><code>/api/*</code>, <code>/openapi.json</code></td><td>rwmcp, the script ceiling</td></tr>
+      <tr><td>MCP over HTTP</td><td><code>/mcp</code></td><td>the MCP loops, rwmcp</td></tr>
+      <tr><td>WebMCP</td><td><code>navigator.modelContext</code>, <code>window.__webmcp</code></td><td>the WebMCP loop</td></tr>
+      <tr><td>accessibility</td><td>every control has a role and a name</td><td>rwmcp, through a headless page</td></tr>
+      <tr><td>pixels</td><td>the same page, as an image</td><td>the click loop</td></tr>
+    </tbody>
+  </table></div>
+  <div class="note"><b>Approve is deliberately UI-only.</b> There is no API for it, and the server refuses the call without the page's header. Every arm has to prove it can mix one screen node into an otherwise-API plan, or fail the task.</div>
+  <h3 style="margin-top:8px">The oracle counts effects independently</h3>
+  <div class="wrap"><table>
+    <thead><tr><th>endpoint</th><th>what it gives you</th></tr></thead>
+    <tbody>
+      <tr><td class="n">POST /oracle/reset?seed=</td><td>a fresh world at a known seed</td></tr>
+      <tr><td class="n">GET /oracle/state</td><td>the end state, for the correctness check</td></tr>
+      <tr><td class="n">GET /oracle/effects</td><td>every write with its key and its own footprint; double-sends counted here</td></tr>
+      <tr><td class="n">POST /oracle/chaos</td><td>latency, send-failure rate, rate limit, require-approval, a modal</td></tr>
+      <tr><td class="n">POST /oracle/pay</td><td>the outside world paying — optionally silent, to model a lost webhook</td></tr>
+      <tr><td class="n">GET /events</td><td>server-sent events for every state change</td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<!-- ARMS -->
+<section>
+  <div class="eyebrow">02 · the arms</div>
+  <h2>Six ways to do the same job</h2>
+  <div class="wrap"><table>
+    <thead><tr><th>arm</th><th>what it is</th><th>model calls</th></tr></thead>
+    <tbody>
+      <tr><td class="id">A</td><td>click loop on screenshots, on a headless page</td><td>one per action</td></tr>
+      <tr><td class="id">B</td><td>MCP loop, one tool call per turn</td><td>one per call</td></tr>
+      <tr><td class="id">B2</td><td>MCP loop, several tool calls per turn, run concurrently <span class="pill">the honest baseline</span></td><td>≈ one per dependency level</td></tr>
+      <tr><td class="id">C</td><td>WebMCP loop inside a headless browser</td><td>≈ one per level, usually more</td></tr>
+      <tr><td class="id">D</td><td>rwmcp: intent → compiler → scheduler → receipt</td><td>one</td></tr>
+      <tr><td class="id">E</td><td>script ceiling: a hand-written parallel program <span class="pill">no model at all</span></td><td>zero</td></tr>
+    </tbody>
+  </table></div>
+  <div class="note a"><b>Every arm records through one <code>Recorder</code>.</b> A ledger row means the same thing whether rwmcp, a script, or a model loop produced it, and write-ness comes from the world model rather than an arm's own say-so. That is what makes the comparison a measurement instead of a claim.</div>
+</section>
+
+<!-- TASKS -->
+<section>
+  <div class="eyebrow">03 · the tasks</div>
+  <h2>Thirteen tasks, placed by shape</h2>
+  <p>Each task declares its <b>depth</b> — the longest dependency chain — so samples can be plotted against depth for an arm that has no plan to measure. Width is how many independent lanes it opens.</p>
+  <figure>
+    <svg viewBox="0 0 800 340" role="img" aria-label="A map of the thirteen tasks positioned by width on the horizontal axis and dependency depth on the vertical axis.">
+      <!-- grid -->
+      <line x1="70" y1="290" x2="770" y2="290" class="grid"/>
+      <line x1="70" y1="30" x2="70" y2="290" class="grid"/>
+      <line x1="70" y1="238" x2="770" y2="238" class="grid"/>
+      <line x1="70" y1="186" x2="770" y2="186" class="grid"/>
+      <line x1="70" y1="134" x2="770" y2="134" class="grid"/>
+      <line x1="70" y1="82" x2="770" y2="82" class="grid"/>
+      <text x="58" y="294" text-anchor="end" class="tcm">2</text>
+      <text x="58" y="242" text-anchor="end" class="tcm">3</text>
+      <text x="58" y="190" text-anchor="end" class="tcm">4</text>
+      <text x="58" y="138" text-anchor="end" class="tcm">5</text>
+      <text x="58" y="86" text-anchor="end" class="tcm">6</text>
+      <text x="20" y="60" class="tcm">DEPTH</text>
+      <text x="160" y="316" text-anchor="middle" class="tcm">1 LANE</text>
+      <text x="340" y="316" text-anchor="middle" class="tcm">3 LANES</text>
+      <text x="530" y="316" text-anchor="middle" class="tcm">10 LANES</text>
+      <text x="720" y="316" text-anchor="middle" class="tcm">300 LANES</text>
+
+      <!-- depth 3 row: T1(1) T6(1) T11(300) T2(10) T5(10) T12(10) -->
+      <circle cx="140" cy="238" r="7" class="dot"/><text x="140" y="224" text-anchor="middle" class="tc">T1</text>
+      <circle cx="180" cy="238" r="7" class="dot"/><text x="180" y="224" text-anchor="middle" class="tc">T6</text>
+      <circle cx="490" cy="238" r="7" class="dot"/><text x="490" y="224" text-anchor="middle" class="tc">T2</text>
+      <circle cx="530" cy="238" r="7" class="dot"/><text x="530" y="224" text-anchor="middle" class="tc">T5</text>
+      <circle cx="570" cy="238" r="7" class="dot"/><text x="570" y="224" text-anchor="middle" class="tc">T12</text>
+      <circle cx="720" cy="238" r="7" class="dot"/><text x="720" y="224" text-anchor="middle" class="tc">T11</text>
+      <!-- depth 4: T3(3) -->
+      <circle cx="340" cy="186" r="7" class="dot"/><text x="340" y="172" text-anchor="middle" class="tc">T3</text>
+      <!-- depth 5: T4(1) T13(1) T7(3) -->
+      <circle cx="140" cy="134" r="7" class="dot"/><text x="140" y="120" text-anchor="middle" class="tc">T4</text>
+      <circle cx="180" cy="134" r="7" class="dot"/><text x="180" y="120" text-anchor="middle" class="tc">T13</text>
+      <circle cx="340" cy="134" r="7" class="dotw"/><text x="340" y="120" text-anchor="middle" class="tc">T7</text>
+      <!-- depth 6: T8(3) T9(10) T10(10) -->
+      <circle cx="340" cy="82" r="7" class="dot"/><text x="340" y="68" text-anchor="middle" class="tc">T8</text>
+      <circle cx="510" cy="82" r="7" class="dot"/><text x="510" y="68" text-anchor="middle" class="tc">T9</text>
+      <circle cx="550" cy="82" r="7" class="dot"/><text x="550" y="68" text-anchor="middle" class="tc">T10</text>
+
+      <circle cx="640" cy="40" r="6" class="dotw"/><text x="655" y="45" class="tm">needs a screen</text>
+    </svg>
+    <figcaption>The deep-and-wide corner (T8, T9, T10) is where a tool loop pays the most, and where one sample costs the same as it does at T1. T7 is the only task that cannot run on the API alone.</figcaption>
+  </figure>
+  <div class="wrap"><table>
+    <thead><tr><th>id</th><th>task</th><th>isolates</th><th>depth</th><th>lanes</th></tr></thead>
+    <tbody>
+      <tr><td class="id">T1</td><td>one invoice, sent</td><td>sanity</td><td class="n">3</td><td class="n">1</td></tr>
+      <tr><td class="id">T2</td><td>invoice and send for ten customers</td><td>fan-out with disjoint writes</td><td class="n">3</td><td class="n">10</td></tr>
+      <tr><td class="id">T3</td><td>three invoices, email each, one report over all</td><td>a real DAG with a join</td><td class="n">4</td><td class="n">3</td></tr>
+      <tr><td class="id">T4</td><td>the receipt only after the payment arrives</td><td>waiting as an edge</td><td class="n">5</td><td class="n">1</td></tr>
+      <tr><td class="id">T5</td><td>T2 with a 30% send failure rate</td><td>retries on the same key, zero doubles</td><td class="n">3</td><td class="n">10</td></tr>
+      <tr><td class="id">T6</td><td>invoice Acme when two customers are Acme</td><td>a declared fork, exactly one yield</td><td class="n">3</td><td class="n">1</td></tr>
+      <tr><td class="id">T7</td><td>T3 plus Approve on each, UI-only</td><td>one screen node in a mixed plan</td><td class="n">5</td><td class="n">3</td></tr>
+      <tr><td class="id">T8</td><td>three invoices: send, paid, receipt, report</td><td>six deep, three wide</td><td class="n">6</td><td class="n">3</td></tr>
+      <tr><td class="id">T9</td><td>the same for ten</td><td>six deep, ten wide</td><td class="n">6</td><td class="n">10</td></tr>
+      <tr><td class="id">T10</td><td>T9 plus a report per invoice</td><td>eleven joins</td><td class="n">6</td><td class="n">10</td></tr>
+      <tr><td class="id">T11</td><td>three hundred invoices from one <code>each(…)</code></td><td>fan-out without naming a row</td><td class="n">3</td><td class="n">300</td></tr>
+      <tr><td class="id">T12</td><td>T2 under eight writes per second</td><td>429s, backoff, keys</td><td class="n">3</td><td class="n">10</td></tr>
+      <tr><td class="id">T13</td><td>the payment lands, the webhook is lost</td><td>the wait's fallback read</td><td class="n">5</td><td class="n">1</td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<!-- RESULT -->
+<section>
+  <div class="eyebrow">04 · one result file</div>
+  <h2>What a run leaves behind</h2>
+  <p>One JSON per <span class="pill">task × arm × run</span>, plus a <code>config.json</code> recording the exact options used — the API key never among them.</p>
+  <ul>
+    <li><b>status</b>, model samples, tokens, wall time</li>
+    <li><b>max parallel</b> — a sweep over the ledger's microsecond spans, and the decisive column</li>
+    <li>the same sweep <b>per surface</b>, so a screen lane should read 1 while the API stays wide</li>
+    <li><b>correctness</b> against the task's expected end state, read from the oracle</li>
+    <li><b>double-sends</b>, from the app's outbox</li>
+    <li>forks taken, the full ledger, the oracle snapshot, and for rwmcp the rendered plan</li>
+  </ul>
+  <div class="note a"><b><code>bench verify</code> recomputes the headline numbers from the raw rows</b> and fails if anything stored disagrees. A result that cannot be recomputed is not evidence.</div>
+</section>
+
+<!-- SANDBOX + ROAD -->
+<section>
+  <div class="eyebrow">05 · running it safely</div>
+  <h2>Nothing touches your screen</h2>
+  <p>Every screen arm drives a headless Chromium over CDP, on the host or in the container, so no run anywhere reaches your screen, mouse or keyboard. The click loop saves the screenshot it acted on each turn, which is the recording.</p>
+  <div class="note"><b><code>bench run</code> resets the target app before every single run</b> and installs chaos. It is a benchmark harness. Never point it at anything you care about — see the setup guide for the two safe ways to run real work.</div>
+  <h3 style="margin-top:8px">Where this is on the road</h3>
+  <div class="wrap"><table>
+    <thead><tr><th>phase</th><th>what</th><th>state</th></tr></thead>
+    <tbody>
+      <tr><td class="id">0</td><td>the app and oracle, with in-process door tests</td><td>done</td></tr>
+      <tr><td class="id">1</td><td>baselines: B, B2, C, A on one loop, same facts, bail-out scored as an error</td><td>done</td></tr>
+      <tr><td class="id">2</td><td>compiler and scheduler: content-addressed keys, resume, one Recorder, verify</td><td>done</td></tr>
+      <tr><td class="id">3</td><td>planner: lint with re-ask, fork answers, intent cache, <code>each(…)</code>, depth tasks</td><td>done</td></tr>
+      <tr><td class="id">4</td><td>screens: leased pages, the a11y effector, T7 green in a mixed plan</td><td>done</td></tr>
+      <tr><td class="id">5</td><td>harden and publish</td><td>open: all six arms over T1–T13, and a cold reproduction on a second machine</td></tr>
+    </tbody>
+  </table></div>
+  <p style="font-size:14px"><b>Not built, on purpose:</b> a stdio MCP client for a desktop computer-use driver. The accessibility door drives the page through CDP instead, which works identically on a Mac and in the container.</p>
+</section>
+
+<footer style="color:var(--muted);font-size:13.5px;display:flex;flex-direction:column;gap:8px">
+  <div style="height:1px;background:var(--line)"></div>
+  <div>Task definitions in <code>tasks/*.toml</code>; the doors and oracle in <code>crates/app</code>; the arms in <code>crates/bench/src/arms.rs</code> and <code>loops.rs</code>.</div>
+</footer>
+
+</main>
+
+</body>
+</html>

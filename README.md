@@ -14,24 +14,92 @@ never taken from an arm's own word.
 
 Everything is Rust. Nothing runs on your screen.
 
+## The command
+
+Install once, then never write Rust:
+
+```sh
+cargo install --path crates/cli    # gives you `rwmcp`
+```
+
+One command, options only, so an agent composes a single line instead of a session.
+
+```sh
+# What can this app be asked for?
+rwmcp --app http://localhost:8000 --world
+
+# Plan it. One model call. Nothing happens.
+rwmcp --app http://localhost:8000 --goal "invoice every customer and send it"
+
+# Run what an agent already wrote. No model call at all.
+rwmcp --app http://localhost:8000 --wants billing.wants --run --yes
+```
+
+`--wants` is a plain text file, one predicate per line, `#` for comments. That is the artefact
+the `write-wants` skill produces, and the artefact you keep in version control:
+
+```
+# billing.wants
+invoice(customer=each(customer())).exists
+invoice(customer=each(customer())).status='sent'
+report(invoices=[all(invoice(customer=each(customer())))]).exists
+```
+
+Nothing is executed unless you pass `--run`, and a plan with steps that leave the system —
+email, money — refuses to run until you also pass `--yes`. The plan is printed first, in full,
+every time.
+
+### A plan that worked is a recipe
+
+Once a goal has been planned successfully, the shape does not change; only the values do. So
+save it, leave the changing parts as `$placeholders`, and re-run it for the cost of nothing:
+
+```sh
+rwmcp --app URL --goal "invoice Acme and send it" --save billing --run --yes
+rwmcp --app URL --recipe billing --set who=Globex --run --yes    # 0 model calls
+rwmcp --list
+```
+
+A recipe is a small JSON file — written by `--save`, or by an agent, or by you:
+
+```json
+{
+  "name": "billing",
+  "goal": "invoice every customer and send it",
+  "params": ["who"],
+  "wants": [
+    "invoice(customer=customer(name=$who)).exists",
+    "invoice(customer=customer(name=$who)).status='sent'"
+  ]
+}
+```
+
+`--recipe billing` looks for `billing.json` in the recipes directory (`~/.rwmcp/recipes` by
+default, or `--recipes-dir`). `--recipe ./ops/billing.json` takes a path instead, so recipes can
+live in your repository next to the code they drive. Forget a parameter and the command tells you
+which `--set` is missing rather than guessing.
+
+This is the intended steady state: the model is paid once, at design time, and the thing that
+runs in production is a compiled plan with arguments.
+
 ## Guides
 
-The long-form documentation lives in six illustrated guides. They are private Artifacts: the
-links work for the author and for anyone the author shares them with.
+The long-form documentation is six illustrated guides in [`docs/guides/`](docs/guides/index.html).
+Open `docs/guides/index.html` in a browser, or read them online:
 
 | guide | answers |
 |---|---|
-| [rwmcp in Pictures](https://claude.ai/code/artifact/9032509f-35de-4b2c-b63a-5120711710c4) | **What does this do?** The idea, the doors your app needs, the annotation, and a receipt — for someone who has never seen it. |
-| [Reverse-WebMCP](https://claude.ai/code/artifact/b53128ad-21db-48ae-acc3-c647f382f325) | **How is this different from MCP and WebMCP?** The same operation declared both ways, one goal run both ways, and when to pick each. |
-| [Zero to First Plan](https://claude.ai/code/artifact/974551b9-1e84-4568-9fbf-a07157d055fd) | **How do I use it on my own app?** What to install, which skill does which job, the command that resets your app, five steps end to end. |
-| [rwmcp Stack Map](https://claude.ai/code/artifact/8e01b51e-1bf2-4460-b185-4f4a8ae495b5) | **What is the code?** Four crates, three layers, the process boundary, and every external dependency with what breaks without it. |
-| [The Falsifiable Number](https://claude.ai/code/artifact/a2b0d412-41df-46ab-a493-ef75f71e8717) | **Does it work?** The benchmark results, with every caveat that comes with them. |
-| [The Benchmark Bench](https://claude.ai/code/artifact/6b0c12fa-6677-4c71-ad4b-beec10788d33) | **How is it measured?** The target app and its oracle, the six arms, the thirteen tasks, what a result file holds. |
+| [rwmcp in Pictures](docs/guides/pictures.html) · [online](https://claude.ai/code/artifact/9032509f-35de-4b2c-b63a-5120711710c4) | **What does this do?** The idea, the doors your app needs, the annotation, and a receipt — for someone who has never seen it. |
+| [Reverse-WebMCP](docs/guides/reverse-webmcp.html) · [online](https://claude.ai/code/artifact/b53128ad-21db-48ae-acc3-c647f382f325) | **How is this different from MCP and WebMCP?** The same operation declared both ways, one goal run both ways, and when to pick each. |
+| [Zero to First Plan](docs/guides/setup.html) · [online](https://claude.ai/code/artifact/974551b9-1e84-4568-9fbf-a07157d055fd) | **How do I use it on my own app?** What to install, which skill does which job, and five steps end to end. |
+| [rwmcp Stack Map](docs/guides/stack-map.html) · [online](https://claude.ai/code/artifact/8e01b51e-1bf2-4460-b185-4f4a8ae495b5) | **What is the code?** Five crates, three layers, the process boundary, and every external dependency with what breaks without it. |
+| [The Falsifiable Number](docs/guides/results.html) · [online](https://claude.ai/code/artifact/a2b0d412-41df-46ab-a493-ef75f71e8717) | **Does it work?** The benchmark results, with every caveat that comes with them. |
+| [The Benchmark Bench](docs/guides/benchmark.html) · [online](https://claude.ai/code/artifact/6b0c12fa-6677-4c71-ad4b-beec10788d33) | **How is it measured?** The target app and its oracle, the six arms, the thirteen tasks, what a result file holds. |
 
 New here: start with the first. Already know MCP: the second. Wiring your own app: the third.
 Reading the source: the fourth.
 
-## One command
+## Running the benchmark
 
 ```sh
 make bench                      # build, spawn the app, run arms D and E on every phase ≤3 task, 5 runs each
@@ -62,10 +130,12 @@ model for a whole comparison; never mix providers across arms. Every knob is on
 ```
 crates/rwmcp      the engine: world model · predicates · compiler · scheduler · ledger · effectors · events
 crates/app        the target app we own: invoicing, one handler set, five doors, an oracle
+crates/cli        the `rwmcp` command: plan, check, run
 crates/bench      the arms, the tasks runner, the report, verify
 crates/driver     a CDP page pool: the screen surfaces
 tasks/            T1..T13 as TOML: goal, wants, seed, chaos, hooks, expected end state
 results/          one JSON per (task, arm, run) plus summary.json and report.html
+docs/guides/      the six guides, as static HTML
 ```
 
 `crates/rwmcp` is the only crate you embed. It pulls in `tokio`, `reqwest`, `serde` and `sha2` —

@@ -1,0 +1,287 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="How do I use it on my own app? Install, the two skills, and five steps end to end.">
+<title>Zero to First Plan</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Familjen+Grotesk:wght@500;600;700&family=Karla:wght@400;500;700&family=DM+Mono:wght@400;500&display=swap">
+<style>
+  :root{color-scheme:light dark}
+  html{-webkit-text-size-adjust:100%}
+  body{margin:0}
+  img{max-width:100%}
+  [hidden]{display:none!important}
+  .guide-nav{font:13px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif;padding:11px 20px;border-bottom:1px solid rgba(128,128,128,.28)}
+  .guide-nav a{text-decoration:none;opacity:.75;color:inherit}
+  .guide-nav a:hover{opacity:1;text-decoration:underline}
+</style>
+</head>
+<body>
+<nav class="guide-nav"><a href="./index.html">&larr; all rwmcp guides</a></nav>
+<style>
+:root{
+  --paper:#F0EEEA; --card:#FFFFFF; --sunk:#E6E3DD;
+  --ink:#1C1B19; --muted:#6B6862; --line:#D3CFC7;
+  --do:#A8402D; --do-soft:#F5E1DB;
+  --bot:#3F6663; --bot-soft:#DCE8E6;
+  --warn:#8A6410; --warn-soft:#F7EACB;
+  --mono:"DM Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
+  --body:"Karla",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --display:"Familjen Grotesk",system-ui,sans-serif;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --paper:#14130F; --card:#1E1C18; --sunk:#191713;
+    --ink:#EDEAE3; --muted:#9A968D; --line:#33302A;
+    --do:#E08466; --do-soft:#3A211A;
+    --bot:#7FB5AF; --bot-soft:#1A2E2C;
+    --warn:#D9AE55; --warn-soft:#372B12;
+  }
+}
+:root[data-theme="dark"]{
+  --paper:#14130F; --card:#1E1C18; --sunk:#191713;
+  --ink:#EDEAE3; --muted:#9A968D; --line:#33302A;
+  --do:#E08466; --do-soft:#3A211A;
+  --bot:#7FB5AF; --bot-soft:#1A2E2C;
+  --warn:#D9AE55; --warn-soft:#372B12;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--paper);color:var(--ink);font:17px/1.6 var(--body)}
+main{max-width:800px;margin:0 auto;padding:54px 20px 100px;display:flex;flex-direction:column;gap:72px}
+h1,h2{font-family:var(--display);margin:0;line-height:1.06;text-wrap:balance}
+h1{font-size:clamp(40px,7vw,66px);font-weight:700;letter-spacing:-.025em}
+h2{font-size:clamp(27px,4.2vw,36px);font-weight:600;letter-spacing:-.018em}
+h3{font-family:var(--display);font-weight:600;font-size:18px;margin:0}
+p{margin:0;max-width:65ch}
+.lede{font-size:20px;color:var(--muted);max-width:45ch}
+.eyebrow{font-family:var(--mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
+section{display:flex;flex-direction:column;gap:20px}
+figure{margin:0;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:20px;overflow-x:auto}
+figure svg{display:block;width:100%;height:auto}
+figcaption{font-size:14px;color:var(--muted);margin-top:12px;max-width:65ch}
+code{font-family:var(--mono);font-size:.87em;background:var(--sunk);padding:1px 5px;border-radius:3px}
+pre{margin:0;font-family:var(--mono);font-size:13.5px;line-height:1.6;background:var(--card);border:1px solid var(--line);border-radius:9px;padding:15px 17px;overflow-x:auto}
+pre code{background:none;padding:0;font-size:inherit}
+pre .c{color:var(--muted)}
+.steps{display:grid;gap:22px}
+.step{display:grid;grid-template-columns:44px 1fr;gap:16px;align-items:start}
+.step .n{width:44px;height:44px;border-radius:9px;background:var(--do);color:#fff;font-family:var(--display);font-weight:700;font-size:19px;display:grid;place-items:center}
+.step .bd{display:flex;flex-direction:column;gap:9px;min-width:0}
+.step h3{padding-top:9px}
+.wrap{overflow-x:auto;border:1px solid var(--line);border-radius:10px;background:var(--card)}
+table{border-collapse:collapse;width:100%;font-size:15px;margin:0}
+th,td{padding:10px 12px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
+thead th{font-family:var(--mono);font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);font-weight:500;border-bottom:1.5px solid var(--line)}
+tbody tr:last-child td{border-bottom:none}
+th:first-child,td:first-child{padding-left:16px}
+th:last-child,td:last-child{padding-right:16px}
+.cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:14px}
+.cell{border:1px solid var(--line);border-radius:10px;background:var(--card);padding:16px;display:flex;flex-direction:column;gap:9px}
+.cell .h{font-family:var(--mono);font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.cell p{font-size:15px}
+.stripe{border-left:3px solid var(--warn);background:var(--warn-soft);padding:13px 17px;border-radius:0 8px 8px 0}
+.stripe.b{border-left-color:var(--bot);background:var(--bot-soft)}
+.chip{display:inline-block;font-family:var(--mono);font-size:11px;padding:2px 7px;border-radius:4px;background:var(--bot-soft);color:var(--bot);font-weight:500}
+.t{fill:var(--ink);font-family:var(--body);font-size:14px}
+.tb{fill:var(--ink);font-family:var(--display);font-weight:600;font-size:15px}
+.tm{fill:var(--muted);font-family:var(--body);font-size:12px}
+.tc{fill:var(--ink);font-family:var(--mono);font-size:11.5px}
+.tcm{fill:var(--muted);font-family:var(--mono);font-size:10.5px;letter-spacing:.08em}
+.tw{fill:#fff;font-family:var(--display);font-weight:600;font-size:14px}
+.box{fill:var(--card);stroke:var(--line);stroke-width:1.3}
+.dof{fill:var(--do)}.dos{fill:var(--do-soft);stroke:var(--do);stroke-width:1.4}
+.bots{fill:var(--bot-soft);stroke:var(--bot);stroke-width:1.4}
+.botf{fill:var(--bot)}
+.ln{stroke:var(--muted);stroke-width:1.6;fill:none}
+.lnb{stroke:var(--bot);stroke-width:2;fill:none}
+.lnd{stroke:var(--line);stroke-width:1.4;fill:none;stroke-dasharray:5 4}
+a{color:var(--do)}
+:focus-visible{outline:2px solid var(--do);outline-offset:3px}
+</style>
+
+<main>
+
+<header style="display:flex;flex-direction:column;gap:18px">
+  <div class="eyebrow">rwmcp · setting it up with a coding agent</div>
+  <h1>Zero to First Plan</h1>
+  <p class="lede">What to install, what your agent does for you, and the one command you must never point at a real app.</p>
+</header>
+
+<!-- 1 WHO DOES WHAT -->
+<section>
+  <div class="eyebrow">01 · the division of labour</div>
+  <h2>Three parties, and only one of them is you</h2>
+  <p>Most of the setup that reads like manual work is an agent's job. Here is who does what, once you stop merging the two agents into one.</p>
+  <figure>
+    <svg viewBox="0 0 800 250" role="img" aria-label="Three columns: you provide the app and the goal; your coding agent writes the annotations and wants at setup time; the engine compiles and runs, calling the planner once per goal.">
+      <rect x="0" y="26" width="240" height="200" rx="10" class="box"/>
+      <text x="120" y="16" text-anchor="middle" class="tcm">YOU · ONCE</text>
+      <text x="120" y="56" text-anchor="middle" class="tb">the app + the goal</text>
+      <text x="120" y="86" text-anchor="middle" class="tm">an HTTP API you control</text>
+      <text x="120" y="108" text-anchor="middle" class="tm">idempotency on writes</text>
+      <text x="120" y="130" text-anchor="middle" class="tm">a sentence: what you want</text>
+      <text x="120" y="164" text-anchor="middle" class="tm">and you review what</text>
+      <text x="120" y="184" text-anchor="middle" class="tm">the agent drafts</text>
+
+      <path d="M244 126 H278" class="lnb"/>
+      <rect x="282" y="26" width="240" height="200" rx="10" class="bots"/>
+      <text x="402" y="16" text-anchor="middle" class="tcm">YOUR CODING AGENT · SETUP</text>
+      <text x="402" y="56" text-anchor="middle" class="tb">writes the declarations</text>
+      <rect x="300" y="72" width="204" height="34" rx="6" class="box"/>
+      <text x="402" y="94" text-anchor="middle" class="tc">/annotate-world-model</text>
+      <rect x="300" y="112" width="204" height="34" rx="6" class="box"/>
+      <text x="402" y="134" text-anchor="middle" class="tc">/write-wants</text>
+      <text x="402" y="170" text-anchor="middle" class="tm">drafts, then proves each one</text>
+      <text x="402" y="190" text-anchor="middle" class="tm">against the running app</text>
+
+      <path d="M526 126 H560" class="lnb"/>
+      <rect x="564" y="26" width="236" height="200" rx="10" class="box"/>
+      <text x="682" y="16" text-anchor="middle" class="tcm">THE ENGINE · EVERY RUN</text>
+      <text x="682" y="56" text-anchor="middle" class="tb">compiles and runs</text>
+      <text x="682" y="86" text-anchor="middle" class="tm">the DAG, the edges, the keys</text>
+      <text x="682" y="108" text-anchor="middle" class="tm">the ordering, the concurrency</text>
+      <text x="682" y="130" text-anchor="middle" class="tm">the receipt</text>
+      <rect x="582" y="146" width="200" height="34" rx="6" class="dos"/>
+      <text x="682" y="168" text-anchor="middle" class="tc">planner: 1 call per goal</text>
+      <text x="682" y="200" text-anchor="middle" class="tm">no skills here — a fixed prompt</text>
+    </svg>
+    <figcaption>The planner in the third column is <b>not</b> your coding agent. It is a model call the engine makes at runtime with a fixed system prompt. Skills apply to the middle column only.</figcaption>
+  </figure>
+</section>
+
+<!-- 2 INSTALL -->
+<section>
+  <div class="eyebrow">02 · install</div>
+  <h2>What you need on the machine</h2>
+  <div class="wrap">
+    <table>
+      <thead><tr><th>thing</th><th>needed for</th><th>skip it if</th></tr></thead>
+      <tbody>
+        <tr><td><b>Rust</b> (stable, <code>cargo</code>)</td><td>everything</td><td>never</td></tr>
+        <tr><td><b>A model endpoint</b><br><span style="color:var(--muted);font-size:13.5px">Anthropic key, or a local gateway</span></td><td>turning a goal into wants</td><td>you write the wants yourself — the engine never calls a model</td></tr>
+        <tr><td><b>Chrome</b></td><td>the <code>a11y</code> and <code>pixels</code> surfaces</td><td>your app has no button-only actions</td></tr>
+        <tr><td><b>Docker</b></td><td>the sandbox</td><td>you run on the host</td></tr>
+        <tr><td><b>A coding agent</b><br><span style="color:var(--muted);font-size:13.5px">Claude Code, Codex, Grok Build</span></td><td>drafting the declarations</td><td>you enjoy writing ten lines of JSON per operation</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <pre><code><span class="c"># get it, build it, watch it work before touching your own app</span>
+git clone &lt;rwmcp&gt; &amp;&amp; cd rwmcp
+cargo build --release
+
+make app      <span class="c"># the sample invoicing app on http://127.0.0.1:47310</span>
+make bench    <span class="c"># ours + the script ceiling, every phase ≤3 task</span>
+make verify RUN=results/&lt;stamp&gt;   <span class="c"># recompute every number from raw rows</span></code></pre>
+  <p>No API key needed for that: <code>make bench</code> defaults to <code>--planner handwritten</code>, which uses each task file's own wants.</p>
+</section>
+
+<!-- 3 THE TRAP -->
+<section>
+  <div class="eyebrow">03 · read this before you point it anywhere</div>
+  <h2>The one command that will wipe your app</h2>
+  <div class="stripe">
+    <p><b><code>bench run</code> is a benchmark harness, not a production runner.</b> Before <i>every single run</i> it calls <code>POST /oracle/reset</code> on the target and then <code>POST /oracle/chaos</code> to install failure injection. Against a real app it will either fail on a missing endpoint or, if you were unlucky enough to implement one, reset your data and start injecting faults.</p>
+  </div>
+  <pre><code><span class="c">// crates/bench/src/main.rs — inside the task × arm × run loop</span>
+oracle.reset(task.seed).await?;      <span class="c">// ← unconditional, every run</span>
+oracle.chaos(&amp;chaos).await?;</code></pre>
+  <p>So there are exactly two safe ways to run real work today:</p>
+  <div class="cols">
+    <div class="cell"><div class="h">against the sample app</div><h3><code>bench run --spawn</code></h3><p>Starts its own app on a free port and stops it at the end. This is the benchmark, and it is the right tool for measuring.</p></div>
+    <div class="cell"><div class="h">against your app</div><h3>the <code>rwmcp</code> command, or the crate</h3><p>Both plan and run without resetting anything. The command is the quick path; depending on the crate and driving the scheduler yourself is the embedded one.</p></div>
+  </div>
+  <div class="stripe b"><b>There is now an <code>rwmcp</code> command.</b> It takes a goal or a file of wants, prints the plan, and only executes when you say so — which is what an agent should drive, instead of writing glue. Its exact flags are being reworked as this is written, so take them from <code>rwmcp --help</code> rather than from here. What has not changed: nothing runs until you ask, and the plan is printed first.</div>
+  <div class="stripe" style="border-left-color:var(--do);background:var(--do-soft)"><b>Still missing:</b> no JS or Python package, no HTTP service, and no MCP server exposing rwmcp to another agent. Your coding agent shells out to the command or embeds the crate.</div>
+</section>
+
+<!-- 4 THE LOOP -->
+<section>
+  <div class="eyebrow">04 · the setup loop</div>
+  <h2>Draft, then prove</h2>
+  <p>Both skills work the same way, and the second half is the half that matters. A drafted footprint is a guess. A wrong <code>writes</code> list is the worst failure this design has: it deletes an edge, the plan looks <i>more</i> parallel, and two writes race with nothing in the output saying so.</p>
+  <figure>
+    <svg viewBox="0 0 800 200" role="img" aria-label="A loop: the agent drafts, the machine checks against the running app, a mismatch goes back to the agent, a match is done.">
+      <rect x="0" y="60" width="180" height="70" rx="10" class="bots"/>
+      <text x="90" y="88" text-anchor="middle" class="tb">agent drafts</text>
+      <text x="90" y="110" text-anchor="middle" class="tm">from your OpenAPI + handlers</text>
+      <path d="M184 95 H236" class="lnb"/>
+      <rect x="240" y="60" width="230" height="70" rx="10" class="box"/>
+      <text x="355" y="88" text-anchor="middle" class="tb">the machine checks</text>
+      <text x="355" y="110" text-anchor="middle" class="tm">call it · diff the state · compare</text>
+      <path d="M474 95 H526" class="ln"/>
+      <rect x="530" y="60" width="120" height="70" rx="10" class="box"/>
+      <text x="590" y="88" text-anchor="middle" class="tb">match?</text>
+      <text x="590" y="110" text-anchor="middle" class="tm">yes → done</text>
+      <path d="M590 134 V166 H90 V134" class="lnd"/>
+      <text x="340" y="182" text-anchor="middle" class="tm">no → back to the agent with what actually changed</text>
+      <rect x="676" y="60" width="124" height="70" rx="10" class="dos"/>
+      <text x="738" y="88" text-anchor="middle" class="tb">shipped</text>
+      <text x="738" y="110" text-anchor="middle" class="tm">verified, not drafted</text>
+      <path d="M654 95 H672" class="ln"/>
+    </svg>
+    <figcaption>The sample app makes the check mechanical rather than a judgement: every write logs its own footprint into <code>GET /oracle/effects</code> as a string like <code>"invoice:12,outbox:13"</code>. Against a real app, diff the database or its write-ahead log.</figcaption>
+  </figure>
+  <div class="wrap">
+    <table>
+      <thead><tr><th>skill</th><th>drafts</th><th>the check that ends it</th></tr></thead>
+      <tbody>
+        <tr><td><code>/annotate-world-model</code></td><td>the <code>x-reverse-webmcp</code> block for each operation</td><td>reset, call the operation, diff the state. Every row that changed must appear in <code>writes</code>.</td></tr>
+        <tr><td><code>/write-wants</code></td><td>the wants and forks for a goal</td><td><code>lint</code>, read <code>plan.render()</code>, then compile the same wants in a <b>different order</b> and diff the two plans.</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p>That last check has a history. Edges used to be oriented by the order the wants were written, so listing a report before the sends that feed it produced a report over draft invoices — committed, every check green, silently wrong. Fixed in <code>7ff8216</code>, with tests that compile T3's and T7's wants both ways and assert the same DAG. The skill keeps checking anyway, because a regression there is invisible without it.</p>
+</section>
+
+<!-- 5 PER AGENT -->
+<section>
+  <div class="eyebrow">05 · wiring your agent</div>
+  <h2>Claude Code, Codex, Grok Build</h2>
+  <p>A skill is a Markdown file with a name and a description. Claude Code loads them by convention; every other agent reads the same file as a prompt.</p>
+  <div class="cols">
+    <div class="cell">
+      <div class="h">Claude Code</div>
+      <h3>Nothing to install</h3>
+      <p>They live in <code>.claude/skills/</code> in the repo and load automatically. Type <code>/annotate-world-model</code> or <code>/write-wants</code>.</p>
+      <p style="color:var(--muted)">For your own app's repo, copy the two folders across.</p>
+    </div>
+    <div class="cell">
+      <div class="h">Codex</div>
+      <h3>Point AGENTS.md at them</h3>
+      <p>Codex reads <code>AGENTS.md</code> from the repo root. Add a line pointing at each <code>SKILL.md</code>, or paste the file's body in when you start the task.</p>
+    </div>
+    <div class="cell">
+      <div class="h">Grok Build / anything else</div>
+      <h3>Paste the file</h3>
+      <p>Open <code>.claude/skills/&lt;name&gt;/SKILL.md</code>, paste the body as your opening message, then give it your OpenAPI document.</p>
+    </div>
+  </div>
+  <div class="stripe b"><b>What to ask for, in either case.</b> <span class="chip">annotate</span> "Read my OpenAPI at <code>&lt;url&gt;</code> and the handlers in <code>&lt;dir&gt;</code>. Draft the <code>x-reverse-webmcp</code> block for every write operation, then verify each one against the app running at <code>&lt;url&gt;</code> and tell me which are verified and which are still drafts." &nbsp; <span class="chip">wants</span> "Turn this goal into wants for my world model, lint them, render the plan, and compile them in a second order to prove the DAG is stable."</div>
+</section>
+
+<!-- 6 END TO END -->
+<section>
+  <div class="eyebrow">06 · the whole thing</div>
+  <h2>Start to finish</h2>
+  <div class="steps">
+    <div class="step"><div class="n">1</div><div class="bd"><h3>Watch it work on the sample app</h3><pre><code>cargo build --release &amp;&amp; make bench</code></pre></div></div>
+    <div class="step"><div class="n">2</div><div class="bd"><h3>Annotate your own app</h3><p>Run <code>/annotate-world-model</code> against your OpenAPI and your handlers. Review what it drafts; ship only what it verified.</p></div></div>
+    <div class="step"><div class="n">3</div><div class="bd"><h3>Add idempotency to your writes</h3><p>Accept an <code>idempotency-key</code> header; the same key returns the first response and changes nothing. Without this, "zero double-sends" is not true of your app, whatever the receipt says.</p></div></div>
+    <div class="step"><div class="n">4</div><div class="bd"><h3>Write the glue</h3><pre><code>let world = Arc::new(rwmcp::world_from(base).await?);
+let intent = Intent { goal: "…".into(), wants, ..Default::default() };
+let plan = rwmcp::compile(&amp;intent, &amp;world, &amp;opts)?;
+let outcome = sched.run(&amp;plan, &amp;mut ledger).await;</code></pre><p>Ask your agent for this too — it is the same four lines every time.</p></div></div>
+    <div class="step"><div class="n">5</div><div class="bd"><h3>Read the receipt</h3><p><code>committed</code>: every keyed node has an ok row. <code>need_think</code>: it stopped at a declared fork, and <code>yield_reason</code> says which. <code>error</code>: a step failed and it names it.</p></div></div>
+  </div>
+</section>
+
+<footer style="color:var(--muted);font-size:14px;display:flex;flex-direction:column;gap:8px">
+  <div style="height:1px;background:var(--line)"></div>
+  <div>rwmcp, formerly chiffon. Skills at <code>.claude/skills/</code>; the reset behaviour is in <code>crates/bench/src/main.rs</code>; the edge-orientation fix is <code>7ff8216</code>.</div>
+</footer>
+
+</main>
+
+</body>
+</html>

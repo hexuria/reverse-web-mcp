@@ -434,6 +434,7 @@ async fn expand_val(v: &zerohuman::pred::Val, client: &reqwest::Client, base: &s
             }
             Ok(if changed { Some(Val::Entity(Box::new(p2))) } else { None })
         }
+        Val::All(inner) => Ok(expand_val(inner, client, base).await?.map(|nv| Val::All(Box::new(nv)))),
         Val::List(xs) => {
             let mut ys = Vec::new();
             let mut changed = false;

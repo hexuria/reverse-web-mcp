@@ -102,3 +102,26 @@ async fn a_bare_each_customer_means_every_customer() {
     let plan = compile(&expanded, &Arc::new(world), &CompileOptions::default()).unwrap();
     assert_eq!(plan.nodes.len(), 30, "ten customers, three nodes each");
 }
+
+#[tokio::test]
+async fn a_selector_inside_all_is_expanded_too() {
+    let (tx, _) = broadcast::channel(1024);
+    let state = Arc::new(AppState { world: Mutex::new(AppWorld::seeded(2)), events: tx });
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let addr = listener.local_addr().unwrap();
+    tokio::spawn(async move {
+        axum::serve(listener, router(state)).await.unwrap();
+    });
+    let base = format!("http://{addr}");
+    let intent = Intent {
+        goal: "all".into(),
+        wants: vec!["invoice(customer=each(customer())).exists".into(), "report(invoices=[all(invoice(customer=each(customer())))]).exists".into()],
+        ..Default::default()
+    };
+    let world = world_from(&base).await.unwrap();
+    let expanded = expand_selectors(&intent, &base).await.unwrap();
+    assert!(zerohuman::intent::lint(&expanded, &world, &CompileOptions::default()).is_empty(), "the selector inside all() was expanded");
+    let plan = compile(&expanded, &Arc::new(world), &CompileOptions::default()).unwrap();
+    assert_eq!(plan.nodes.iter().filter(|n| n.op == "createReport").count(), 1, "one report over all ten");
+    assert_eq!(plan.nodes.iter().filter(|n| n.op == "createInvoice").count(), 10);
+}

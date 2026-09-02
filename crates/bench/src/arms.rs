@@ -122,16 +122,16 @@ pub async fn run_ours_planned(task: &Task, ctx: &ArmContext, req: Option<PlanReq
     let opts = CompileOptions { plan_id: format!("{}-{}", task.id, ctx.run_id), surfaces: ctx.surfaces.clone() };
     let mut cache_hit = false;
     let planned = match req.cache {
-        Some(cache) => crate::planner::plan_cached(cache, task, &ctx.world, &req.facts, req.sampler, &mut ledger, &opts).await.map(|(i, hit)| {
-            cache_hit = hit;
-            i
-        }),
-        None => crate::planner::plan_with_lint(task, &ctx.world, &req.facts, req.sampler, &mut ledger, &opts).await,
+        Some(cache) => {
+            crate::planner::plan_cached(cache, task, &ctx.world, &req.facts, req.sampler, &mut ledger, &opts, Some(&ctx.base)).await.map(|(i, hit)| {
+                cache_hit = hit;
+                i
+            })
+        }
+        None => crate::planner::plan_with_lint(task, &ctx.world, &req.facts, req.sampler, &mut ledger, &opts, Some(&ctx.base)).await,
     };
     match planned {
         Ok(intent) => {
-            // Selectors like each(customer(name_prefix='…')) become names by a read, not a sample.
-            let intent = crate::planner::expand_selectors(&intent, &ctx.base).await?;
             let receipt = run_ours(task, ctx, Some(intent.clone()), ledger, Some(Planner { sampler: req.sampler, facts: req.facts })).await?;
             Ok(OursOutcome { receipt, intent, cache_hit })
         }

@@ -76,7 +76,9 @@ fn intent_from(resp: &Value, task: &Task) -> anyhow::Result<Intent> {
 }
 
 /// Plan, lint, and if the intent is wrong hand the errors back exactly once.
-/// Plan, lint, and hand the errors back up to twice. Every attempt is a counted sample.
+#[allow(clippy::too_many_arguments)]
+/// Plan, expand selectors by reading the app, lint, and hand the errors back up to twice. Every
+/// attempt is a counted sample; the expansion is a read.
 pub async fn plan_with_lint(
     task: &Task,
     world: &World,
@@ -84,15 +86,22 @@ pub async fn plan_with_lint(
     sampler: &dyn Sampler,
     ledger: &mut Ledger,
     opts: &CompileOptions,
+    base: Option<&str>,
 ) -> anyhow::Result<Intent> {
     let mut intent = plan_intent(task, world, facts, sampler, ledger).await?;
     for _ in 0..2 {
+        if let Some(b) = base {
+            intent = expand_selectors(&intent, b).await?;
+        }
         let errs = lint(&intent, world, opts);
         if errs.is_empty() {
             return Ok(intent);
         }
         ledger.notes.push(json!({"lint": errs.iter().map(|e| e.to_string()).collect::<Vec<_>>(), "wants": intent.wants}));
         intent = replan(task, world, facts, &intent, &errs, sampler, ledger).await?;
+    }
+    if let Some(b) = base {
+        intent = expand_selectors(&intent, b).await?;
     }
     let errs = lint(&intent, world, opts);
     if errs.is_empty() {
@@ -283,6 +292,7 @@ impl IntentCache {
 }
 
 /// Plan through the cache: a hit is free, a miss is planned, linted and stored.
+#[allow(clippy::too_many_arguments)]
 pub async fn plan_cached(
     cache: &IntentCache,
     task: &Task,
@@ -291,11 +301,12 @@ pub async fn plan_cached(
     sampler: &dyn Sampler,
     ledger: &mut Ledger,
     opts: &CompileOptions,
+    base: Option<&str>,
 ) -> anyhow::Result<(Intent, bool)> {
     if let Some(i) = cache.get(&task.goal, facts, &opts.surfaces) {
         return Ok((i, true));
     }
-    let i = plan_with_lint(task, world, facts, sampler, ledger, opts).await?;
+    let i = plan_with_lint(task, world, facts, sampler, ledger, opts, base).await?;
     cache.put(&task.goal, facts, &opts.surfaces, &i)?;
     Ok((i, false))
 }

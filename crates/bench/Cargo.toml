@@ -13,7 +13,7 @@ name = "bench"
 path = "src/main.rs"
 
 [dependencies]
-zerohuman = { path = "../zerohuman" }
+rwmcp = { path = "../rwmcp" }
 driver = { path = "../driver" }
 anyhow.workspace = true
 serde.workspace = true

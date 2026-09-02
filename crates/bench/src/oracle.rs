@@ -3,8 +3,8 @@
 use std::sync::Arc;
 use std::time::Duration;
 
+use rwmcp::events::EventBus;
 use serde_json::{json, Value};
-use zerohuman::events::EventBus;
 
 #[derive(Clone)]
 pub struct Oracle {

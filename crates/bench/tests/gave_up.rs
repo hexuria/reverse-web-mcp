@@ -9,11 +9,11 @@ use bench::arms::ArmContext;
 use bench::loops::run_mcp_loop;
 use bench::planner::Sampler;
 use bench::tasks::Task;
+use rwmcp::events::EventBus;
+use rwmcp::ledger::{Ledger, Sample, SampleKind};
+use rwmcp::Status;
 use serde_json::{json, Value};
 use tokio::sync::broadcast;
-use zerohuman::events::EventBus;
-use zerohuman::ledger::{Ledger, Sample, SampleKind};
-use zerohuman::Status;
 
 struct Says(&'static str);
 
@@ -36,7 +36,7 @@ async fn ctx() -> ArmContext {
         axum::serve(listener, router(state)).await.unwrap();
     });
     let base = format!("http://{addr}");
-    let world = Arc::new(zerohuman::world_from(&base).await.unwrap());
+    let world = Arc::new(rwmcp::world_from(&base).await.unwrap());
     ArmContext {
         base: base.clone(),
         world,

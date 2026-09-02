@@ -1,8 +1,8 @@
 //! plan_ms and run_ms are derived from sample and effect spans, never stored as claims.
 
+use rwmcp::ledger::{Ledger, Row, Sample, SampleKind};
+use rwmcp::Plan;
 use serde_json::json;
-use zerohuman::ledger::{Ledger, Row, Sample, SampleKind};
-use zerohuman::Plan;
 
 fn sample(kind: SampleKind, s: u128, e: u128, tin: u64, tout: u64) -> Sample {
     Sample { seq: 0, kind, started_us: s, ended_us: e, tokens_in: tin, tokens_out: tout, model: "grok-4.6".into(), effort: "low".into() }
@@ -32,7 +32,7 @@ fn one_slow_thought_and_ten_fast_effects() {
         l.rows.push(row(&format!("n{i}"), 6_010_000, 6_013_000));
     }
     let plan = Plan { plan_id: "p".into(), goal: String::new(), nodes: vec![], edges: vec![], gates: vec![] };
-    let r = l.receipt(&plan, zerohuman::Status::Committed, None, None, None);
+    let r = l.receipt(&plan, rwmcp::Status::Committed, None, None, None);
     assert_eq!(r.plan_ms, 5000);
     assert_eq!(r.run_ms, 3);
     assert_eq!(r.max_parallel, 10);

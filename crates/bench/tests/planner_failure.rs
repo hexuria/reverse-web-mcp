@@ -8,11 +8,11 @@ use async_trait::async_trait;
 use bench::arms::{run_ours_planned, ArmContext, PlanRequest};
 use bench::planner::Sampler;
 use bench::tasks::Task;
+use rwmcp::events::EventBus;
+use rwmcp::ledger::{Ledger, Sample, SampleKind};
+use rwmcp::Status;
 use serde_json::{json, Value};
 use tokio::sync::broadcast;
-use zerohuman::events::EventBus;
-use zerohuman::ledger::{Ledger, Sample, SampleKind};
-use zerohuman::Status;
 
 struct Nothing;
 
@@ -35,7 +35,7 @@ async fn a_failed_planner_is_an_error_not_the_handwritten_intent() {
     });
     let base = format!("http://{addr}");
     let task = Task::load(std::path::Path::new(concat!(env!("CARGO_MANIFEST_DIR"), "/../../tasks/T1.toml"))).unwrap();
-    let world = Arc::new(zerohuman::world_from(&base).await.unwrap());
+    let world = Arc::new(rwmcp::world_from(&base).await.unwrap());
     let ctx = ArmContext {
         base: base.clone(),
         world,

@@ -1,5 +1,5 @@
 [package]
-name = "zerohuman"
+name = "rwmcp"
 description = "World model deriver, intent graph, compiler, scheduler, ledger, effectors"
 version.workspace = true
 edition.workspace = true

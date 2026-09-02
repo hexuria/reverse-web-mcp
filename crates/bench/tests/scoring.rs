@@ -86,7 +86,7 @@ fn summarize_uses_medians_per_task_and_arm() {
 
 #[test]
 fn a_corrupt_result_file_is_an_error_not_a_smaller_sample() {
-    let dir = std::env::temp_dir().join(format!("chiffon-scoring-{}", std::process::id()));
+    let dir = std::env::temp_dir().join(format!("rwmcp-scoring-{}", std::process::id()));
     std::fs::create_dir_all(&dir).unwrap();
     std::fs::write(dir.join("T1-D-1.json"), serde_json::to_string(&result("T1", "D", 1, 1, 1, true)).unwrap()).unwrap();
     assert_eq!(load_results(&dir).unwrap().len(), 1);

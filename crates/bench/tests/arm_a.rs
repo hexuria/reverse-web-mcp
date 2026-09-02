@@ -11,11 +11,11 @@ use bench::loops::run_cua_loop;
 use bench::planner::Sampler;
 use bench::tasks::Task;
 use driver::{find_chrome, BrowserPool};
+use rwmcp::events::EventBus;
+use rwmcp::ledger::{Ledger, Sample, SampleKind};
+use rwmcp::Status;
 use serde_json::{json, Value};
 use tokio::sync::broadcast;
-use zerohuman::events::EventBus;
-use zerohuman::ledger::{Ledger, Sample, SampleKind};
-use zerohuman::Status;
 
 struct Clicks(Mutex<u32>);
 
@@ -54,7 +54,7 @@ async fn the_pixel_loop_sees_only_screenshots_and_records_pixel_rows() {
     });
     let base = format!("http://{addr}");
     let task: Task = toml::from_str("id = \"T1\"\ntitle = \"t\"\nseed = 1\ngoal = \"Create an invoice for Acme and send it.\"\n").unwrap();
-    let world = Arc::new(zerohuman::world_from(&base).await.unwrap());
+    let world = Arc::new(rwmcp::world_from(&base).await.unwrap());
     let pool = BrowserPool::launch(1, true, Some(&chrome)).await.unwrap();
     let ctx = ArmContext {
         base: base.clone(),

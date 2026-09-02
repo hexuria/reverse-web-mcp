@@ -8,10 +8,10 @@ use app::{router, AppState};
 use bench::arms::{run_ours, ArmContext};
 use bench::tasks::Task;
 use driver::{find_chrome, BrowserPool};
+use rwmcp::events::EventBus;
+use rwmcp::{Ledger, Status};
 use serde_json::{json, Value};
 use tokio::sync::broadcast;
-use zerohuman::events::EventBus;
-use zerohuman::{Ledger, Status};
 
 #[tokio::test]
 async fn approve_is_one_screen_lane_inside_a_wide_api_plan() {
@@ -31,7 +31,7 @@ async fn approve_is_one_screen_lane_inside_a_wide_api_plan() {
     c.post(format!("{base}/oracle/chaos")).json(&json!({"require_approval": true, "latency_ms": 25})).send().await.unwrap();
 
     let task = Task::load(std::path::Path::new(concat!(env!("CARGO_MANIFEST_DIR"), "/../../tasks/T7.toml"))).unwrap();
-    let world = Arc::new(zerohuman::world_from(&base).await.unwrap());
+    let world = Arc::new(rwmcp::world_from(&base).await.unwrap());
     let pool = BrowserPool::launch(1, true, Some(&chrome)).await.unwrap();
     let ctx = ArmContext {
         base: base.clone(),

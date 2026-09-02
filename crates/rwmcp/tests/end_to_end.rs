@@ -6,12 +6,12 @@ use std::sync::{Arc, Mutex};
 
 use app::domain::World as AppWorld;
 use app::{router, AppState};
+use rwmcp::events::EventBus;
+use rwmcp::intent::Intent;
+use rwmcp::ledger::Recorder;
+use rwmcp::{compile, default_effectors, world_from, CompileOptions, Ledger, Scheduler, Status};
 use serde_json::{json, Value};
 use tokio::sync::broadcast;
-use zerohuman::events::EventBus;
-use zerohuman::intent::Intent;
-use zerohuman::ledger::Recorder;
-use zerohuman::{compile, default_effectors, world_from, CompileOptions, Ledger, Scheduler, Status};
 
 async fn serve(seed: u64) -> String {
     let (tx, _) = broadcast::channel(1024);
@@ -40,7 +40,7 @@ fn wants(names: &[&str], report: bool) -> Vec<String> {
     w
 }
 
-async fn run(base: &str, wants: Vec<String>) -> (zerohuman::Receipt, Value) {
+async fn run(base: &str, wants: Vec<String>) -> (rwmcp::Receipt, Value) {
     let world = Arc::new(world_from(base).await.unwrap());
     let intent = Intent { goal: "test".into(), wants, ..Default::default() };
     let opts = CompileOptions { plan_id: "e2e".into(), surfaces: vec!["api".into()] };
@@ -159,7 +159,7 @@ async fn a_lost_webhook_is_caught_by_the_state_check() {
     let opts = CompileOptions { plan_id: "lost".into(), surfaces: vec!["api".into()] };
     let plan = compile(&intent, &world, &opts).unwrap();
     let bus = EventBus::connect(&base).await.unwrap();
-    let policy = zerohuman::Policy { check_every: std::time::Duration::from_millis(700), ..Default::default() };
+    let policy = rwmcp::Policy { check_every: std::time::Duration::from_millis(700), ..Default::default() };
     let sched = Scheduler {
         effectors: default_effectors(&base, world.clone(), &opts.surfaces),
         bus: Some(bus),

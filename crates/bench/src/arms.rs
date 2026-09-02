@@ -9,17 +9,17 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Duration;
 
+use rwmcp::ledger::{now_ms, Ledger, Receipt, Recorder, Status};
+use rwmcp::plan::Plan;
+use rwmcp::{compile, CompileOptions, Scheduler, World};
 use serde_json::{json, Value};
-use zerohuman::ledger::{now_ms, Ledger, Receipt, Recorder, Status};
-use zerohuman::plan::Plan;
-use zerohuman::{compile, CompileOptions, Scheduler, World};
 
 use crate::tasks::{ScriptSpec, Task};
 
 pub struct ArmContext {
     pub base: String,
     pub world: Arc<World>,
-    pub bus: Arc<zerohuman::events::EventBus>,
+    pub bus: Arc<rwmcp::events::EventBus>,
     pub surfaces: Vec<String>,
     pub run_id: String,
     /// A browser, when a screen surface is in play. One page per screen lane.
@@ -30,10 +30,10 @@ pub struct ArmContext {
     pub max_turns: u32,
 }
 
-/// The effectors for this run: the API and MCP doors from zerohuman, plus the accessibility door
+/// The effectors for this run: the API and MCP doors from rwmcp, plus the accessibility door
 /// from the driver when a browser is available.
-pub fn effectors_for(ctx: &ArmContext) -> HashMap<String, Arc<dyn zerohuman::effectors::Effector>> {
-    let mut m = zerohuman::default_effectors(&ctx.base, ctx.world.clone(), &ctx.surfaces);
+pub fn effectors_for(ctx: &ArmContext) -> HashMap<String, Arc<dyn rwmcp::effectors::Effector>> {
+    let mut m = rwmcp::default_effectors(&ctx.base, ctx.world.clone(), &ctx.surfaces);
     if ctx.surfaces.iter().any(|s| s == "a11y") {
         if let Some(pool) = &ctx.browser {
             m.insert("a11y".into(), Arc::new(driver::A11yEffector::new(&ctx.base, pool.clone())));
@@ -58,7 +58,7 @@ pub struct Planner<'a> {
 pub async fn run_ours(
     task: &Task,
     ctx: &ArmContext,
-    intent: Option<zerohuman::Intent>,
+    intent: Option<rwmcp::Intent>,
     mut ledger: Ledger,
     planner: Option<Planner<'_>>,
 ) -> anyhow::Result<Receipt> {
@@ -106,7 +106,7 @@ pub struct PlanRequest<'a> {
 pub struct OursOutcome {
     pub receipt: Receipt,
     /// The intent that was compiled, or the planner's last attempt when planning failed.
-    pub intent: zerohuman::Intent,
+    pub intent: rwmcp::Intent,
     pub cache_hit: bool,
 }
 
@@ -139,12 +139,12 @@ pub async fn run_ours_planned(task: &Task, ctx: &ArmContext, req: Option<PlanReq
             let empty = Plan { plan_id: opts.plan_id.clone(), goal: task.goal.clone(), nodes: vec![], edges: vec![], gates: vec![] };
             ledger.ended_ms = now_ms();
             let receipt = ledger.receipt(&empty, Status::Error, None, None, Some(format!("planner: {e}")));
-            Ok(OursOutcome { receipt, intent: zerohuman::Intent { goal: task.goal.clone(), ..Default::default() }, cache_hit })
+            Ok(OursOutcome { receipt, intent: rwmcp::Intent { goal: task.goal.clone(), ..Default::default() }, cache_hit })
         }
     }
 }
 
-fn compile_failed(opts: &CompileOptions, intent: &zerohuman::Intent, mut ledger: Ledger, e: zerohuman::compiler::CompileError) -> Receipt {
+fn compile_failed(opts: &CompileOptions, intent: &rwmcp::Intent, mut ledger: Ledger, e: rwmcp::compiler::CompileError) -> Receipt {
     let empty = Plan { plan_id: opts.plan_id.clone(), goal: intent.goal.clone(), nodes: vec![], edges: vec![], gates: vec![] };
     ledger.ended_ms = now_ms();
     ledger.receipt(&empty, Status::Error, None, None, Some(format!("compile: {e}")))

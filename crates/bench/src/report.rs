@@ -221,10 +221,10 @@ pub fn write_report(dir: &Path, results: &[RunResult], titles: &BTreeMap<String,
     tasks.dedup();
 
     let mut html = String::new();
-    html.push_str("<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\"><title>chiffon bench</title><style>");
+    html.push_str("<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\"><title>rwmcp bench</title><style>");
     html.push_str("body{font:15px/1.5 system-ui,sans-serif;margin:0;padding:32px;background:#f3f5f2;color:#1a2321;max-width:1100px}h1{font-size:26px;margin:0 0 4px}h2{font-size:18px;margin:32px 0 8px}p{color:#4b5955;max-width:70ch}table{border-collapse:collapse;width:100%;background:#fff;font-variant-numeric:tabular-nums;font-size:14px}th,td{padding:7px 10px;border-bottom:1px solid #d5dcd7;text-align:left}th{font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:#4b5955;background:#e9eeea}td.ok{color:#2f7d4f;font-weight:600}td.bad{color:#b23a2e;font-weight:600}td.hot{background:#dceef0;font-weight:600}code{font-family:ui-monospace,monospace;background:#eef2ef;padding:1px 5px;border-radius:4px}details{margin-top:10px}pre{font-size:12px;background:#eef2ef;padding:10px;overflow-x:auto;border-radius:6px}");
     html.push_str("</style></head><body>");
-    html.push_str(&format!("<h1>chiffon bench</h1><p>run directory <code>{}</code>. Every figure is recomputed from the stored ledgers and oracle snapshots. The decisive column is <b>max parallel</b>: the largest number of effects in flight at one instant.</p>", dir.display()));
+    html.push_str(&format!("<h1>rwmcp bench</h1><p>run directory <code>{}</code>. Every figure is recomputed from the stored ledgers and oracle snapshots. The decisive column is <b>max parallel</b>: the largest number of effects in flight at one instant.</p>", dir.display()));
 
     for t in &tasks {
         let title = titles.get(t).cloned().unwrap_or_default();

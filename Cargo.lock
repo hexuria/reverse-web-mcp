@@ -250,6 +250,7 @@ dependencies = [
  "futures",
  "hex",
  "reqwest 0.12.28",
+ "rwmcp",
  "serde",
  "serde_json",
  "sha2",
@@ -257,7 +258,6 @@ dependencies = [
  "toml",
  "tracing",
  "tracing-subscriber",
- "zerohuman",
 ]
 
 [[package]]
@@ -595,10 +595,10 @@ dependencies = [
  "chromiumoxide",
  "futures",
  "reqwest 0.12.28",
+ "rwmcp",
  "serde_json",
  "tokio",
  "tracing",
- "zerohuman",
 ]
 
 [[package]]
@@ -1782,6 +1782,24 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cf54715a573b99ac80df0bc206da022bcd442c974952c7b9720069370852e21f"
 
 [[package]]
+name = "rwmcp"
+version = "0.1.0"
+dependencies = [
+ "app",
+ "async-trait",
+ "axum",
+ "futures",
+ "hex",
+ "reqwest 0.12.28",
+ "serde",
+ "serde_json",
+ "sha2",
+ "thiserror",
+ "tokio",
+ "tracing",
+]
+
+[[package]]
 name = "ryu"
 version = "1.0.23"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2839,24 +2857,6 @@ dependencies = [
  "quote",
  "syn 2.0.119",
  "synstructure",
-]
-
-[[package]]
-name = "zerohuman"
-version = "0.1.0"
-dependencies = [
- "app",
- "async-trait",
- "axum",
- "futures",
- "hex",
- "reqwest 0.12.28",
- "serde",
- "serde_json",
- "sha2",
- "thiserror",
- "tokio",
- "tracing",
 ]
 
 [[package]]

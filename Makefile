@@ -1,4 +1,4 @@
-# chiffon: one command to build, run, report and verify.
+# rwmcp: one command to build, run, report and verify.
 #
 #   make bench            arms D and E on every phase ≤3 task, 5 runs each
 #   make bench ARMS=D,E,B2 RUNS=3 TASKS=T2,T3

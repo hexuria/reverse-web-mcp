@@ -11,7 +11,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use clap::{Parser, Subcommand};
-use zerohuman::events::EventBus;
+use rwmcp::events::EventBus;
 
 use arms::ArmContext;
 use oracle::Oracle;
@@ -19,7 +19,7 @@ use report::RunResult;
 use tasks::Task;
 
 #[derive(Parser)]
-#[command(name = "bench", about = "chiffon benchmark runner")]
+#[command(name = "bench", about = "rwmcp benchmark runner")]
 struct Cli {
     #[command(subcommand)]
     cmd: Cmd,
@@ -130,13 +130,13 @@ async fn run(opts: RunOpts) -> anyhow::Result<()> {
     let all = Task::load_dir(&tasks_dir)?;
     let tasks: Vec<Task> = all.into_iter().filter(|t| wanted.as_ref().map_or(t.phase <= phase, |w| w.contains(&t.id))).collect();
 
-    let world = Arc::new(zerohuman::world_from(&base).await?);
+    let world = Arc::new(rwmcp::world_from(&base).await?);
     let needs_model = opts.needs_model();
     let wants_screen = surfaces.iter().any(|s| s == "a11y" || s == "pixels");
     let wants_pages = arms.iter().any(|a| a == "C" || a == "A");
     let browser = if wants_screen || wants_pages {
         let chrome = driver::find_chrome();
-        let pages = if wants_pages { zerohuman::Pools::default().per_surface.get("webmcp").copied().unwrap_or(4) } else { 1 };
+        let pages = if wants_pages { rwmcp::Pools::default().per_surface.get("webmcp").copied().unwrap_or(4) } else { 1 };
         Some(driver::BrowserPool::launch(pages, true, chrome.as_deref()).await?)
     } else {
         None
@@ -209,15 +209,9 @@ async fn run(opts: RunOpts) -> anyhow::Result<()> {
                     }
                     other => {
                         let plan =
-                            zerohuman::Plan { plan_id: format!("{}-{other}", task.id), goal: task.goal.clone(), nodes: vec![], edges: vec![], gates: vec![] };
-                        let ledger = zerohuman::Ledger::new();
-                        ledger.receipt(
-                            &plan,
-                            zerohuman::Status::Error,
-                            None,
-                            None,
-                            Some(format!("arm {other} is not wired in this build (needs a model client)")),
-                        )
+                            rwmcp::Plan { plan_id: format!("{}-{other}", task.id), goal: task.goal.clone(), nodes: vec![], edges: vec![], gates: vec![] };
+                        let ledger = rwmcp::Ledger::new();
+                        ledger.receipt(&plan, rwmcp::Status::Error, None, None, Some(format!("arm {other} is not wired in this build (needs a model client)")))
                     }
                 };
                 if let Some(h) = hook {
@@ -228,9 +222,9 @@ async fn run(opts: RunOpts) -> anyhow::Result<()> {
                 let effects = oracle.effects().await?;
                 let double_sends = effects.get("double_sends").and_then(|d| d.as_u64()).unwrap_or(0) as usize;
                 let status = match receipt.status {
-                    zerohuman::Status::Committed => "committed",
-                    zerohuman::Status::NeedThink => "need_think",
-                    zerohuman::Status::Error => "error",
+                    rwmcp::Status::Committed => "committed",
+                    rwmcp::Status::NeedThink => "need_think",
+                    rwmcp::Status::Error => "error",
                 };
                 let receipt_json = serde_json::to_value(&receipt)?;
                 let expect = task.expect.applicable(tasks::resumed_after_fork(&receipt_json));

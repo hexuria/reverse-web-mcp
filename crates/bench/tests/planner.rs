@@ -5,9 +5,9 @@ use std::sync::Mutex;
 use async_trait::async_trait;
 use bench::planner::{plan_with_lint, Sampler};
 use bench::tasks::Task;
+use rwmcp::ledger::{Ledger, Sample, SampleKind};
+use rwmcp::{CompileOptions, World};
 use serde_json::{json, Value};
-use zerohuman::ledger::{Ledger, Sample, SampleKind};
-use zerohuman::{CompileOptions, World};
 
 struct Scripted(Mutex<Vec<Vec<&'static str>>>);
 
@@ -92,7 +92,7 @@ fn long_runs_of_numbered_names_are_summarised() {
 #[tokio::test]
 async fn a_repeat_goal_costs_zero_samples() {
     use bench::planner::{plan_cached, IntentCache};
-    let dir = std::env::temp_dir().join(format!("chiffon-cache-{}", std::process::id()));
+    let dir = std::env::temp_dir().join(format!("rwmcp-cache-{}", std::process::id()));
     let _ = std::fs::remove_dir_all(&dir);
     let cache = IntentCache::new(&dir);
     let sampler = Scripted(Mutex::new(vec![vec!["invoice(customer=customer(name='Acme')).status='sent'"]]));

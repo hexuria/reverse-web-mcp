@@ -1,8 +1,8 @@
 //! The world model, derived from the target app's OpenAPI document. Never authored by hand.
 //!
-//! Each operation carries an `x-zerohuman` block: postcondition, requirements, read/write
+//! Each operation carries an `x-reverse-webmcp` block: postcondition, requirements, read/write
 //! footprint, which surfaces expose it and at what cost. Events and UI-only actions come
-//! from `x-zerohuman-events` and `x-zerohuman-ui` at the document root.
+//! from `x-reverse-webmcp-events` and `x-reverse-webmcp-ui` at the document root.
 
 use std::collections::BTreeMap;
 
@@ -73,7 +73,7 @@ pub struct UiSpec {
 pub enum OpKind {
     /// An HTTP operation from `paths`.
     Http,
-    /// A UI-only action from `x-zerohuman-ui`.
+    /// A UI-only action from `x-reverse-webmcp-ui`.
     Ui,
     /// Something the outside world does; satisfied by waiting on an event.
     Event,
@@ -145,7 +145,7 @@ fn fork(v: Option<&Value>) -> Option<Fork> {
 impl World {
     pub fn from_openapi(doc: &Value) -> Result<World, WorldError> {
         let mut entities = Vec::new();
-        if let Some(es) = doc.get("x-zerohuman-entities").and_then(|e| e.as_object()) {
+        if let Some(es) = doc.get("x-reverse-webmcp-entities").and_then(|e| e.as_object()) {
             for (name, spec) in es {
                 entities.push(Entity {
                     name: name.clone(),
@@ -160,7 +160,7 @@ impl World {
         for (path, methods) in paths {
             let Some(methods) = methods.as_object() else { continue };
             for (method, spec) in methods {
-                let Some(zh) = spec.get("x-zerohuman") else { continue };
+                let Some(zh) = spec.get("x-reverse-webmcp") else { continue };
                 let name = spec
                     .get("operationId")
                     .and_then(|s| s.as_str())
@@ -209,7 +209,7 @@ impl World {
             }
         }
 
-        if let Some(ui) = doc.get("x-zerohuman-ui").and_then(|u| u.as_object()) {
+        if let Some(ui) = doc.get("x-reverse-webmcp-ui").and_then(|u| u.as_object()) {
             for (name, zh) in ui {
                 let post = post(zh.get("post"), name)?;
                 let route = zh.get("route").and_then(|r| r.as_str()).unwrap_or("/").to_string();
@@ -241,7 +241,7 @@ impl World {
             }
         }
 
-        if let Some(evs) = doc.get("x-zerohuman-events").and_then(|e| e.as_object()) {
+        if let Some(evs) = doc.get("x-reverse-webmcp-events").and_then(|e| e.as_object()) {
             for (name, zh) in evs {
                 let post = post(zh.get("post"), name)?;
                 ops.push(Op {

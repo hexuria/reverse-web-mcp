@@ -3,10 +3,10 @@
 //! Behind the `Sampler` trait so the lint loop and the fork answer are testable with a stub.
 
 use async_trait::async_trait;
+use rwmcp::intent::{lint, Intent, IntentFork, LintError};
+use rwmcp::ledger::{Ledger, SampleKind};
+use rwmcp::{CompileOptions, World};
 use serde_json::{json, Value};
-use zerohuman::intent::{lint, Intent, IntentFork, LintError};
-use zerohuman::ledger::{Ledger, SampleKind};
-use zerohuman::{CompileOptions, World};
 
 use crate::loops::ModelClient;
 use crate::tasks::Task;
@@ -364,7 +364,7 @@ pub fn summarise_names(names: &[String]) -> String {
 /// Replace `each(customer(name_prefix='X'))` with the matching names, read from the app.
 /// A read before compiling, not a sample; keys come out identical to the written-out form.
 pub async fn expand_selectors(intent: &Intent, base: &str) -> anyhow::Result<Intent> {
-    use zerohuman::pred::Pred;
+    use rwmcp::pred::Pred;
     let client = reqwest::Client::new();
     let mut out = intent.clone();
     for w in out.wants.iter_mut() {
@@ -384,8 +384,8 @@ pub async fn expand_selectors(intent: &Intent, base: &str) -> anyhow::Result<Int
 }
 
 #[async_recursion::async_recursion]
-async fn expand_val(v: &zerohuman::pred::Val, client: &reqwest::Client, base: &str) -> anyhow::Result<Option<zerohuman::pred::Val>> {
-    use zerohuman::pred::{Pred, Val};
+async fn expand_val(v: &rwmcp::pred::Val, client: &reqwest::Client, base: &str) -> anyhow::Result<Option<rwmcp::pred::Val>> {
+    use rwmcp::pred::{Pred, Val};
     match v {
         Val::Each(items) if items.len() == 1 => {
             // each(customer(name_prefix='X')) selects by prefix; each(customer()) selects every one.

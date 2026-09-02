@@ -86,7 +86,7 @@ pub async fn handle(State(state): State<Shared>, Json(req): Json<Value>) -> Resp
     let method = req.get("method").and_then(|m| m.as_str()).unwrap_or("");
     match method {
         "initialize" => {
-            Json(rpc_ok(id, json!({"protocolVersion":"2025-06-18","capabilities":{"tools":{}},"serverInfo":{"name":"chiffon-target-app","version":"0.1.0"}})))
+            Json(rpc_ok(id, json!({"protocolVersion":"2025-06-18","capabilities":{"tools":{}},"serverInfo":{"name":"rwmcp-target-app","version":"0.1.0"}})))
                 .into_response()
         }
         "notifications/initialized" | "ping" => {

@@ -3,9 +3,9 @@
 use std::sync::Arc;
 use std::time::Duration;
 
+use rwmcp::ledger::{Ledger, Recorder};
+use rwmcp::World;
 use serde_json::{json, Value};
-use zerohuman::ledger::{Ledger, Recorder};
-use zerohuman::World;
 
 fn world() -> Arc<World> {
     let doc: Value = serde_json::from_str(include_str!("../../app/static/openapi.json")).unwrap();

@@ -44,7 +44,7 @@ impl BrowserPool {
         }
         // One profile directory per pool: two browsers on one machine must never share Chrome's
         // singleton lock, and two lanes must never share a profile.
-        let profile = std::env::temp_dir().join(format!("chiffon-chrome-{}-{}", std::process::id(), now_nanos()));
+        let profile = std::env::temp_dir().join(format!("rwmcp-chrome-{}-{}", std::process::id(), now_nanos()));
         std::fs::create_dir_all(&profile)?;
         cfg = cfg.no_sandbox().window_size(SCREEN_W, SCREEN_H).viewport(None).user_data_dir(&profile);
         let cfg = cfg.build().map_err(|e| anyhow::anyhow!(e))?;
@@ -192,13 +192,13 @@ fn fill(template: &str, args: &serde_json::Map<String, Value>) -> String {
 }
 
 #[async_trait::async_trait]
-impl zerohuman::effectors::Effector for A11yEffector {
+impl rwmcp::effectors::Effector for A11yEffector {
     fn surface(&self) -> &str {
         "a11y"
     }
 
-    async fn execute(&self, node: &zerohuman::plan::Node, args: &serde_json::Map<String, Value>) -> Result<Value, zerohuman::effectors::EffectError> {
-        use zerohuman::effectors::EffectError;
+    async fn execute(&self, node: &rwmcp::plan::Node, args: &serde_json::Map<String, Value>) -> Result<Value, rwmcp::effectors::EffectError> {
+        use rwmcp::effectors::EffectError;
         let ui = node.ui.as_ref().ok_or_else(|| EffectError::Fatal(format!("{} is not a UI operation", node.op)))?;
         let route = fill(&ui.route, args);
         let role = ui.control.get("role").and_then(|r| r.as_str()).unwrap_or("button");

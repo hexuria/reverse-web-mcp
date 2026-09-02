@@ -8,11 +8,11 @@ use async_trait::async_trait;
 use bench::planner::expand_selectors;
 use bench::planner::{plan_with_lint, Sampler};
 use bench::tasks::Task;
+use rwmcp::intent::Intent;
+use rwmcp::ledger::{Ledger, Sample, SampleKind};
+use rwmcp::{compile, world_from, CompileOptions};
 use serde_json::{json, Value};
 use tokio::sync::broadcast;
-use zerohuman::intent::Intent;
-use zerohuman::ledger::{Ledger, Sample, SampleKind};
-use zerohuman::{compile, world_from, CompileOptions};
 
 struct Selector;
 
@@ -94,11 +94,9 @@ async fn a_bare_each_customer_means_every_customer() {
     };
     let world = world_from(&base).await.unwrap();
     // Unexpanded it is a lint error, never a quiet single lane.
-    assert!(zerohuman::intent::lint(&intent, &world, &CompileOptions::default())
-        .iter()
-        .any(|e| matches!(e, zerohuman::intent::LintError::UnexpandedSelector { .. })));
+    assert!(rwmcp::intent::lint(&intent, &world, &CompileOptions::default()).iter().any(|e| matches!(e, rwmcp::intent::LintError::UnexpandedSelector { .. })));
     let expanded = expand_selectors(&intent, &base).await.unwrap();
-    assert!(zerohuman::intent::lint(&expanded, &world, &CompileOptions::default()).is_empty());
+    assert!(rwmcp::intent::lint(&expanded, &world, &CompileOptions::default()).is_empty());
     let plan = compile(&expanded, &Arc::new(world), &CompileOptions::default()).unwrap();
     assert_eq!(plan.nodes.len(), 30, "ten customers, three nodes each");
 }
@@ -120,7 +118,7 @@ async fn a_selector_inside_all_is_expanded_too() {
     };
     let world = world_from(&base).await.unwrap();
     let expanded = expand_selectors(&intent, &base).await.unwrap();
-    assert!(zerohuman::intent::lint(&expanded, &world, &CompileOptions::default()).is_empty(), "the selector inside all() was expanded");
+    assert!(rwmcp::intent::lint(&expanded, &world, &CompileOptions::default()).is_empty(), "the selector inside all() was expanded");
     let plan = compile(&expanded, &Arc::new(world), &CompileOptions::default()).unwrap();
     assert_eq!(plan.nodes.iter().filter(|n| n.op == "createReport").count(), 1, "one report over all ten");
     assert_eq!(plan.nodes.iter().filter(|n| n.op == "createInvoice").count(), 10);

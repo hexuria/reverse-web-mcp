@@ -1,4 +1,4 @@
-//! zerohuman core: one model sample in, a parallel plan out, a receipt that proves it.
+//! rwmcp core: one model sample in, a parallel plan out, a receipt that proves it.
 //!
 //! ```text
 //! goal ──▶ planner (a model, elsewhere) ──▶ Intent

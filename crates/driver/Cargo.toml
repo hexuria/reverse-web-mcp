@@ -1,6 +1,6 @@
 [package]
 name = "driver"
-description = "A CDP browser driver with a page pool: the screen surfaces for chiffon"
+description = "A CDP browser driver with a page pool: the screen surfaces for rwmcp"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -12,7 +12,7 @@ tokio.workspace = true
 futures.workspace = true
 tracing.workspace = true
 chromiumoxide = { version = "0.9", default-features = false, features = ["rustls", "zip8"] }
-zerohuman = { path = "../zerohuman" }
+rwmcp = { path = "../rwmcp" }
 reqwest.workspace = true
 async-trait.workspace = true
 

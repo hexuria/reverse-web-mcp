@@ -2,9 +2,9 @@
 
 use std::path::Path;
 
+use rwmcp::intent::{Constraints, Intent, IntentFork};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use zerohuman::intent::{Constraints, Intent, IntentFork};
 
 #[derive(Clone, Debug, Serialize, Deserialize, Default)]
 pub struct Expect {

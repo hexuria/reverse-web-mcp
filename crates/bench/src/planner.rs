@@ -166,6 +166,9 @@ Rules:\n\
 - For many rows, never list names: write each(customer(name_prefix='...')) for a prefix, or each(customer()) \
   for every customer. The engine expands either from the world before compiling. each([...]) with explicit \
   names is for a handful.\n\
+- each(...) fans a want out, one per element. all(X) collects into one: \
+  report(invoices=[all(invoice(customer=each(customer())))]) is ONE report over every invoice, while \
+  report(invoices=[invoice(customer=each(customer()))]) is ONE REPORT PER invoice. Choose deliberately.\n\
 - If a name in the goal matches more than one entity in the facts, still refer to it by name and declare \
   a fork: {when: 'result.count != 1', ask: '...', default: 'lowest_id'}. With a default the engine resolves it \
   itself; without one it stops and asks you. Do not ask now and do not leave wants out.\n\n\

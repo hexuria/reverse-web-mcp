@@ -42,6 +42,9 @@ pub enum Val {
     Entity(Box<Pred>),
     /// `each([a,b,c])`: the want is unrolled once per element before compiling.
     Each(Vec<Val>),
+    /// `all(T)`: one want, in which `T`'s `each(...)` becomes a list of every element.
+    /// `each` fans a want out; `all` collects into one.
+    All(Box<Val>),
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -90,21 +93,23 @@ impl Pred {
         self.args.iter().find_map(|(_, v)| v.each_len()).or_else(|| self.value.each_len())
     }
 
-    /// Expand every `each(...)`, with two meanings decided by position:
+    /// Expand the two quantifiers:
     ///
-    /// - inside a list literal, an element containing `each` splices into that list, so
-    ///   `report(invoices=[invoice(customer=each([A,B]))])` is one report over two invoices;
-    /// - anywhere else, it fans the whole want out, so `invoice(customer=each([A,B]))` is two wants.
+    /// - `all(T)` collects: `report(invoices=[all(invoice(customer=each([A,B])))])` is one report
+    ///   over two invoices;
+    /// - `each(...)` fans out: `invoice(customer=each([A,B]))` is two wants.
+    ///
+    /// `all` is resolved first, so an `each` inside it never multiplies the want.
     pub fn unroll(&self) -> Vec<Pred> {
-        let spliced = Pred {
+        let collected = Pred {
             entity: self.entity.clone(),
-            args: self.args.iter().map(|(k, v)| (k.clone(), splice_lists(v))).collect(),
+            args: self.args.iter().map(|(k, v)| (k.clone(), collect_all(v))).collect(),
             field: self.field.clone(),
-            value: splice_lists(&self.value),
+            value: collect_all(&self.value),
         };
-        match spliced.each_len() {
-            Some(n) => (0..n).map(|i| spliced.pick(i)).collect(),
-            None => vec![spliced],
+        match collected.each_len() {
+            Some(n) => (0..n).map(|i| collected.pick(i)).collect(),
+            None => vec![collected],
         }
     }
 
@@ -119,26 +124,35 @@ impl Pred {
     }
 }
 
-/// Inside a list, an element carrying an `each(...)` becomes several elements.
-fn splice_lists(v: &Val) -> Val {
+/// Turn every `all(T)` into the list of `T`'s expansions. Recursive, innermost first.
+fn collect_all(v: &Val) -> Val {
     match v {
+        Val::All(inner) => {
+            let inner = collect_all(inner);
+            match inner.each_len() {
+                Some(n) => Val::List((0..n).map(|i| inner.pick(i)).collect()),
+                // `all` of something with nothing to expand is that one thing, in a list.
+                None => Val::List(vec![inner]),
+            }
+        }
         Val::List(xs) => {
+            // A list whose element is an `all` splices that list in, so
+            // `[all(x)]` and `all(x)` mean the same thing in an argument.
             let mut out = Vec::new();
             for x in xs {
-                let x = splice_lists(x);
-                match x.each_len() {
-                    Some(n) => (0..n).for_each(|i| out.push(x.pick(i))),
-                    None => out.push(x),
+                match collect_all(x) {
+                    Val::List(inner) if matches!(x, Val::All(_)) => out.extend(inner),
+                    other => out.push(other),
                 }
             }
             Val::List(out)
         }
-        Val::Each(xs) => Val::Each(xs.iter().map(splice_lists).collect()),
+        Val::Each(xs) => Val::Each(xs.iter().map(collect_all).collect()),
         Val::Entity(p) => Val::Entity(Box::new(Pred {
             entity: p.entity.clone(),
-            args: p.args.iter().map(|(k, a)| (k.clone(), splice_lists(a))).collect(),
+            args: p.args.iter().map(|(k, a)| (k.clone(), collect_all(a))).collect(),
             field: p.field.clone(),
-            value: splice_lists(&p.value),
+            value: collect_all(&p.value),
         })),
         other => other.clone(),
     }
@@ -152,6 +166,7 @@ impl Val {
             Val::List(xs) => Val::List(xs.iter().map(|x| x.subst(bind)).collect()),
             Val::Entity(p) => Val::Entity(Box::new(p.subst(bind))),
             Val::Each(xs) => Val::Each(xs.iter().map(|x| x.subst(bind)).collect()),
+            Val::All(x) => Val::All(Box::new(x.subst(bind))),
             other => other.clone(),
         }
     }
@@ -160,6 +175,8 @@ impl Val {
     pub fn pick(&self, i: usize) -> Val {
         match self {
             Val::Each(xs) => xs.get(i).cloned().unwrap_or(Val::Bool(false)),
+            // `all` is resolved before picking, so nothing inside it fans out.
+            Val::All(x) => Val::All(x.clone()),
             Val::List(xs) => Val::List(xs.iter().map(|x| x.pick(i)).collect()),
             Val::Entity(p) => Val::Entity(Box::new(p.pick(i))),
             other => other.clone(),
@@ -170,6 +187,7 @@ impl Val {
     pub fn each_len(&self) -> Option<usize> {
         match self {
             Val::Each(xs) => Some(xs.len()),
+            Val::All(_) => None,
             Val::List(xs) => xs.iter().find_map(|x| x.each_len()),
             Val::Entity(p) => p.each_len(),
             _ => None,
@@ -202,6 +220,7 @@ impl fmt::Display for Val {
                 write!(f, "]")
             }
             Val::Var(n, spread) => write!(f, "${n}{}", if *spread { "[]" } else { "" }),
+            Val::All(x) => write!(f, "all({x})"),
             Val::Each(xs) => {
                 write!(f, "each([")?;
                 for (i, x) in xs.iter().enumerate() {
@@ -382,6 +401,12 @@ impl<'a> Parser<'a> {
                 match word.as_str() {
                     "true" => Ok(Val::Bool(true)),
                     "false" => Ok(Val::Bool(false)),
+                    "all" => {
+                        self.expect(b'(')?;
+                        let inner = self.value()?;
+                        self.expect(b')')?;
+                        Ok(Val::All(Box::new(inner)))
+                    }
                     "each" => {
                         self.expect(b'(')?;
                         let inner = self.value()?;
@@ -433,19 +458,25 @@ mod tests {
     }
 
     #[test]
-    fn each_inside_a_list_splices_instead_of_fanning_out() {
-        // One report over three invoices, not three reports.
-        let p = Pred::parse("report(invoices=[invoice(customer=each(['Acme','Globex','Initech']))]).exists").unwrap();
+    fn each_fans_out_and_all_collects() {
+        // all(...) collects: one report over three invoices.
+        let p = Pred::parse("report(invoices=[all(invoice(customer=each(['Acme','Globex','Initech'])))]).exists").unwrap();
         let rolled = p.unroll();
         assert_eq!(rolled.len(), 1);
         assert_eq!(rolled[0].to_string(), "report(invoices=[invoice(customer='Acme'),invoice(customer='Globex'),invoice(customer='Initech')]).exists");
-        // A bare each in an argument still fans the want out.
-        let p = Pred::parse("invoice(customer=each(['Acme','Globex'])).status='sent'").unwrap();
-        assert_eq!(p.unroll().len(), 2);
-        // A list with no each is untouched.
+        // each(...) fans out: one report per invoice.
+        let p = Pred::parse("report(invoices=[invoice(customer=each(['Acme','Globex']))]).exists").unwrap();
+        let rolled = p.unroll();
+        assert_eq!(rolled.len(), 2);
+        assert_eq!(rolled[0].to_string(), "report(invoices=[invoice(customer='Acme')]).exists");
+        // and in a plain argument.
+        assert_eq!(Pred::parse("invoice(customer=each(['Acme','Globex'])).status='sent'").unwrap().unroll().len(), 2);
+        // A list with neither is untouched.
         let p = Pred::parse("report(invoices=[$A.id,$B.id]).exists").unwrap();
-        assert_eq!(p.unroll().len(), 1);
         assert_eq!(p.unroll()[0].to_string(), "report(invoices=[$A.id,$B.id]).exists");
+        // all(...) round-trips through Display.
+        let src = "report(invoices=[all(invoice(customer=each(['A'])))]).exists";
+        assert_eq!(Pred::parse(src).unwrap().to_string(), src);
     }
 
     #[test]

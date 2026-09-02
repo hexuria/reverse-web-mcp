@@ -102,6 +102,7 @@ impl<'a> Compiler<'a> {
         match v {
             Val::Ref(n, f) => format!("@({}).{f}", self.canon.get(n).cloned().unwrap_or_else(|| n.clone())),
             Val::List(xs) | Val::Each(xs) => format!("[{}]", xs.iter().map(|x| self.expand_val(x)).collect::<Vec<_>>().join(",")),
+            Val::All(x) => format!("all({})", self.expand_val(x)),
             Val::Entity(p) => self.expand(p),
             other => other.to_string(),
         }
@@ -377,6 +378,7 @@ fn val_to_arg(v: &Val) -> Result<Arg, String> {
         Val::Var(n, _) => return Err(n.clone()),
         Val::Entity(p) => return Err(p.to_string()),
         Val::Each(_) => return Err("each(...) survived unrolling".into()),
+        Val::All(_) => return Err("all(...) survived unrolling".into()),
     })
 }
 
@@ -582,12 +584,31 @@ mod tests {
     }
 
     #[test]
+    fn a_report_per_invoice_and_one_over_all() {
+        let three = "each([customer(name='Acme'),customer(name='Globex'),customer(name='Initech')])";
+        let plan = compile(
+            &intent(&[
+                &format!("invoice(customer={three}).exists"),
+                &format!("report(invoices=[invoice(customer={three})]).exists"),
+                &format!("report(invoices=[all(invoice(customer={three}))]).exists"),
+            ]),
+            &world(),
+            &CompileOptions::default(),
+        )
+        .unwrap();
+        let reports: Vec<&Node> = plan.nodes.iter().filter(|n| n.op == "createReport").collect();
+        assert_eq!(reports.len(), 4, "three per-invoice and one over all\n{}", plan.render());
+        let over_all = reports.iter().find(|n| plan.preds_of(&n.id).len() == 3).expect("one report joins all three");
+        assert!(reports.iter().filter(|n| n.id != over_all.id).all(|n| plan.preds_of(&n.id).len() == 1));
+    }
+
+    #[test]
     fn one_report_over_every_invoice_from_one_want() {
         let plan = compile(
             &intent(&[
                 "invoice(customer=each([customer(name='Acme'),customer(name='Globex'),customer(name='Initech')])).exists",
                 "invoice(customer=each([customer(name='Acme'),customer(name='Globex'),customer(name='Initech')])).status='sent'",
-                "report(invoices=[invoice(customer=each([customer(name='Acme'),customer(name='Globex'),customer(name='Initech')]))]).exists",
+                "report(invoices=[all(invoice(customer=each([customer(name='Acme'),customer(name='Globex'),customer(name='Initech')])))]).exists",
             ]),
             &world(),
             &CompileOptions::default(),

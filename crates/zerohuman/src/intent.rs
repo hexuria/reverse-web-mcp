@@ -72,6 +72,7 @@ fn has_var(v: &Val) -> bool {
     match v {
         Val::Var(..) => true,
         Val::List(xs) | Val::Each(xs) => xs.iter().any(has_var),
+        Val::All(x) => has_var(x),
         Val::Entity(p) => p.args.iter().any(|(_, v)| has_var(v)) || has_var(&p.value),
         _ => false,
     }
@@ -86,6 +87,7 @@ fn unexpanded(v: &Val) -> Option<String> {
             _ => None,
         }),
         Val::List(xs) => xs.iter().find_map(unexpanded),
+        Val::All(x) => unexpanded(x),
         Val::Entity(p) => p.args.iter().find_map(|(_, a)| unexpanded(a)),
         _ => None,
     }
@@ -102,6 +104,7 @@ fn walk_vals<'a>(v: &'a Val, out: &mut Vec<&'a Pred>) {
     match v {
         Val::Entity(p) => walk_entities(p, out),
         Val::List(xs) | Val::Each(xs) => xs.iter().for_each(|x| walk_vals(x, out)),
+        Val::All(x) => walk_vals(x, out),
         _ => {}
     }
 }

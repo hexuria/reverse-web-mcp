@@ -26,6 +26,10 @@ impl Default for Constraints {
 pub struct IntentFork {
     pub when: String,
     pub ask: String,
+    /// A resolution the planner declares up front, so the scheduler need not wake it:
+    /// `lowest_id` picks the match with the smallest id.
+    #[serde(default)]
+    pub default: Option<String>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, Default)]

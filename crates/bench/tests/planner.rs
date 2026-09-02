@@ -128,3 +128,26 @@ async fn a_tool_call_rendered_as_text_is_still_an_intent() {
     assert_eq!(intent.wants.len(), 2);
     assert_eq!(ledger.sample_count(), 1);
 }
+
+#[tokio::test]
+async fn an_unparseable_reply_is_re_asked_not_fatal() {
+    struct Junk(Mutex<u32>);
+    #[async_trait]
+    impl Sampler for Junk {
+        async fn sample(&self, ledger: &mut Ledger, kind: SampleKind, _body: Value) -> anyhow::Result<Value> {
+            ledger.record_sample(Sample { seq: 0, kind, started_us: 0, ended_us: 1, tokens_in: 1, tokens_out: 1, model: "stub".into(), effort: "low".into() });
+            let mut n = self.0.lock().unwrap();
+            *n += 1;
+            Ok(if *n == 1 {
+                json!({"content": [{"type": "text", "text": "Sure! Let me think about that."}]})
+            } else {
+                json!({"content": [{"type": "tool_use", "name": "emit_intent", "input": {"wants": ["invoice(customer=customer(name='Acme')).status='sent'"]}}]})
+            })
+        }
+    }
+    let mut ledger = Ledger::new();
+    let intent = plan_with_lint(&task(), &world(), "", &Junk(Mutex::new(0)), &mut ledger, &CompileOptions::default(), None).await.unwrap();
+    assert_eq!(intent.wants.len(), 1);
+    assert_eq!(ledger.sample_count(), 2);
+    assert!(ledger.notes.iter().any(|n| n.get("unparseable").is_some()));
+}

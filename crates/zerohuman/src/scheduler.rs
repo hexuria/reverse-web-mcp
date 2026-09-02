@@ -86,6 +86,8 @@ fn resolve_arg(arg: &Arg, outputs: &HashMap<String, Value>, guarded: &HashSet<St
         Arg::Ref { node, field } => {
             let out = outputs.get(node).ok_or_else(|| format!("output of {node} missing"))?;
             let obj = match out {
+                // A fork resolved by a declared default: the chosen element is the referent.
+                Value::Object(o) if o.contains_key("__fork_default") => o["chosen"].clone(),
                 // A list is only an acceptable referent when the producing node's fork guard
                 // already proved it has exactly one element.
                 Value::Array(a) if guarded.contains(node) && a.len() == 1 => a[0].clone(),
@@ -153,6 +155,15 @@ impl RunState {
 
     pub fn completed(&self) -> usize {
         self.outputs.len()
+    }
+}
+
+/// Resolve a fired fork by a rule the intent declared. Only `lowest_id` exists today.
+fn apply_fork_default(rule: Option<&str>, output: &Value) -> Option<Value> {
+    let items = output.as_array()?;
+    match rule? {
+        "lowest_id" => items.iter().filter(|x| x.get("id").and_then(|i| i.as_u64()).is_some()).min_by_key(|x| x["id"].as_u64().unwrap()).cloned(),
+        _ => None,
     }
 }
 
@@ -228,7 +239,12 @@ impl Scheduler {
                 Err(e) => ("?".into(), Err(Failure::Fatal(format!("task panicked: {e}")))),
             };
             match result {
-                Ok(v) => state.complete(&id, v),
+                Ok(v) => {
+                    if let Some(rule) = v.get("__fork_default") {
+                        ledger.forks.push(json!({"node": id, "ask": v["__fork_ask"], "evidence": v["__evidence"], "auto": rule, "chosen": v["chosen"]}));
+                    }
+                    state.complete(&id, v)
+                }
                 Err(Failure::Fork(ev)) => {
                     stopping = true;
                     let node = plan.node(&id).unwrap();
@@ -362,6 +378,12 @@ async fn execute(
             Ok(v) => {
                 if let Some(f) = &node.fork {
                     if let Some(ev) = fork_fires(&f.when, &v) {
+                        // A declared default answers the question without waking the planner.
+                        if let Some(chosen) = apply_fork_default(f.default.as_deref(), &v) {
+                            return Ok(
+                                json!({"__fork_default": f.default, "__fork_ask": f.ask, "__evidence": ev, "result": [chosen.clone()], "chosen": chosen}),
+                            );
+                        }
                         return Err(Failure::Fork(ev));
                     }
                 }

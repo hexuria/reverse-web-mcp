@@ -48,6 +48,9 @@ pub struct Param {
 pub struct Fork {
     pub when: String,
     pub ask: String,
+    /// Declared by the intent: resolve without waking the planner. `lowest_id` today.
+    #[serde(default)]
+    pub default: Option<String>,
 }
 
 /// How to confirm an event's postcondition by reading the world, for when the event is lost.
@@ -133,7 +136,7 @@ fn surfaces(v: Option<&Value>) -> BTreeMap<String, u32> {
 
 fn fork(v: Option<&Value>) -> Option<Fork> {
     let o = v?.as_object()?;
-    Some(Fork { when: o.get("when")?.as_str()?.to_string(), ask: o.get("ask").and_then(|a| a.as_str()).unwrap_or("").to_string() })
+    Some(Fork { when: o.get("when")?.as_str()?.to_string(), ask: o.get("ask").and_then(|a| a.as_str()).unwrap_or("").to_string(), default: None })
 }
 
 impl World {

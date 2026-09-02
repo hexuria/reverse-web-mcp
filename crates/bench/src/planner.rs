@@ -40,7 +40,7 @@ fn intent_tool() -> Value {
             "type": "object",
             "properties": {
                 "wants": {"type": "array", "items": {"type": "string"}, "description": "Predicates in the shared language."},
-                "forks": {"type": "array", "items": {"type": "object", "properties": {"when": {"type": "string"}, "ask": {"type": "string"}}, "required": ["when", "ask"]}}
+                "forks": {"type": "array", "items": {"type": "object", "properties": {"when": {"type": "string"}, "ask": {"type": "string"}, "default": {"type": "string", "enum": ["lowest_id"]}}, "required": ["when", "ask"]}}
             },
             "required": ["wants"],
             "additionalProperties": false
@@ -70,7 +70,15 @@ fn intent_from(resp: &Value, task: &Task) -> anyhow::Result<Intent> {
     let wants: Vec<String> = input["wants"].as_array().map(|a| a.iter().filter_map(|w| w.as_str().map(|s| s.to_string())).collect()).unwrap_or_default();
     let forks = input["forks"]
         .as_array()
-        .map(|a| a.iter().map(|f| IntentFork { when: f["when"].as_str().unwrap_or("").into(), ask: f["ask"].as_str().unwrap_or("").into() }).collect())
+        .map(|a| {
+            a.iter()
+                .map(|f| IntentFork {
+                    when: f["when"].as_str().unwrap_or("").into(),
+                    ask: f["ask"].as_str().unwrap_or("").into(),
+                    default: f["default"].as_str().map(|s| s.to_string()),
+                })
+                .collect()
+        })
         .unwrap_or_default();
     Ok(Intent { goal: task.goal.clone(), wants, constraints: task.constraints.clone(), forks })
 }
@@ -136,7 +144,7 @@ async fn replan(
         "messages": [{"role": "user", "content": user}],
     });
     let resp = sampler.sample(ledger, SampleKind::Lint, body).await?;
-    intent_from(&resp, task)
+    intent_or_empty(&resp, task, ledger)
 }
 
 const PLANNER_SYSTEM: &str = "You are the planner for an execution engine. You never emit actions. You emit an intent graph: \
@@ -157,8 +165,9 @@ Rules:\n\
 - Use the real names from the world facts. Never use variables like $name.\n\
 - For many rows, never list names: write each(customer(name_prefix='...')) and the engine expands it \
   from the world before compiling. each([...]) with explicit names is for a handful.\n\
-- If a name in the goal matches more than one entity in the facts, still refer to it by name. \
-  The engine stops at that point and asks you which one; do not ask now and do not leave wants out.\n\n\
+- If a name in the goal matches more than one entity in the facts, still refer to it by name and declare \
+  a fork: {when: 'result.count != 1', ask: '...', default: 'lowest_id'}. With a default the engine resolves it \
+  itself; without one it stops and asks you. Do not ask now and do not leave wants out.\n\n\
 Example goal: Invoice Acme and Globex, send both, then one report over both.\n\
 Example wants:\n\
   invoice(customer=customer(name='Acme')).exists\n\
@@ -192,7 +201,19 @@ pub async fn plan_intent(task: &Task, world: &World, facts: &str, sampler: &dyn 
         "messages": [{"role": "user", "content": user}],
     });
     let resp = sampler.sample(ledger, SampleKind::Plan, body).await?;
-    intent_from(&resp, task)
+    intent_or_empty(&resp, task, ledger)
+}
+
+/// An unparseable reply is an empty intent, which lint rejects and the loop re-asks. The raw
+/// reply is kept as a note.
+fn intent_or_empty(resp: &Value, task: &Task, ledger: &mut Ledger) -> anyhow::Result<Intent> {
+    match intent_from(resp, task) {
+        Ok(i) => Ok(i),
+        Err(e) => {
+            ledger.notes.push(json!({"unparseable": e.to_string(), "content": resp.get("content").cloned().unwrap_or(Value::Null)}));
+            Ok(Intent { goal: task.goal.clone(), constraints: task.constraints.clone(), ..Default::default() })
+        }
+    }
 }
 
 /// What the scheduler stopped on.

@@ -268,6 +268,7 @@ impl<'a> Compiler<'a> {
         if let Some(f) = &mut fork {
             if let Some(intent_fork) = self.intent.forks.iter().find(|x| x.when == f.when) {
                 f.ask = intent_fork.ask.clone();
+                f.default = intent_fork.default.clone();
             }
             f.ask = f.ask.replace("$name", b.get("name").and_then(|v| v.as_str()).unwrap_or("?"));
         }

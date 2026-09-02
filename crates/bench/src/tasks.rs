@@ -39,12 +39,14 @@ impl Expect {
     }
 }
 
-/// True when the receipt's ledger holds a fork-answer sample.
+/// True when the fork was answered: by a planner sample, or by a default the intent declared.
 pub fn resumed_after_fork(receipt: &Value) -> bool {
-    receipt
+    let answered = receipt
         .pointer("/ledger/samples")
         .and_then(|s| s.as_array())
-        .is_some_and(|a| a.iter().any(|x| x.get("kind").and_then(|k| k.as_str()) == Some("fork_answer")))
+        .is_some_and(|a| a.iter().any(|x| x.get("kind").and_then(|k| k.as_str()) == Some("fork_answer")));
+    let auto = receipt.pointer("/ledger/forks").and_then(|f| f.as_array()).is_some_and(|a| a.iter().any(|x| x.get("auto").is_some_and(|v| !v.is_null())));
+    answered || auto
 }
 
 fn committed() -> String {

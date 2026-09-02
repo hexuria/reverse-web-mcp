@@ -124,10 +124,13 @@ impl ModelClient {
             }
             let resp = req.json(&body).send().await?;
             let status = resp.status().as_u16();
+            let resp_retry_after: Option<u64> = resp.headers().get("retry-after").and_then(|v| v.to_str().ok()).and_then(|v| v.parse().ok());
             let text = resp.text().await?;
             if status == 429 || status >= 500 {
-                if attempt < 4 {
-                    tokio::time::sleep(Duration::from_millis(500 * (1 << attempt))).await;
+                if attempt < 6 {
+                    // Honour retry-after when the route says, capped so a long cooldown fails fast.
+                    let after = resp_retry_after.map(|s| s * 1000).unwrap_or(500 * (1 << attempt)).min(30_000);
+                    tokio::time::sleep(Duration::from_millis(after)).await;
                     continue;
                 }
                 anyhow::bail!("model API {status}: {text}");

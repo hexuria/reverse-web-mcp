@@ -1,0 +1,300 @@
+{
+  "task": "T6",
+  "task_title": "invoice Acme when two customers are named Acme",
+  "arm": "D",
+  "run": 1,
+  "status": "need_think",
+  "planner": "model-intent",
+  "samples": 3,
+  "tokens_in": 4574,
+  "tokens_out": 132,
+  "wall_ms": 2710,
+  "plan_ms": 7903,
+  "run_ms": 1,
+  "max_parallel": 1,
+  "max_parallel_by_surface": {
+    "api": 1
+  },
+  "nodes": 3,
+  "depth": 3,
+  "correct": false,
+  "checks": [
+    {
+      "name": "status",
+      "expected": "committed",
+      "actual": "need_think",
+      "ok": false
+    },
+    {
+      "name": "invoices",
+      "expected": 1,
+      "actual": 0,
+      "ok": false
+    },
+    {
+      "name": "sent",
+      "expected": 1,
+      "actual": 0,
+      "ok": false
+    },
+    {
+      "name": "forks",
+      "expected": 1,
+      "actual": 1,
+      "ok": true
+    },
+    {
+      "name": "double_sends",
+      "expected": 0,
+      "actual": 0,
+      "ok": true
+    }
+  ],
+  "double_sends": 0,
+  "forks": 1,
+  "yield_reason": "fork at A: which customer named Acme",
+  "error": "fork answer failed: fork answer rejected twice: intent has no wants; every goal needs at least one fact that must become true",
+  "snapshot": {
+    "chaos": {
+      "latency_ms": 25,
+      "rate_limit_per_sec": 0,
+      "require_approval": false,
+      "send_fail_rate": 0.0,
+      "ui_modal": false
+    },
+    "customers": [
+      {
+        "email": "billing@acme.example",
+        "id": 1,
+        "name": "Acme"
+      },
+      {
+        "email": "billing@globex.example",
+        "id": 2,
+        "name": "Globex"
+      },
+      {
+        "email": "billing@initech.example",
+        "id": 3,
+        "name": "Initech"
+      },
+      {
+        "email": "billing@umbrella.example",
+        "id": 4,
+        "name": "Umbrella"
+      },
+      {
+        "email": "billing@hooli.example",
+        "id": 5,
+        "name": "Hooli"
+      },
+      {
+        "email": "billing@vandelay.example",
+        "id": 6,
+        "name": "Vandelay"
+      },
+      {
+        "email": "billing@stark.example",
+        "id": 7,
+        "name": "Stark"
+      },
+      {
+        "email": "billing@wayne.example",
+        "id": 8,
+        "name": "Wayne"
+      },
+      {
+        "email": "billing@wonka.example",
+        "id": 9,
+        "name": "Wonka"
+      },
+      {
+        "email": "billing@tyrell.example",
+        "id": 10,
+        "name": "Tyrell"
+      },
+      {
+        "email": "ap@acme-holdings.example",
+        "id": 11,
+        "name": "Acme"
+      }
+    ],
+    "invoices": [],
+    "outbox": [],
+    "payments": [],
+    "reports": [],
+    "seed": 6
+  },
+  "receipt": {
+    "depth": 3,
+    "effects": [
+      {
+        "attempts": 1,
+        "key": null,
+        "node": "A",
+        "observed": [
+          {
+            "email": "billing@acme.example",
+            "id": 1,
+            "name": "Acme"
+          },
+          {
+            "email": "ap@acme-holdings.example",
+            "id": 11,
+            "name": "Acme"
+          }
+        ],
+        "ok": true,
+        "op": "listCustomers"
+      }
+    ],
+    "error": "fork answer failed: fork answer rejected twice: intent has no wants; every goal needs at least one fact that must become true",
+    "evidence": {
+      "count": 2,
+      "result": [
+        {
+          "email": "billing@acme.example",
+          "id": 1,
+          "name": "Acme"
+        },
+        {
+          "email": "ap@acme-holdings.example",
+          "id": 11,
+          "name": "Acme"
+        }
+      ],
+      "when": "result.count != 1"
+    },
+    "forks_taken": 1,
+    "ledger": {
+      "ended_ms": 1788308721187,
+      "forks": [
+        {
+          "ask": "which customer named Acme",
+          "evidence": {
+            "count": 2,
+            "result": [
+              {
+                "email": "billing@acme.example",
+                "id": 1,
+                "name": "Acme"
+              },
+              {
+                "email": "ap@acme-holdings.example",
+                "id": 11,
+                "name": "Acme"
+              }
+            ],
+            "when": "result.count != 1"
+          },
+          "node": "A"
+        }
+      ],
+      "notes": [
+        {
+          "fork_answer_rejected": [
+            "intent has no wants; every goal needs at least one fact that must become true"
+          ],
+          "wants": []
+        },
+        {
+          "fork_answer_rejected": [
+            "intent has no wants; every goal needs at least one fact that must become true"
+          ],
+          "wants": []
+        }
+      ],
+      "rows": [
+        {
+          "attempt": 1,
+          "ended_us": 1788308721187421,
+          "error": null,
+          "key": null,
+          "node": "A",
+          "observed": [
+            {
+              "email": "billing@acme.example",
+              "id": 1,
+              "name": "Acme"
+            },
+            {
+              "email": "ap@acme-holdings.example",
+              "id": 11,
+              "name": "Acme"
+            }
+          ],
+          "ok": true,
+          "op": "listCustomers",
+          "started_us": 1788308721186003,
+          "surface": "api",
+          "write": false
+        }
+      ],
+      "samples": [
+        {
+          "effort": "low",
+          "ended_us": 1788308721185608,
+          "kind": "plan",
+          "model": "grok-4.6",
+          "seq": 1,
+          "started_us": 1788308718477348,
+          "tokens_in": 1369,
+          "tokens_out": 42
+        },
+        {
+          "effort": "low",
+          "ended_us": 1788308723564609,
+          "kind": "fork_answer",
+          "model": "grok-4.6",
+          "seq": 2,
+          "started_us": 1788308721187493,
+          "tokens_in": 1584,
+          "tokens_out": 45
+        },
+        {
+          "effort": "low",
+          "ended_us": 1788308726382634,
+          "kind": "fork_answer",
+          "model": "grok-4.6",
+          "seq": 3,
+          "started_us": 1788308723564635,
+          "tokens_in": 1621,
+          "tokens_out": 45
+        }
+      ],
+      "started_ms": 1788308718477
+    },
+    "max_parallel": 1,
+    "max_parallel_by_surface": {
+      "api": 1
+    },
+    "nodes": 3,
+    "plan": "plan T6-r1  (3 nodes, depth 3)\n  A    listCustomers    api      customer(name='Acme').resolved\n  B    createInvoice    api      invoice(customer=$A.id).exists  after A  key T6-r1/cac417d575b6be6d\n  C    sendInvoice      api      invoice(id=$B.id).status='sent'  after B  key T6-r1/77c40e9faea35860\n",
+    "plan_id": "T6-r1",
+    "plan_ms": 7903,
+    "run_ms": 1,
+    "samples": 3,
+    "status": "need_think",
+    "tokens_in": 4574,
+    "tokens_out": 132,
+    "wall_ms": 2710,
+    "yield_reason": "fork at A: which customer named Acme"
+  },
+  "intent": {
+    "constraints": {
+      "external_ok": true,
+      "spend_max_cents": null
+    },
+    "forks": [],
+    "goal": "Create and send an invoice for Acme.",
+    "wants": [
+      "invoice(customer=customer(name='Acme')).exists",
+      "invoice(customer=customer(name='Acme')).status='sent'"
+    ]
+  },
+  "model": "grok-4.6",
+  "effort": "medium",
+  "base_url": "http://localhost:8080",
+  "latency_ms": 25,
+  "surfaces": "api"
+}

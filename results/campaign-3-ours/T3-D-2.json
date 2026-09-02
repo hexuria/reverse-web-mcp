@@ -1,0 +1,174 @@
+{
+  "task": "T3",
+  "task_title": "three invoices, email each, one report over all three",
+  "arm": "D",
+  "run": 2,
+  "status": "error",
+  "planner": "model-intent",
+  "samples": 1,
+  "tokens_in": 1378,
+  "tokens_out": 145,
+  "wall_ms": 5092,
+  "plan_ms": 5091,
+  "run_ms": 0,
+  "max_parallel": 0,
+  "max_parallel_by_surface": {},
+  "nodes": 0,
+  "depth": 0,
+  "correct": false,
+  "checks": [
+    {
+      "name": "status",
+      "expected": "committed",
+      "actual": "error",
+      "ok": false
+    },
+    {
+      "name": "invoices",
+      "expected": 3,
+      "actual": 0,
+      "ok": false
+    },
+    {
+      "name": "sent",
+      "expected": 3,
+      "actual": 0,
+      "ok": false
+    },
+    {
+      "name": "reports",
+      "expected": 1,
+      "actual": 0,
+      "ok": false
+    },
+    {
+      "name": "double_sends",
+      "expected": 0,
+      "actual": 0,
+      "ok": true
+    }
+  ],
+  "double_sends": 0,
+  "forks": 0,
+  "yield_reason": null,
+  "error": "planner: planner emitted no intent: ```0eemit_intent0ewants1[\"invoice(customer=customer(name='Acme')).exists\", \"invoice(customer=customer(name='Acme')).status='sent'\", \"invoice(customer=customer(name='Globex')).exists\", \"invoice(customer=customer(name='Globex')).status='sent'\", \"invoice(customer=customer(name='Initech')).exists\", \"invoice(customer=customer(name='Initech')).status='sent'\", \"report(invoices=[invoice(customer=customer(name='Acme')),invoice(customer=customer(name='Globex')),invoice(customer=customer(name='Initech'))]).exists\"]```<|eos|>",
+  "snapshot": {
+    "chaos": {
+      "latency_ms": 25,
+      "rate_limit_per_sec": 0,
+      "require_approval": false,
+      "send_fail_rate": 0.0,
+      "ui_modal": false
+    },
+    "customers": [
+      {
+        "email": "billing@acme.example",
+        "id": 1,
+        "name": "Acme"
+      },
+      {
+        "email": "billing@globex.example",
+        "id": 2,
+        "name": "Globex"
+      },
+      {
+        "email": "billing@initech.example",
+        "id": 3,
+        "name": "Initech"
+      },
+      {
+        "email": "billing@umbrella.example",
+        "id": 4,
+        "name": "Umbrella"
+      },
+      {
+        "email": "billing@hooli.example",
+        "id": 5,
+        "name": "Hooli"
+      },
+      {
+        "email": "billing@vandelay.example",
+        "id": 6,
+        "name": "Vandelay"
+      },
+      {
+        "email": "billing@stark.example",
+        "id": 7,
+        "name": "Stark"
+      },
+      {
+        "email": "billing@wayne.example",
+        "id": 8,
+        "name": "Wayne"
+      },
+      {
+        "email": "billing@wonka.example",
+        "id": 9,
+        "name": "Wonka"
+      },
+      {
+        "email": "billing@tyrell.example",
+        "id": 10,
+        "name": "Tyrell"
+      }
+    ],
+    "invoices": [],
+    "outbox": [],
+    "payments": [],
+    "reports": [],
+    "seed": 3
+  },
+  "receipt": {
+    "depth": 0,
+    "effects": [],
+    "error": "planner: planner emitted no intent: ```0eemit_intent0ewants1[\"invoice(customer=customer(name='Acme')).exists\", \"invoice(customer=customer(name='Acme')).status='sent'\", \"invoice(customer=customer(name='Globex')).exists\", \"invoice(customer=customer(name='Globex')).status='sent'\", \"invoice(customer=customer(name='Initech')).exists\", \"invoice(customer=customer(name='Initech')).status='sent'\", \"report(invoices=[invoice(customer=customer(name='Acme')),invoice(customer=customer(name='Globex')),invoice(customer=customer(name='Initech'))]).exists\"]```<|eos|>",
+    "evidence": null,
+    "forks_taken": 0,
+    "ledger": {
+      "ended_ms": 1788308572032,
+      "forks": [],
+      "notes": [],
+      "rows": [],
+      "samples": [
+        {
+          "effort": "low",
+          "ended_us": 1788308572032347,
+          "kind": "plan",
+          "model": "grok-4.6",
+          "seq": 1,
+          "started_us": 1788308566940748,
+          "tokens_in": 1378,
+          "tokens_out": 145
+        }
+      ],
+      "started_ms": 1788308566940
+    },
+    "max_parallel": 0,
+    "max_parallel_by_surface": {},
+    "nodes": 0,
+    "plan": "plan T3-r2  (0 nodes, depth 0)\n",
+    "plan_id": "T3-r2",
+    "plan_ms": 5091,
+    "run_ms": 0,
+    "samples": 1,
+    "status": "error",
+    "tokens_in": 1378,
+    "tokens_out": 145,
+    "wall_ms": 5092,
+    "yield_reason": null
+  },
+  "intent": {
+    "constraints": {
+      "external_ok": true,
+      "spend_max_cents": null
+    },
+    "forks": [],
+    "goal": "Invoice Acme, Globex and Initech, send each, then produce one report covering all three.",
+    "wants": []
+  },
+  "model": "grok-4.6",
+  "effort": "medium",
+  "base_url": "http://localhost:8080",
+  "latency_ms": 25,
+  "surfaces": "api"
+}

@@ -1,0 +1,327 @@
+{
+  "task": "T4",
+  "task_title": "send the receipt only after the payment arrives",
+  "arm": "B2",
+  "run": 1,
+  "status": "committed",
+  "planner": "gpt-5.6-luna@medium",
+  "samples": 5,
+  "tokens_in": 6082,
+  "tokens_out": 93,
+  "wall_ms": 7918,
+  "plan_ms": 7835,
+  "run_ms": 5072,
+  "max_parallel": 1,
+  "max_parallel_by_surface": {
+    "mcp": 1
+  },
+  "nodes": 0,
+  "depth": 0,
+  "correct": true,
+  "checks": [
+    {
+      "name": "status",
+      "expected": "committed",
+      "actual": "committed",
+      "ok": true
+    },
+    {
+      "name": "invoices",
+      "expected": 1,
+      "actual": 1,
+      "ok": true
+    },
+    {
+      "name": "sent",
+      "expected": 1,
+      "actual": 1,
+      "ok": true
+    },
+    {
+      "name": "paid",
+      "expected": 1,
+      "actual": 1,
+      "ok": true
+    },
+    {
+      "name": "receipts",
+      "expected": 1,
+      "actual": 1,
+      "ok": true
+    },
+    {
+      "name": "double_sends",
+      "expected": 0,
+      "actual": 0,
+      "ok": true
+    }
+  ],
+  "double_sends": 0,
+  "forks": 0,
+  "yield_reason": null,
+  "error": null,
+  "snapshot": {
+    "chaos": {
+      "latency_ms": 25,
+      "rate_limit_per_sec": 0,
+      "require_approval": false,
+      "send_fail_rate": 0.0,
+      "ui_modal": false
+    },
+    "customers": [
+      {
+        "email": "billing@acme.example",
+        "id": 1,
+        "name": "Acme"
+      },
+      {
+        "email": "billing@globex.example",
+        "id": 2,
+        "name": "Globex"
+      },
+      {
+        "email": "billing@initech.example",
+        "id": 3,
+        "name": "Initech"
+      },
+      {
+        "email": "billing@umbrella.example",
+        "id": 4,
+        "name": "Umbrella"
+      },
+      {
+        "email": "billing@hooli.example",
+        "id": 5,
+        "name": "Hooli"
+      },
+      {
+        "email": "billing@vandelay.example",
+        "id": 6,
+        "name": "Vandelay"
+      },
+      {
+        "email": "billing@stark.example",
+        "id": 7,
+        "name": "Stark"
+      },
+      {
+        "email": "billing@wayne.example",
+        "id": 8,
+        "name": "Wayne"
+      },
+      {
+        "email": "billing@wonka.example",
+        "id": 9,
+        "name": "Wonka"
+      },
+      {
+        "email": "billing@tyrell.example",
+        "id": 10,
+        "name": "Tyrell"
+      }
+    ],
+    "invoices": [
+      {
+        "amount_cents": 10000,
+        "approved": false,
+        "customer_id": 1,
+        "id": 11,
+        "receipt_sent": true,
+        "status": "paid"
+      }
+    ],
+    "outbox": [
+      {
+        "id": 13,
+        "invoice_id": 11,
+        "key": "send-acme",
+        "kind": "invoice",
+        "subject": "Invoice #11",
+        "to": "billing@acme.example"
+      },
+      {
+        "id": 14,
+        "invoice_id": 11,
+        "key": "receipt-acme",
+        "kind": "receipt",
+        "subject": "Receipt for invoice #11",
+        "to": "billing@acme.example"
+      }
+    ],
+    "payments": [
+      {
+        "id": 12,
+        "invoice_id": 11
+      }
+    ],
+    "reports": [],
+    "seed": 4
+  },
+  "receipt": {
+    "depth": 0,
+    "effects": [],
+    "error": null,
+    "evidence": null,
+    "forks_taken": 0,
+    "ledger": {
+      "ended_ms": 1788316138365,
+      "forks": [],
+      "notes": [],
+      "rows": [
+        {
+          "attempt": 1,
+          "ended_us": 1788316132389753,
+          "error": null,
+          "key": null,
+          "node": "t1",
+          "observed": [
+            {
+              "email": "billing@acme.example",
+              "id": 1,
+              "name": "Acme"
+            }
+          ],
+          "ok": true,
+          "op": "listCustomers",
+          "started_us": 1788316132388484,
+          "surface": "mcp",
+          "write": false
+        },
+        {
+          "attempt": 1,
+          "ended_us": 1788316134813900,
+          "error": null,
+          "key": "inv-acme",
+          "node": "t2",
+          "observed": {
+            "amount_cents": 10000,
+            "approved": false,
+            "customer_id": 1,
+            "id": 11,
+            "receipt_sent": false,
+            "status": "draft"
+          },
+          "ok": true,
+          "op": "createInvoice",
+          "started_us": 1788316134786329,
+          "surface": "mcp",
+          "write": true
+        },
+        {
+          "attempt": 1,
+          "ended_us": 1788316136166572,
+          "error": null,
+          "key": "send-acme",
+          "node": "t3",
+          "observed": {
+            "amount_cents": 10000,
+            "approved": false,
+            "customer_id": 1,
+            "id": 11,
+            "receipt_sent": false,
+            "status": "paid"
+          },
+          "ok": true,
+          "op": "sendInvoice",
+          "started_us": 1788316136139895,
+          "surface": "mcp",
+          "write": true
+        },
+        {
+          "attempt": 1,
+          "ended_us": 1788316137460566,
+          "error": null,
+          "key": "receipt-acme",
+          "node": "t4",
+          "observed": {
+            "amount_cents": 10000,
+            "approved": false,
+            "customer_id": 1,
+            "id": 11,
+            "receipt_sent": true,
+            "status": "paid"
+          },
+          "ok": true,
+          "op": "sendReceipt",
+          "started_us": 1788316137432944,
+          "surface": "mcp",
+          "write": true
+        }
+      ],
+      "samples": [
+        {
+          "effort": "medium",
+          "ended_us": 1788316132388472,
+          "kind": "turn",
+          "model": "gpt-5.6-luna",
+          "seq": 1,
+          "started_us": 1788316130447039,
+          "tokens_in": 1108,
+          "tokens_out": 12
+        },
+        {
+          "effort": "medium",
+          "ended_us": 1788316134786318,
+          "kind": "turn",
+          "model": "gpt-5.6-luna",
+          "seq": 2,
+          "started_us": 1788316132389778,
+          "tokens_in": 1146,
+          "tokens_out": 34
+        },
+        {
+          "effort": "medium",
+          "ended_us": 1788316136139885,
+          "kind": "turn",
+          "model": "gpt-5.6-luna",
+          "seq": 3,
+          "started_us": 1788316134813940,
+          "tokens_in": 1216,
+          "tokens_out": 23
+        },
+        {
+          "effort": "medium",
+          "ended_us": 1788316137432934,
+          "kind": "turn",
+          "model": "gpt-5.6-luna",
+          "seq": 4,
+          "started_us": 1788316136166618,
+          "tokens_in": 1276,
+          "tokens_out": 23
+        },
+        {
+          "effort": "medium",
+          "ended_us": 1788316138365464,
+          "kind": "turn",
+          "model": "gpt-5.6-luna",
+          "seq": 5,
+          "started_us": 1788316137460614,
+          "tokens_in": 1336,
+          "tokens_out": 1
+        }
+      ],
+      "started_ms": 1788316130447
+    },
+    "max_parallel": 1,
+    "max_parallel_by_surface": {
+      "mcp": 1
+    },
+    "nodes": 0,
+    "plan": "plan T4-B2-r1  (0 nodes, depth 0)\n",
+    "plan_id": "T4-B2-r1",
+    "plan_ms": 7835,
+    "run_ms": 5072,
+    "samples": 5,
+    "status": "committed",
+    "tokens_in": 6082,
+    "tokens_out": 93,
+    "wall_ms": 7918,
+    "yield_reason": null
+  },
+  "intent": null,
+  "model": "gpt-5.6-luna",
+  "effort": "medium",
+  "base_url": "http://localhost:8080",
+  "latency_ms": 25,
+  "surfaces": "api"
+}

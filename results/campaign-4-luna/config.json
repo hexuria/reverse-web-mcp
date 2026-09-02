@@ -1,0 +1,20 @@
+{
+  "app": "http://127.0.0.1:47310",
+  "spawn": true,
+  "tasks_dir": "tasks",
+  "tasks": "T2,T4,T9,T11",
+  "arms": "D,B2",
+  "runs": 3,
+  "phase": 3,
+  "surfaces": "api",
+  "latency_ms": 25,
+  "planner": "model",
+  "model": "gpt-5.6-luna",
+  "effort": "medium",
+  "planner_effort": "low",
+  "no_fallbacks": false,
+  "base_url": "http://localhost:8080",
+  "max_turns": 40,
+  "plan_cache": null,
+  "out": "results/campaign-4-luna"
+}

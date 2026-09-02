@@ -13,11 +13,26 @@ ledger and never taken from an arm's own word.
 
 Everything is Rust. Nothing runs on your screen.
 
+## Guides
+
+Four illustrated guides, each answering a different first question. They are published as
+private Artifacts: the links work for the author, and for anyone the author shares them with.
+
+| guide | answers |
+|---|---|
+| [rwmcp in Pictures](https://claude.ai/code/artifact/9032509f-35de-4b2c-b63a-5120711710c4) | What does this actually do? The idea, the doors your app needs, the annotation, and a receipt — in pictures, for someone who has never seen it. |
+| [Reverse-WebMCP](https://claude.ai/code/artifact/b53128ad-21db-48ae-acc3-c647f382f325) | How is this different from MCP and WebMCP? The same operation declared both ways, one goal run both ways with real numbers, and when to pick each. |
+| [rwmcp Stack Map](https://claude.ai/code/artifact/8e01b51e-1bf2-4460-b185-4f4a8ae495b5) | What is the code? Four crates, three layers, the process boundary, and every external dependency with what breaks without it. |
+| [Zero to First Plan](https://claude.ai/code/artifact/974551b9-1e84-4568-9fbf-a07157d055fd) | How do I set this up with a coding agent? What to install, which skill does which job, the command that resets your app, and five steps end to end. |
+
+Start with the first if you are new, the second if you already know MCP, the third if you are
+reading the source, and the fourth if you are wiring it to your own app.
+
 ## Layout
 
 ```
 crates/app         the target app we own: invoicing, one handler set, five doors, an oracle
-crates/rwmcp   world model deriver · predicate language · compiler · scheduler · ledger · effectors · event bus
+crates/rwmcp       world model deriver · predicate language · compiler · scheduler · ledger · effectors · event bus
 crates/bench       the arms, the tasks runner, the report, verify
 tasks/             T1..T7 as TOML: goal, wants, seed, chaos, hooks, expected end state
 docker/            the sandbox: app + headless Chromium + one virtual display per screen lane

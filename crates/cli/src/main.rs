@@ -19,13 +19,12 @@ use std::sync::Arc;
 
 use anyhow::Context;
 use clap::Parser;
-use rwmcp::events::EventBus;
-use rwmcp::intent::{lint, Intent};
-use rwmcp::ledger::{Ledger, Recorder};
+use rwmcp::intent::Intent;
+use rwmcp::ledger::Ledger;
 use rwmcp::planner::{self, ModelClient};
 use rwmcp::pred::{Pred, Val};
 use rwmcp::scheduler::Outcome;
-use rwmcp::{compile, default_effectors, CompileOptions, Plan, Receipt, Scheduler, Status, World};
+use rwmcp::{compile, CompileOptions, Plan, Receipt, Session, Status, World};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
@@ -505,6 +504,25 @@ fn list_recipes(cli: &Cli) -> anyhow::Result<()> {
     Ok(())
 }
 
+/// Wants that do not hold up are the author's to fix, so they are shown with the offending column
+/// marked; an intent that cannot be compiled is the world model's problem and is passed through.
+fn plan_failed(e: rwmcp::PlanError) -> Fail {
+    match e {
+        rwmcp::PlanError::Wants(errs) => {
+            let mut prose = String::from("These wants do not hold up:\n");
+            for e in &errs {
+                prose.push_str(&format!("\n  {e}\n"));
+                if let (Some(w), Some(at)) = (e.want(), e.at()) {
+                    prose.push_str(&format!("    {w}\n    {}^\n", " ".repeat(at.min(w.len()))));
+                }
+            }
+            Fail::new(Exit::WantsRejected, "wants_rejected", prose.trim_end())
+                .with(serde_json::json!({"errors": errs, "codes": errs.iter().map(|e| e.code()).collect::<Vec<_>>()}))
+        }
+        rwmcp::PlanError::Compile(e) => Fail::new(Exit::WantsRejected, "compile_failed", e.to_string()).with(serde_json::json!({ "error": e })),
+    }
+}
+
 /// The review `annotate-world-model` describes, made runnable. Nothing needs to be running: this
 /// reads the document and says what cannot be right.
 async fn validate_world(cli: &Cli) -> Result<(), Fail> {
@@ -811,25 +829,13 @@ async fn act(cli: &Cli) -> Result<(), Fail> {
         true => intent,
     };
 
-    let errs = lint(&intent, &world, &opts);
-    if !errs.is_empty() {
-        let mut prose = String::from("These wants do not hold up:\n");
-        for e in &errs {
-            prose.push_str(&format!("\n  {e}\n"));
-            if let (Some(w), Some(at)) = (e.want(), e.at()) {
-                prose.push_str(&format!("    {w}\n    {}^\n", " ".repeat(at.min(w.len()))));
-            }
-        }
-        return Err(Fail::new(Exit::WantsRejected, "wants_rejected", prose.trim_end())
-            .with(serde_json::json!({"errors": errs, "codes": errs.iter().map(|e| e.code()).collect::<Vec<_>>()})));
-    }
-
     if cli.order_check {
         return order_check(&intent, &world, &opts, cli.json);
     }
 
-    let plan =
-        compile(&intent, &world, &opts).map_err(|e| Fail::new(Exit::WantsRejected, "compile_failed", e.to_string()).with(serde_json::json!({ "error": e })))?;
+    // The same lint and the same compile the library exposes, so what the CLI accepts and what an
+    // embedder accepts cannot drift apart.
+    let plan = Session::offline(world.clone()).surfaces(&cli.surface_list()).plan_id(&opts.plan_id).plan(&intent).map_err(plan_failed)?;
     if let Some(path) = &cli.plan_out {
         std::fs::write(path, serde_json::to_string_pretty(&plan).map_err(unreachable_fail)?).map_err(unreachable_fail)?;
         if !cli.json {
@@ -1040,27 +1046,19 @@ async fn execute(cli: &Cli, intent: &Intent, plan: &Plan, mut ledger: Ledger, wo
         )
         .with(serde_json::json!({ "external_steps": external })));
     }
-    let shared = Arc::new(world.clone());
-    let sched = Scheduler {
-        effectors: default_effectors(cli.app(), shared.clone(), &cli.surface_list()),
-        bus: Some(EventBus::connect(cli.app()).await.map_err(unreachable_fail)?),
-        pools: cli.pools(),
-        policy: cli.policy(),
-        recorder: Recorder::new(shared.clone()),
-        // A thirty-step plan is otherwise silent for its whole run, which reads as a hang.
-        progress: (!cli.json).then(|| {
-            Arc::new(|_id: &str, op: &str, ok: bool, n: usize, total: usize| {
-                println!("  [{n:>3}/{total}] {} {op}", if ok { "ok  " } else { "FAIL" });
-            }) as rwmcp::scheduler::Progress
-        }),
-    };
+    let mut app =
+        Session::connect(cli.app()).await.map_err(unreachable_fail)?.surfaces(&cli.surface_list()).plan_id(&opts.plan_id).limits(cli.pools(), cli.policy());
     if !cli.json {
+        // A thirty-step plan is otherwise silent for its whole run, which reads as a hang.
+        app = app.watching(Arc::new(|_id: &str, op: &str, ok: bool, n: usize, total: usize| {
+            println!("  [{n:>3}/{total}] {} {op}", if ok { "ok  " } else { "FAIL" });
+        }));
         println!("\nRunning.");
     }
 
     let mut intent = intent.clone();
     let mut plan = plan.clone();
-    let mut outcome = sched.run(&plan, &mut ledger).await;
+    let mut outcome = app.run_with(&plan, &mut ledger).await.map_err(unreachable_fail)?;
 
     // A fork is a question, not a failure. Answering it recompiles the same wants with the
     // ambiguity resolved; every other want keeps its text, so it keeps its key and is not redone.
@@ -1069,11 +1067,10 @@ async fn execute(cli: &Cli, intent: &Intent, plan: &Plan, mut ledger: Ledger, wo
             intent = answered;
             plan = compile(&intent, world, opts)
                 .map_err(|e| Fail::new(Exit::WantsRejected, "compile_failed", e.to_string()).with(serde_json::json!({ "error": e })))?;
-            let done = ledger.completed(&plan);
             if !cli.json {
-                println!("Answered. {} of {} steps already done; carrying on.", done.len(), plan.nodes.len());
+                println!("Answered. {} of {} steps already done; carrying on.", ledger.completed(&plan).len(), plan.nodes.len());
             }
-            outcome = sched.resume(&plan, &mut ledger, &done).await;
+            outcome = app.run_with(&plan, &mut ledger).await.map_err(unreachable_fail)?;
         }
     }
 

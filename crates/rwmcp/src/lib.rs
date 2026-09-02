@@ -15,6 +15,7 @@ pub mod plan;
 pub mod planner;
 pub mod pred;
 pub mod scheduler;
+pub mod session;
 pub mod world;
 
 pub use compiler::{compile, CompileOptions};
@@ -22,6 +23,7 @@ pub use intent::Intent;
 pub use ledger::{Ledger, Receipt, Status};
 pub use plan::Plan;
 pub use scheduler::{Policy, Pools, Scheduler};
+pub use session::{PlanError, Session};
 pub use world::{World, WorldError};
 
 use std::collections::HashMap;

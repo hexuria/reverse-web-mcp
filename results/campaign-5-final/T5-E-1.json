@@ -1,0 +1,932 @@
+{
+  "task": "T5",
+  "task_title": "ten invoices with a 30% send failure rate",
+  "arm": "E",
+  "run": 1,
+  "status": "committed",
+  "planner": "none",
+  "samples": 0,
+  "tokens_in": 0,
+  "tokens_out": 0,
+  "wall_ms": 110,
+  "plan_ms": 0,
+  "run_ms": 110,
+  "max_parallel": 10,
+  "max_parallel_by_surface": {
+    "api": 10
+  },
+  "nodes": 0,
+  "depth": 0,
+  "correct": true,
+  "checks": [
+    {
+      "name": "status",
+      "expected": "committed",
+      "actual": "committed",
+      "ok": true
+    },
+    {
+      "name": "invoices",
+      "expected": 10,
+      "actual": 10,
+      "ok": true
+    },
+    {
+      "name": "sent",
+      "expected": 10,
+      "actual": 10,
+      "ok": true
+    },
+    {
+      "name": "double_sends",
+      "expected": 0,
+      "actual": 0,
+      "ok": true
+    }
+  ],
+  "double_sends": 0,
+  "forks": 0,
+  "yield_reason": null,
+  "error": null,
+  "snapshot": {
+    "chaos": {
+      "latency_ms": 25,
+      "rate_limit_per_sec": 0,
+      "require_approval": false,
+      "send_fail_rate": 0.3,
+      "ui_modal": false
+    },
+    "customers": [
+      {
+        "email": "billing@acme.example",
+        "id": 1,
+        "name": "Acme"
+      },
+      {
+        "email": "billing@globex.example",
+        "id": 2,
+        "name": "Globex"
+      },
+      {
+        "email": "billing@initech.example",
+        "id": 3,
+        "name": "Initech"
+      },
+      {
+        "email": "billing@umbrella.example",
+        "id": 4,
+        "name": "Umbrella"
+      },
+      {
+        "email": "billing@hooli.example",
+        "id": 5,
+        "name": "Hooli"
+      },
+      {
+        "email": "billing@vandelay.example",
+        "id": 6,
+        "name": "Vandelay"
+      },
+      {
+        "email": "billing@stark.example",
+        "id": 7,
+        "name": "Stark"
+      },
+      {
+        "email": "billing@wayne.example",
+        "id": 8,
+        "name": "Wayne"
+      },
+      {
+        "email": "billing@wonka.example",
+        "id": 9,
+        "name": "Wonka"
+      },
+      {
+        "email": "billing@tyrell.example",
+        "id": 10,
+        "name": "Tyrell"
+      }
+    ],
+    "invoices": [
+      {
+        "amount_cents": 10000,
+        "approved": false,
+        "customer_id": 2,
+        "id": 11,
+        "receipt_sent": false,
+        "status": "sent"
+      },
+      {
+        "amount_cents": 10000,
+        "approved": false,
+        "customer_id": 4,
+        "id": 12,
+        "receipt_sent": false,
+        "status": "sent"
+      },
+      {
+        "amount_cents": 10000,
+        "approved": false,
+        "customer_id": 1,
+        "id": 13,
+        "receipt_sent": false,
+        "status": "sent"
+      },
+      {
+        "amount_cents": 10000,
+        "approved": false,
+        "customer_id": 3,
+        "id": 14,
+        "receipt_sent": false,
+        "status": "sent"
+      },
+      {
+        "amount_cents": 10000,
+        "approved": false,
+        "customer_id": 5,
+        "id": 15,
+        "receipt_sent": false,
+        "status": "sent"
+      },
+      {
+        "amount_cents": 10000,
+        "approved": false,
+        "customer_id": 6,
+        "id": 16,
+        "receipt_sent": false,
+        "status": "sent"
+      },
+      {
+        "amount_cents": 10000,
+        "approved": false,
+        "customer_id": 7,
+        "id": 17,
+        "receipt_sent": false,
+        "status": "sent"
+      },
+      {
+        "amount_cents": 10000,
+        "approved": false,
+        "customer_id": 9,
+        "id": 18,
+        "receipt_sent": false,
+        "status": "sent"
+      },
+      {
+        "amount_cents": 10000,
+        "approved": false,
+        "customer_id": 8,
+        "id": 19,
+        "receipt_sent": false,
+        "status": "sent"
+      },
+      {
+        "amount_cents": 10000,
+        "approved": false,
+        "customer_id": 10,
+        "id": 20,
+        "receipt_sent": false,
+        "status": "sent"
+      }
+    ],
+    "outbox": [
+      {
+        "id": 21,
+        "invoice_id": 13,
+        "key": "E-T5-r1/Acme/send",
+        "kind": "invoice",
+        "subject": "Invoice #13",
+        "to": "billing@acme.example"
+      },
+      {
+        "id": 22,
+        "invoice_id": 20,
+        "key": "E-T5-r1/Tyrell/send",
+        "kind": "invoice",
+        "subject": "Invoice #20",
+        "to": "billing@tyrell.example"
+      },
+      {
+        "id": 23,
+        "invoice_id": 14,
+        "key": "E-T5-r1/Initech/send",
+        "kind": "invoice",
+        "subject": "Invoice #14",
+        "to": "billing@initech.example"
+      },
+      {
+        "id": 24,
+        "invoice_id": 12,
+        "key": "E-T5-r1/Umbrella/send",
+        "kind": "invoice",
+        "subject": "Invoice #12",
+        "to": "billing@umbrella.example"
+      },
+      {
+        "id": 25,
+        "invoice_id": 16,
+        "key": "E-T5-r1/Vandelay/send",
+        "kind": "invoice",
+        "subject": "Invoice #16",
+        "to": "billing@vandelay.example"
+      },
+      {
+        "id": 26,
+        "invoice_id": 17,
+        "key": "E-T5-r1/Stark/send",
+        "kind": "invoice",
+        "subject": "Invoice #17",
+        "to": "billing@stark.example"
+      },
+      {
+        "id": 27,
+        "invoice_id": 19,
+        "key": "E-T5-r1/Wayne/send",
+        "kind": "invoice",
+        "subject": "Invoice #19",
+        "to": "billing@wayne.example"
+      },
+      {
+        "id": 28,
+        "invoice_id": 18,
+        "key": "E-T5-r1/Wonka/send",
+        "kind": "invoice",
+        "subject": "Invoice #18",
+        "to": "billing@wonka.example"
+      },
+      {
+        "id": 29,
+        "invoice_id": 15,
+        "key": "E-T5-r1/Hooli/send",
+        "kind": "invoice",
+        "subject": "Invoice #15",
+        "to": "billing@hooli.example"
+      },
+      {
+        "id": 30,
+        "invoice_id": 11,
+        "key": "E-T5-r1/Globex/send",
+        "kind": "invoice",
+        "subject": "Invoice #11",
+        "to": "billing@globex.example"
+      }
+    ],
+    "payments": [],
+    "reports": [],
+    "seed": 5
+  },
+  "receipt": {
+    "depth": 0,
+    "effects": [],
+    "error": null,
+    "evidence": null,
+    "forks_taken": 0,
+    "ledger": {
+      "ended_ms": 1788316223366,
+      "forks": [],
+      "notes": [],
+      "rows": [
+        {
+          "attempt": 1,
+          "ended_us": 1788316223260480,
+          "error": null,
+          "key": null,
+          "node": "s1",
+          "observed": [
+            {
+              "email": "billing@acme.example",
+              "id": 1,
+              "name": "Acme"
+            }
+          ],
+          "ok": true,
+          "op": "listCustomers",
+          "started_us": 1788316223256250,
+          "surface": "api",
+          "write": false
+        },
+        {
+          "attempt": 1,
+          "ended_us": 1788316223260430,
+          "error": null,
+          "key": null,
+          "node": "s2",
+          "observed": [
+            {
+              "email": "billing@globex.example",
+              "id": 2,
+              "name": "Globex"
+            }
+          ],
+          "ok": true,
+          "op": "listCustomers",
+          "started_us": 1788316223256770,
+          "surface": "api",
+          "write": false
+        },
+        {
+          "attempt": 1,
+          "ended_us": 1788316223260493,
+          "error": null,
+          "key": null,
+          "node": "s3",
+          "observed": [
+            {
+              "email": "billing@initech.example",
+              "id": 3,
+              "name": "Initech"
+            }
+          ],
+          "ok": true,
+          "op": "listCustomers",
+          "started_us": 1788316223257148,
+          "surface": "api",
+          "write": false
+        },
+        {
+          "attempt": 1,
+          "ended_us": 1788316223260508,
+          "error": null,
+          "key": null,
+          "node": "s4",
+          "observed": [
+            {
+              "email": "billing@umbrella.example",
+              "id": 4,
+              "name": "Umbrella"
+            }
+          ],
+          "ok": true,
+          "op": "listCustomers",
+          "started_us": 1788316223257498,
+          "surface": "api",
+          "write": false
+        },
+        {
+          "attempt": 1,
+          "ended_us": 1788316223260751,
+          "error": null,
+          "key": null,
+          "node": "s5",
+          "observed": [
+            {
+              "email": "billing@hooli.example",
+              "id": 5,
+              "name": "Hooli"
+            }
+          ],
+          "ok": true,
+          "op": "listCustomers",
+          "started_us": 1788316223257943,
+          "surface": "api",
+          "write": false
+        },
+        {
+          "attempt": 1,
+          "ended_us": 1788316223260568,
+          "error": null,
+          "key": null,
+          "node": "s6",
+          "observed": [
+            {
+              "email": "billing@vandelay.example",
+              "id": 6,
+              "name": "Vandelay"
+            }
+          ],
+          "ok": true,
+          "op": "listCustomers",
+          "started_us": 1788316223258406,
+          "surface": "api",
+          "write": false
+        },
+        {
+          "attempt": 1,
+          "ended_us": 1788316223260696,
+          "error": null,
+          "key": null,
+          "node": "s7",
+          "observed": [
+            {
+              "email": "billing@stark.example",
+              "id": 7,
+              "name": "Stark"
+            }
+          ],
+          "ok": true,
+          "op": "listCustomers",
+          "started_us": 1788316223258827,
+          "surface": "api",
+          "write": false
+        },
+        {
+          "attempt": 1,
+          "ended_us": 1788316223260714,
+          "error": null,
+          "key": null,
+          "node": "s8",
+          "observed": [
+            {
+              "email": "billing@wayne.example",
+              "id": 8,
+              "name": "Wayne"
+            }
+          ],
+          "ok": true,
+          "op": "listCustomers",
+          "started_us": 1788316223259146,
+          "surface": "api",
+          "write": false
+        },
+        {
+          "attempt": 1,
+          "ended_us": 1788316223260726,
+          "error": null,
+          "key": null,
+          "node": "s9",
+          "observed": [
+            {
+              "email": "billing@wonka.example",
+              "id": 9,
+              "name": "Wonka"
+            }
+          ],
+          "ok": true,
+          "op": "listCustomers",
+          "started_us": 1788316223259487,
+          "surface": "api",
+          "write": false
+        },
+        {
+          "attempt": 1,
+          "ended_us": 1788316223260737,
+          "error": null,
+          "key": null,
+          "node": "s10",
+          "observed": [
+            {
+              "email": "billing@tyrell.example",
+              "id": 10,
+              "name": "Tyrell"
+            }
+          ],
+          "ok": true,
+          "op": "listCustomers",
+          "started_us": 1788316223259823,
+          "surface": "api",
+          "write": false
+        },
+        {
+          "attempt": 1,
+          "ended_us": 1788316223287603,
+          "error": null,
+          "key": "E-T5-r1/Globex/create",
+          "node": "s11",
+          "observed": {
+            "amount_cents": 10000,
+            "approved": false,
+            "customer_id": 2,
+            "id": 11,
+            "receipt_sent": false,
+            "status": "draft"
+          },
+          "ok": true,
+          "op": "createInvoice",
+          "started_us": 1788316223260434,
+          "surface": "api",
+          "write": true
+        },
+        {
+          "attempt": 1,
+          "ended_us": 1788316223287524,
+          "error": null,
+          "key": "E-T5-r1/Acme/create",
+          "node": "s12",
+          "observed": {
+            "amount_cents": 10000,
+            "approved": false,
+            "customer_id": 1,
+            "id": 13,
+            "receipt_sent": false,
+            "status": "draft"
+          },
+          "ok": true,
+          "op": "createInvoice",
+          "started_us": 1788316223260481,
+          "surface": "api",
+          "write": true
+        },
+        {
+          "attempt": 1,
+          "ended_us": 1788316223287642,
+          "error": null,
+          "key": "E-T5-r1/Initech/create",
+          "node": "s13",
+          "observed": {
+            "amount_cents": 10000,
+            "approved": false,
+            "customer_id": 3,
+            "id": 14,
+            "receipt_sent": false,
+            "status": "draft"
+          },
+          "ok": true,
+          "op": "createInvoice",
+          "started_us": 1788316223260495,
+          "surface": "api",
+          "write": true
+        },
+        {
+          "attempt": 1,
+          "ended_us": 1788316223287667,
+          "error": null,
+          "key": "E-T5-r1/Umbrella/create",
+          "node": "s14",
+          "observed": {
+            "amount_cents": 10000,
+            "approved": false,
+            "customer_id": 4,
+            "id": 12,
+            "receipt_sent": false,
+            "status": "draft"
+          },
+          "ok": true,
+          "op": "createInvoice",
+          "started_us": 1788316223260509,
+          "surface": "api",
+          "write": true
+        },
+        {
+          "attempt": 1,
+          "ended_us": 1788316223287714,
+          "error": null,
+          "key": "E-T5-r1/Vandelay/create",
+          "node": "s15",
+          "observed": {
+            "amount_cents": 10000,
+            "approved": false,
+            "customer_id": 6,
+            "id": 16,
+            "receipt_sent": false,
+            "status": "draft"
+          },
+          "ok": true,
+          "op": "createInvoice",
+          "started_us": 1788316223260581,
+          "surface": "api",
+          "write": true
+        },
+        {
+          "attempt": 1,
+          "ended_us": 1788316223287737,
+          "error": null,
+          "key": "E-T5-r1/Stark/create",
+          "node": "s16",
+          "observed": {
+            "amount_cents": 10000,
+            "approved": false,
+            "customer_id": 7,
+            "id": 17,
+            "receipt_sent": false,
+            "status": "draft"
+          },
+          "ok": true,
+          "op": "createInvoice",
+          "started_us": 1788316223260700,
+          "surface": "api",
+          "write": true
+        },
+        {
+          "attempt": 1,
+          "ended_us": 1788316223287771,
+          "error": null,
+          "key": "E-T5-r1/Wayne/create",
+          "node": "s17",
+          "observed": {
+            "amount_cents": 10000,
+            "approved": false,
+            "customer_id": 8,
+            "id": 19,
+            "receipt_sent": false,
+            "status": "draft"
+          },
+          "ok": true,
+          "op": "createInvoice",
+          "started_us": 1788316223260716,
+          "surface": "api",
+          "write": true
+        },
+        {
+          "attempt": 1,
+          "ended_us": 1788316223287794,
+          "error": null,
+          "key": "E-T5-r1/Wonka/create",
+          "node": "s18",
+          "observed": {
+            "amount_cents": 10000,
+            "approved": false,
+            "customer_id": 9,
+            "id": 18,
+            "receipt_sent": false,
+            "status": "draft"
+          },
+          "ok": true,
+          "op": "createInvoice",
+          "started_us": 1788316223260727,
+          "surface": "api",
+          "write": true
+        },
+        {
+          "attempt": 1,
+          "ended_us": 1788316223287818,
+          "error": null,
+          "key": "E-T5-r1/Tyrell/create",
+          "node": "s19",
+          "observed": {
+            "amount_cents": 10000,
+            "approved": false,
+            "customer_id": 10,
+            "id": 20,
+            "receipt_sent": false,
+            "status": "draft"
+          },
+          "ok": true,
+          "op": "createInvoice",
+          "started_us": 1788316223260739,
+          "surface": "api",
+          "write": true
+        },
+        {
+          "attempt": 1,
+          "ended_us": 1788316223287691,
+          "error": null,
+          "key": "E-T5-r1/Hooli/create",
+          "node": "s20",
+          "observed": {
+            "amount_cents": 10000,
+            "approved": false,
+            "customer_id": 5,
+            "id": 15,
+            "receipt_sent": false,
+            "status": "draft"
+          },
+          "ok": true,
+          "op": "createInvoice",
+          "started_us": 1788316223260752,
+          "surface": "api",
+          "write": true
+        },
+        {
+          "attempt": 1,
+          "ended_us": 1788316223314743,
+          "error": null,
+          "key": "E-T5-r1/Acme/send",
+          "node": "s21",
+          "observed": {
+            "amount_cents": 10000,
+            "approved": false,
+            "customer_id": 1,
+            "id": 13,
+            "receipt_sent": false,
+            "status": "sent"
+          },
+          "ok": true,
+          "op": "sendInvoice",
+          "started_us": 1788316223287540,
+          "surface": "api",
+          "write": true
+        },
+        {
+          "attempt": 1,
+          "ended_us": 1788316223291165,
+          "error": "500 chaos: send failed before doing anything",
+          "key": "E-T5-r1/Globex/send",
+          "node": "s22",
+          "observed": null,
+          "ok": false,
+          "op": "sendInvoice",
+          "started_us": 1788316223287607,
+          "surface": "api",
+          "write": true
+        },
+        {
+          "attempt": 1,
+          "ended_us": 1788316223315930,
+          "error": null,
+          "key": "E-T5-r1/Initech/send",
+          "node": "s23",
+          "observed": {
+            "amount_cents": 10000,
+            "approved": false,
+            "customer_id": 3,
+            "id": 14,
+            "receipt_sent": false,
+            "status": "sent"
+          },
+          "ok": true,
+          "op": "sendInvoice",
+          "started_us": 1788316223287645,
+          "surface": "api",
+          "write": true
+        },
+        {
+          "attempt": 1,
+          "ended_us": 1788316223315951,
+          "error": null,
+          "key": "E-T5-r1/Umbrella/send",
+          "node": "s24",
+          "observed": {
+            "amount_cents": 10000,
+            "approved": false,
+            "customer_id": 4,
+            "id": 12,
+            "receipt_sent": false,
+            "status": "sent"
+          },
+          "ok": true,
+          "op": "sendInvoice",
+          "started_us": 1788316223287671,
+          "surface": "api",
+          "write": true
+        },
+        {
+          "attempt": 1,
+          "ended_us": 1788316223291194,
+          "error": "500 chaos: send failed before doing anything",
+          "key": "E-T5-r1/Hooli/send",
+          "node": "s25",
+          "observed": null,
+          "ok": false,
+          "op": "sendInvoice",
+          "started_us": 1788316223287694,
+          "surface": "api",
+          "write": true
+        },
+        {
+          "attempt": 1,
+          "ended_us": 1788316223315969,
+          "error": null,
+          "key": "E-T5-r1/Vandelay/send",
+          "node": "s26",
+          "observed": {
+            "amount_cents": 10000,
+            "approved": false,
+            "customer_id": 6,
+            "id": 16,
+            "receipt_sent": false,
+            "status": "sent"
+          },
+          "ok": true,
+          "op": "sendInvoice",
+          "started_us": 1788316223287717,
+          "surface": "api",
+          "write": true
+        },
+        {
+          "attempt": 1,
+          "ended_us": 1788316223315984,
+          "error": null,
+          "key": "E-T5-r1/Stark/send",
+          "node": "s27",
+          "observed": {
+            "amount_cents": 10000,
+            "approved": false,
+            "customer_id": 7,
+            "id": 17,
+            "receipt_sent": false,
+            "status": "sent"
+          },
+          "ok": true,
+          "op": "sendInvoice",
+          "started_us": 1788316223287750,
+          "surface": "api",
+          "write": true
+        },
+        {
+          "attempt": 1,
+          "ended_us": 1788316223316000,
+          "error": null,
+          "key": "E-T5-r1/Wayne/send",
+          "node": "s28",
+          "observed": {
+            "amount_cents": 10000,
+            "approved": false,
+            "customer_id": 8,
+            "id": 19,
+            "receipt_sent": false,
+            "status": "sent"
+          },
+          "ok": true,
+          "op": "sendInvoice",
+          "started_us": 1788316223287773,
+          "surface": "api",
+          "write": true
+        },
+        {
+          "attempt": 1,
+          "ended_us": 1788316223317130,
+          "error": null,
+          "key": "E-T5-r1/Wonka/send",
+          "node": "s29",
+          "observed": {
+            "amount_cents": 10000,
+            "approved": false,
+            "customer_id": 9,
+            "id": 18,
+            "receipt_sent": false,
+            "status": "sent"
+          },
+          "ok": true,
+          "op": "sendInvoice",
+          "started_us": 1788316223287797,
+          "surface": "api",
+          "write": true
+        },
+        {
+          "attempt": 1,
+          "ended_us": 1788316223314775,
+          "error": null,
+          "key": "E-T5-r1/Tyrell/send",
+          "node": "s30",
+          "observed": {
+            "amount_cents": 10000,
+            "approved": false,
+            "customer_id": 10,
+            "id": 20,
+            "receipt_sent": false,
+            "status": "sent"
+          },
+          "ok": true,
+          "op": "sendInvoice",
+          "started_us": 1788316223287821,
+          "surface": "api",
+          "write": true
+        },
+        {
+          "attempt": 2,
+          "ended_us": 1788316223366753,
+          "error": null,
+          "key": "E-T5-r1/Globex/send",
+          "node": "s22",
+          "observed": {
+            "amount_cents": 10000,
+            "approved": false,
+            "customer_id": 2,
+            "id": 11,
+            "receipt_sent": false,
+            "status": "sent"
+          },
+          "ok": true,
+          "op": "sendInvoice",
+          "started_us": 1788316223339423,
+          "surface": "api",
+          "write": true
+        },
+        {
+          "attempt": 2,
+          "ended_us": 1788316223366768,
+          "error": null,
+          "key": "E-T5-r1/Hooli/send",
+          "node": "s25",
+          "observed": {
+            "amount_cents": 10000,
+            "approved": false,
+            "customer_id": 5,
+            "id": 15,
+            "receipt_sent": false,
+            "status": "sent"
+          },
+          "ok": true,
+          "op": "sendInvoice",
+          "started_us": 1788316223339469,
+          "surface": "api",
+          "write": true
+        }
+      ],
+      "samples": [],
+      "started_ms": 1788316223256
+    },
+    "max_parallel": 10,
+    "max_parallel_by_surface": {
+      "api": 10
+    },
+    "nodes": 0,
+    "plan": "plan E-T5-r1  (0 nodes, depth 0)\n",
+    "plan_id": "E-T5-r1",
+    "plan_ms": 0,
+    "run_ms": 110,
+    "samples": 0,
+    "status": "committed",
+    "tokens_in": 0,
+    "tokens_out": 0,
+    "wall_ms": 110,
+    "yield_reason": null
+  },
+  "intent": null,
+  "model": "",
+  "effort": "",
+  "base_url": "http://localhost:8080",
+  "latency_ms": 25,
+  "surfaces": "api"
+}

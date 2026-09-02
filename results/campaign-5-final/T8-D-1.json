@@ -1,0 +1,902 @@
+{
+  "task": "T8",
+  "task_title": "three invoices: send, get paid, receipt, then one report over all three",
+  "arm": "D",
+  "run": 1,
+  "status": "committed",
+  "planner": "model-intent",
+  "samples": 2,
+  "tokens_in": 3127,
+  "tokens_out": 350,
+  "wall_ms": 12524,
+  "plan_ms": 11803,
+  "run_ms": 719,
+  "max_parallel": 3,
+  "max_parallel_by_surface": {
+    "api": 3
+  },
+  "nodes": 16,
+  "depth": 5,
+  "correct": true,
+  "checks": [
+    {
+      "name": "status",
+      "expected": "committed",
+      "actual": "committed",
+      "ok": true
+    },
+    {
+      "name": "invoices",
+      "expected": 3,
+      "actual": 3,
+      "ok": true
+    },
+    {
+      "name": "sent",
+      "expected": 3,
+      "actual": 3,
+      "ok": true
+    },
+    {
+      "name": "paid",
+      "expected": 3,
+      "actual": 3,
+      "ok": true
+    },
+    {
+      "name": "receipts",
+      "expected": 3,
+      "actual": 3,
+      "ok": true
+    },
+    {
+      "name": "reports",
+      "expected": 1,
+      "actual": 1,
+      "ok": true
+    },
+    {
+      "name": "double_sends",
+      "expected": 0,
+      "actual": 0,
+      "ok": true
+    }
+  ],
+  "double_sends": 0,
+  "forks": 0,
+  "yield_reason": null,
+  "error": null,
+  "snapshot": {
+    "chaos": {
+      "latency_ms": 25,
+      "rate_limit_per_sec": 0,
+      "require_approval": false,
+      "send_fail_rate": 0.0,
+      "ui_modal": false
+    },
+    "customers": [
+      {
+        "email": "billing@acme.example",
+        "id": 1,
+        "name": "Acme"
+      },
+      {
+        "email": "billing@globex.example",
+        "id": 2,
+        "name": "Globex"
+      },
+      {
+        "email": "billing@initech.example",
+        "id": 3,
+        "name": "Initech"
+      },
+      {
+        "email": "billing@umbrella.example",
+        "id": 4,
+        "name": "Umbrella"
+      },
+      {
+        "email": "billing@hooli.example",
+        "id": 5,
+        "name": "Hooli"
+      },
+      {
+        "email": "billing@vandelay.example",
+        "id": 6,
+        "name": "Vandelay"
+      },
+      {
+        "email": "billing@stark.example",
+        "id": 7,
+        "name": "Stark"
+      },
+      {
+        "email": "billing@wayne.example",
+        "id": 8,
+        "name": "Wayne"
+      },
+      {
+        "email": "billing@wonka.example",
+        "id": 9,
+        "name": "Wonka"
+      },
+      {
+        "email": "billing@tyrell.example",
+        "id": 10,
+        "name": "Tyrell"
+      }
+    ],
+    "invoices": [
+      {
+        "amount_cents": 10000,
+        "approved": false,
+        "customer_id": 1,
+        "id": 11,
+        "receipt_sent": true,
+        "status": "paid"
+      },
+      {
+        "amount_cents": 10000,
+        "approved": false,
+        "customer_id": 2,
+        "id": 12,
+        "receipt_sent": true,
+        "status": "paid"
+      },
+      {
+        "amount_cents": 10000,
+        "approved": false,
+        "customer_id": 3,
+        "id": 13,
+        "receipt_sent": true,
+        "status": "paid"
+      }
+    ],
+    "outbox": [
+      {
+        "id": 14,
+        "invoice_id": 13,
+        "key": "T8-r1/ae9f82a5201f3d5a",
+        "kind": "invoice",
+        "subject": "Invoice #13",
+        "to": "billing@initech.example"
+      },
+      {
+        "id": 15,
+        "invoice_id": 12,
+        "key": "T8-r1/016b5803a0d96d9e",
+        "kind": "invoice",
+        "subject": "Invoice #12",
+        "to": "billing@globex.example"
+      },
+      {
+        "id": 16,
+        "invoice_id": 11,
+        "key": "T8-r1/77c40e9faea35860",
+        "kind": "invoice",
+        "subject": "Invoice #11",
+        "to": "billing@acme.example"
+      },
+      {
+        "id": 20,
+        "invoice_id": 12,
+        "key": "T8-r1/5db283aed4ab5578",
+        "kind": "receipt",
+        "subject": "Receipt for invoice #12",
+        "to": "billing@globex.example"
+      },
+      {
+        "id": 21,
+        "invoice_id": 11,
+        "key": "T8-r1/69c73fde8085d346",
+        "kind": "receipt",
+        "subject": "Receipt for invoice #11",
+        "to": "billing@acme.example"
+      },
+      {
+        "id": 22,
+        "invoice_id": 13,
+        "key": "T8-r1/026d23c5c05d35e7",
+        "kind": "receipt",
+        "subject": "Receipt for invoice #13",
+        "to": "billing@initech.example"
+      }
+    ],
+    "payments": [
+      {
+        "id": 17,
+        "invoice_id": 13
+      },
+      {
+        "id": 18,
+        "invoice_id": 11
+      },
+      {
+        "id": 19,
+        "invoice_id": 12
+      }
+    ],
+    "reports": [
+      {
+        "id": 23,
+        "invoice_ids": [
+          11,
+          12,
+          13
+        ],
+        "sent_count": 3,
+        "total_cents": 30000
+      }
+    ],
+    "seed": 8
+  },
+  "receipt": {
+    "depth": 5,
+    "effects": [
+      {
+        "attempts": 1,
+        "key": null,
+        "node": "A",
+        "observed": [
+          {
+            "email": "billing@acme.example",
+            "id": 1,
+            "name": "Acme"
+          }
+        ],
+        "ok": true,
+        "op": "listCustomers"
+      },
+      {
+        "attempts": 1,
+        "key": "T8-r1/cac417d575b6be6d",
+        "node": "B",
+        "observed": {
+          "amount_cents": 10000,
+          "approved": false,
+          "customer_id": 1,
+          "id": 11,
+          "receipt_sent": false,
+          "status": "draft"
+        },
+        "ok": true,
+        "op": "createInvoice"
+      },
+      {
+        "attempts": 1,
+        "key": "T8-r1/77c40e9faea35860",
+        "node": "C",
+        "observed": {
+          "amount_cents": 10000,
+          "approved": false,
+          "customer_id": 1,
+          "id": 11,
+          "receipt_sent": false,
+          "status": "sent"
+        },
+        "ok": true,
+        "op": "sendInvoice"
+      },
+      {
+        "attempts": 1,
+        "key": null,
+        "node": "D",
+        "observed": {
+          "data": {
+            "id": 18,
+            "invoice_id": 11
+          },
+          "entity": "invoice",
+          "id": 11,
+          "kind": "payment.received",
+          "seq": 19
+        },
+        "ok": true,
+        "op": "payment.received"
+      },
+      {
+        "attempts": 1,
+        "key": "T8-r1/69c73fde8085d346",
+        "node": "E",
+        "observed": {
+          "amount_cents": 10000,
+          "approved": false,
+          "customer_id": 1,
+          "id": 11,
+          "receipt_sent": true,
+          "status": "paid"
+        },
+        "ok": true,
+        "op": "sendReceipt"
+      },
+      {
+        "attempts": 1,
+        "key": null,
+        "node": "F",
+        "observed": [
+          {
+            "email": "billing@globex.example",
+            "id": 2,
+            "name": "Globex"
+          }
+        ],
+        "ok": true,
+        "op": "listCustomers"
+      },
+      {
+        "attempts": 1,
+        "key": "T8-r1/7a6db2d29bc0aee0",
+        "node": "G",
+        "observed": {
+          "amount_cents": 10000,
+          "approved": false,
+          "customer_id": 2,
+          "id": 12,
+          "receipt_sent": false,
+          "status": "draft"
+        },
+        "ok": true,
+        "op": "createInvoice"
+      },
+      {
+        "attempts": 1,
+        "key": "T8-r1/016b5803a0d96d9e",
+        "node": "H",
+        "observed": {
+          "amount_cents": 10000,
+          "approved": false,
+          "customer_id": 2,
+          "id": 12,
+          "receipt_sent": false,
+          "status": "sent"
+        },
+        "ok": true,
+        "op": "sendInvoice"
+      },
+      {
+        "attempts": 1,
+        "key": null,
+        "node": "I",
+        "observed": {
+          "data": {
+            "id": 19,
+            "invoice_id": 12
+          },
+          "entity": "invoice",
+          "id": 12,
+          "kind": "payment.received",
+          "seq": 21
+        },
+        "ok": true,
+        "op": "payment.received"
+      },
+      {
+        "attempts": 1,
+        "key": "T8-r1/5db283aed4ab5578",
+        "node": "J",
+        "observed": {
+          "amount_cents": 10000,
+          "approved": false,
+          "customer_id": 2,
+          "id": 12,
+          "receipt_sent": true,
+          "status": "paid"
+        },
+        "ok": true,
+        "op": "sendReceipt"
+      },
+      {
+        "attempts": 1,
+        "key": null,
+        "node": "K",
+        "observed": [
+          {
+            "email": "billing@initech.example",
+            "id": 3,
+            "name": "Initech"
+          }
+        ],
+        "ok": true,
+        "op": "listCustomers"
+      },
+      {
+        "attempts": 1,
+        "key": "T8-r1/b057c3c06a17db36",
+        "node": "L",
+        "observed": {
+          "amount_cents": 10000,
+          "approved": false,
+          "customer_id": 3,
+          "id": 13,
+          "receipt_sent": false,
+          "status": "draft"
+        },
+        "ok": true,
+        "op": "createInvoice"
+      },
+      {
+        "attempts": 1,
+        "key": "T8-r1/ae9f82a5201f3d5a",
+        "node": "M",
+        "observed": {
+          "amount_cents": 10000,
+          "approved": false,
+          "customer_id": 3,
+          "id": 13,
+          "receipt_sent": false,
+          "status": "sent"
+        },
+        "ok": true,
+        "op": "sendInvoice"
+      },
+      {
+        "attempts": 1,
+        "key": null,
+        "node": "N",
+        "observed": {
+          "data": {
+            "id": 17,
+            "invoice_id": 13
+          },
+          "entity": "invoice",
+          "id": 13,
+          "kind": "payment.received",
+          "seq": 17
+        },
+        "ok": true,
+        "op": "payment.received"
+      },
+      {
+        "attempts": 1,
+        "key": "T8-r1/026d23c5c05d35e7",
+        "node": "O",
+        "observed": {
+          "amount_cents": 10000,
+          "approved": false,
+          "customer_id": 3,
+          "id": 13,
+          "receipt_sent": true,
+          "status": "paid"
+        },
+        "ok": true,
+        "op": "sendReceipt"
+      },
+      {
+        "attempts": 1,
+        "key": "T8-r1/937a8b8ae4991af4",
+        "node": "P",
+        "observed": {
+          "id": 23,
+          "invoice_ids": [
+            11,
+            12,
+            13
+          ],
+          "sent_count": 3,
+          "total_cents": 30000
+        },
+        "ok": true,
+        "op": "createReport"
+      }
+    ],
+    "error": null,
+    "evidence": null,
+    "forks_taken": 0,
+    "ledger": {
+      "ended_ms": 1788316256833,
+      "forks": [],
+      "notes": [
+        {
+          "content": [
+            {
+              "signature": "ocx1788316249298",
+              "thinking": "The goal is: Invoice Acme, Globex and Initech, send each, email a receipt for each once it is paid, then produce one report covering all three.\n",
+              "type": "thinking"
+            },
+            {
+              "text": "```0e emit_intent 0v wants 2\u0013invoice(customer=each([customer(name='Acme'),customer(name='Globex'),customer(name='Initech')])).exists 2\u0014invoice(customer=each([customer(name='Acme'),customer(name='Globex'),customer(name='Initech')])).status='sent' 2\u001binvoice(customer=each([customer(name='Acme'),customer(name='Globex'),customer(name='Initech')])).receipt_sent=true 2qreport(invoices=[all(invoice(customer=each([customer(name='Acme'),customer(name='Globex'),customer(name='Initech')])))]).exists",
+              "type": "text"
+            }
+          ],
+          "unparseable": "planner emitted no intent: ```0e emit_intent 0v wants 2\u0013invoice(customer=each([customer(name='Acme'),customer(name='Globex'),customer(name='Initech')])).exists 2\u0014invoice(customer=each([customer(name='Acme'),customer(name='Globex'),customer(name='Initech')])).status='sent' 2\u001binvoice(customer=each([customer(name='Acme'),customer(name='Globex'),customer(name='Initech')])).receipt_sent=true 2qreport(invoices=[all(invoice(customer=each([customer(name='Acme'),customer(name='Globex'),customer(name='Initech')])))]).exists"
+        },
+        {
+          "lint": [
+            "intent has no wants; every goal needs at least one fact that must become true"
+          ],
+          "wants": []
+        }
+      ],
+      "rows": [
+        {
+          "attempt": 1,
+          "ended_us": 1788316256116061,
+          "error": null,
+          "key": null,
+          "node": "A",
+          "observed": [
+            {
+              "email": "billing@acme.example",
+              "id": 1,
+              "name": "Acme"
+            }
+          ],
+          "ok": true,
+          "op": "listCustomers",
+          "started_us": 1788316256113952,
+          "surface": "api",
+          "write": false
+        },
+        {
+          "attempt": 1,
+          "ended_us": 1788316256116083,
+          "error": null,
+          "key": null,
+          "node": "F",
+          "observed": [
+            {
+              "email": "billing@globex.example",
+              "id": 2,
+              "name": "Globex"
+            }
+          ],
+          "ok": true,
+          "op": "listCustomers",
+          "started_us": 1788316256113964,
+          "surface": "api",
+          "write": false
+        },
+        {
+          "attempt": 1,
+          "ended_us": 1788316256116230,
+          "error": null,
+          "key": null,
+          "node": "K",
+          "observed": [
+            {
+              "email": "billing@initech.example",
+              "id": 3,
+              "name": "Initech"
+            }
+          ],
+          "ok": true,
+          "op": "listCustomers",
+          "started_us": 1788316256113985,
+          "surface": "api",
+          "write": false
+        },
+        {
+          "attempt": 1,
+          "ended_us": 1788316256144549,
+          "error": null,
+          "key": "T8-r1/cac417d575b6be6d",
+          "node": "B",
+          "observed": {
+            "amount_cents": 10000,
+            "approved": false,
+            "customer_id": 1,
+            "id": 11,
+            "receipt_sent": false,
+            "status": "draft"
+          },
+          "ok": true,
+          "op": "createInvoice",
+          "started_us": 1788316256116086,
+          "surface": "api",
+          "write": true
+        },
+        {
+          "attempt": 1,
+          "ended_us": 1788316256144417,
+          "error": null,
+          "key": "T8-r1/7a6db2d29bc0aee0",
+          "node": "G",
+          "observed": {
+            "amount_cents": 10000,
+            "approved": false,
+            "customer_id": 2,
+            "id": 12,
+            "receipt_sent": false,
+            "status": "draft"
+          },
+          "ok": true,
+          "op": "createInvoice",
+          "started_us": 1788316256116109,
+          "surface": "api",
+          "write": true
+        },
+        {
+          "attempt": 1,
+          "ended_us": 1788316256144499,
+          "error": null,
+          "key": "T8-r1/b057c3c06a17db36",
+          "node": "L",
+          "observed": {
+            "amount_cents": 10000,
+            "approved": false,
+            "customer_id": 3,
+            "id": 13,
+            "receipt_sent": false,
+            "status": "draft"
+          },
+          "ok": true,
+          "op": "createInvoice",
+          "started_us": 1788316256116351,
+          "surface": "api",
+          "write": true
+        },
+        {
+          "attempt": 1,
+          "ended_us": 1788316256171623,
+          "error": null,
+          "key": "T8-r1/016b5803a0d96d9e",
+          "node": "H",
+          "observed": {
+            "amount_cents": 10000,
+            "approved": false,
+            "customer_id": 2,
+            "id": 12,
+            "receipt_sent": false,
+            "status": "sent"
+          },
+          "ok": true,
+          "op": "sendInvoice",
+          "started_us": 1788316256144751,
+          "surface": "api",
+          "write": true
+        },
+        {
+          "attempt": 1,
+          "ended_us": 1788316256769983,
+          "error": null,
+          "key": null,
+          "node": "I",
+          "observed": {
+            "data": {
+              "id": 19,
+              "invoice_id": 12
+            },
+            "entity": "invoice",
+            "id": 12,
+            "kind": "payment.received",
+            "seq": 21
+          },
+          "ok": true,
+          "op": "payment.received",
+          "started_us": 1788316256144769,
+          "surface": "event",
+          "write": false
+        },
+        {
+          "attempt": 1,
+          "ended_us": 1788316256171623,
+          "error": null,
+          "key": "T8-r1/ae9f82a5201f3d5a",
+          "node": "M",
+          "observed": {
+            "amount_cents": 10000,
+            "approved": false,
+            "customer_id": 3,
+            "id": 13,
+            "receipt_sent": false,
+            "status": "sent"
+          },
+          "ok": true,
+          "op": "sendInvoice",
+          "started_us": 1788316256144777,
+          "surface": "api",
+          "write": true
+        },
+        {
+          "attempt": 1,
+          "ended_us": 1788316256769907,
+          "error": null,
+          "key": null,
+          "node": "N",
+          "observed": {
+            "data": {
+              "id": 17,
+              "invoice_id": 13
+            },
+            "entity": "invoice",
+            "id": 13,
+            "kind": "payment.received",
+            "seq": 17
+          },
+          "ok": true,
+          "op": "payment.received",
+          "started_us": 1788316256144937,
+          "surface": "event",
+          "write": false
+        },
+        {
+          "attempt": 1,
+          "ended_us": 1788316256172794,
+          "error": null,
+          "key": "T8-r1/77c40e9faea35860",
+          "node": "C",
+          "observed": {
+            "amount_cents": 10000,
+            "approved": false,
+            "customer_id": 1,
+            "id": 11,
+            "receipt_sent": false,
+            "status": "sent"
+          },
+          "ok": true,
+          "op": "sendInvoice",
+          "started_us": 1788316256144941,
+          "surface": "api",
+          "write": true
+        },
+        {
+          "attempt": 1,
+          "ended_us": 1788316256769899,
+          "error": null,
+          "key": null,
+          "node": "D",
+          "observed": {
+            "data": {
+              "id": 18,
+              "invoice_id": 11
+            },
+            "entity": "invoice",
+            "id": 11,
+            "kind": "payment.received",
+            "seq": 19
+          },
+          "ok": true,
+          "op": "payment.received",
+          "started_us": 1788316256144983,
+          "surface": "event",
+          "write": false
+        },
+        {
+          "attempt": 1,
+          "ended_us": 1788316256804950,
+          "error": null,
+          "key": "T8-r1/69c73fde8085d346",
+          "node": "E",
+          "observed": {
+            "amount_cents": 10000,
+            "approved": false,
+            "customer_id": 1,
+            "id": 11,
+            "receipt_sent": true,
+            "status": "paid"
+          },
+          "ok": true,
+          "op": "sendReceipt",
+          "started_us": 1788316256776196,
+          "surface": "api",
+          "write": true
+        },
+        {
+          "attempt": 1,
+          "ended_us": 1788316256804996,
+          "error": null,
+          "key": "T8-r1/026d23c5c05d35e7",
+          "node": "O",
+          "observed": {
+            "amount_cents": 10000,
+            "approved": false,
+            "customer_id": 3,
+            "id": 13,
+            "receipt_sent": true,
+            "status": "paid"
+          },
+          "ok": true,
+          "op": "sendReceipt",
+          "started_us": 1788316256776421,
+          "surface": "api",
+          "write": true
+        },
+        {
+          "attempt": 1,
+          "ended_us": 1788316256805025,
+          "error": null,
+          "key": "T8-r1/5db283aed4ab5578",
+          "node": "J",
+          "observed": {
+            "amount_cents": 10000,
+            "approved": false,
+            "customer_id": 2,
+            "id": 12,
+            "receipt_sent": true,
+            "status": "paid"
+          },
+          "ok": true,
+          "op": "sendReceipt",
+          "started_us": 1788316256776440,
+          "surface": "api",
+          "write": true
+        },
+        {
+          "attempt": 1,
+          "ended_us": 1788316256833202,
+          "error": null,
+          "key": "T8-r1/937a8b8ae4991af4",
+          "node": "P",
+          "observed": {
+            "id": 23,
+            "invoice_ids": [
+              11,
+              12,
+              13
+            ],
+            "sent_count": 3,
+            "total_cents": 30000
+          },
+          "ok": true,
+          "op": "createReport",
+          "started_us": 1788316256805114,
+          "surface": "api",
+          "write": true
+        }
+      ],
+      "samples": [
+        {
+          "effort": "low",
+          "ended_us": 1788316251525373,
+          "kind": "plan",
+          "model": "grok-4.6",
+          "seq": 1,
+          "started_us": 1788316244309747,
+          "tokens_in": 1550,
+          "tokens_out": 153
+        },
+        {
+          "effort": "low",
+          "ended_us": 1788316256113489,
+          "kind": "lint",
+          "model": "grok-4.6",
+          "seq": 2,
+          "started_us": 1788316251525534,
+          "tokens_in": 1577,
+          "tokens_out": 197
+        }
+      ],
+      "started_ms": 1788316244309
+    },
+    "max_parallel": 3,
+    "max_parallel_by_surface": {
+      "api": 3
+    },
+    "nodes": 16,
+    "plan": "plan T8-r1  (16 nodes, depth 5)\n  A    listCustomers    api      customer(name='Acme').resolved\n  B    createInvoice    api      invoice(customer=$A.id).exists  after A  key T8-r1/cac417d575b6be6d\n  C    sendInvoice      api      invoice(id=$B.id).status='sent'  after B  key T8-r1/77c40e9faea35860\n  D    payment.received event    invoice(id=$B.id).status='paid'  after B\n  E    sendReceipt      api      invoice(id=$B.id).receipt_sent=true  after C,D  key T8-r1/69c73fde8085d346\n  F    listCustomers    api      customer(name='Globex').resolved\n  G    createInvoice    api      invoice(customer=$F.id).exists  after F  key T8-r1/7a6db2d29bc0aee0\n  H    sendInvoice      api      invoice(id=$G.id).status='sent'  after G  key T8-r1/016b5803a0d96d9e\n  I    payment.received event    invoice(id=$G.id).status='paid'  after G\n  J    sendReceipt      api      invoice(id=$G.id).receipt_sent=true  after H,I  key T8-r1/5db283aed4ab5578\n  K    listCustomers    api      customer(name='Initech').resolved\n  L    createInvoice    api      invoice(customer=$K.id).exists  after K  key T8-r1/b057c3c06a17db36\n  M    sendInvoice      api      invoice(id=$L.id).status='sent'  after L  key T8-r1/ae9f82a5201f3d5a\n  N    payment.received event    invoice(id=$L.id).status='paid'  after L\n  O    sendReceipt      api      invoice(id=$L.id).receipt_sent=true  after M,N  key T8-r1/026d23c5c05d35e7\n  P    createReport     api      report(invoices=[$B.id,$G.id,$L.id]).exists  after E,J,O  key T8-r1/937a8b8ae4991af4\n",
+    "plan_id": "T8-r1",
+    "plan_ms": 11803,
+    "run_ms": 719,
+    "samples": 2,
+    "status": "committed",
+    "tokens_in": 3127,
+    "tokens_out": 350,
+    "wall_ms": 12524,
+    "yield_reason": null
+  },
+  "intent": {
+    "constraints": {
+      "external_ok": true,
+      "spend_max_cents": null
+    },
+    "forks": [],
+    "goal": "Invoice Acme, Globex and Initech, send each, email a receipt for each once it is paid, then produce one report covering all three.",
+    "wants": [
+      "invoice(customer=customer(name='Acme')).exists",
+      "invoice(customer=customer(name='Acme')).status='sent'",
+      "invoice(customer=customer(name='Acme')).receipt_sent=true",
+      "invoice(customer=customer(name='Globex')).exists",
+      "invoice(customer=customer(name='Globex')).status='sent'",
+      "invoice(customer=customer(name='Globex')).receipt_sent=true",
+      "invoice(customer=customer(name='Initech')).exists",
+      "invoice(customer=customer(name='Initech')).status='sent'",
+      "invoice(customer=customer(name='Initech')).receipt_sent=true",
+      "report(invoices=[invoice(customer=customer(name='Acme')),invoice(customer=customer(name='Globex')),invoice(customer=customer(name='Initech'))]).exists"
+    ]
+  },
+  "model": "grok-4.6",
+  "effort": "medium",
+  "base_url": "http://localhost:8080",
+  "latency_ms": 25,
+  "surfaces": "api"
+}

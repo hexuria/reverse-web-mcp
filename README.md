@@ -174,6 +174,12 @@ tests jitter and not resilience; and T7 is excluded because it needs a screen. A
 the five things this benchmark caught us getting wrong, is on the
 [results page](docs/results.html).
 
+And the largest caveat of all: **every number above is against an app we wrote, which publishes a
+world model we also wrote.** That is the right way to measure a compiler and the wrong way to
+find out whether anyone else can use it. The trial that would answer the second question — a real
+site without WebMCP, a real site with it, and the limitations that fall out — is specified in
+[`docs/real-world-trial.md`](docs/real-world-trial.md) and has not been run.
+
 ## Embedding it
 
 The CLI is a shell over the library, and the library is one object.

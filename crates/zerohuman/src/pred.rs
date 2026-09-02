@@ -26,6 +26,8 @@ pub enum ParseError {
     Unexpected { found: Option<char>, at: usize },
     #[error("trailing input at byte {at}: {rest}")]
     Trailing { at: usize, rest: String },
+    #[error("each(...) lengths disagree in one want: {0:?}")]
+    RaggedEach(Vec<usize>),
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -90,7 +92,11 @@ impl Pred {
     }
 
     pub fn each_len(&self) -> Option<usize> {
-        self.args.iter().find_map(|(_, v)| v.each_len()).or_else(|| self.value.each_len())
+        self.each_lens().into_iter().next()
+    }
+
+    pub fn each_lens(&self) -> Vec<usize> {
+        self.args.iter().flat_map(|(_, v)| v.each_lens()).chain(self.value.each_lens()).collect()
     }
 
     /// Expand the two quantifiers:
@@ -100,17 +106,21 @@ impl Pred {
     /// - `each(...)` fans out: `invoice(customer=each([A,B]))` is two wants.
     ///
     /// `all` is resolved first, so an `each` inside it never multiplies the want.
-    pub fn unroll(&self) -> Vec<Pred> {
+    pub fn unroll(&self) -> Result<Vec<Pred>, ParseError> {
         let collected = Pred {
             entity: self.entity.clone(),
             args: self.args.iter().map(|(k, v)| (k.clone(), collect_all(v))).collect(),
             field: self.field.clone(),
             value: collect_all(&self.value),
         };
-        match collected.each_len() {
-            Some(n) => (0..n).map(|i| collected.pick(i)).collect(),
-            None => vec![collected],
+        let lens = collected.each_lens();
+        if lens.windows(2).any(|w| w[0] != w[1]) {
+            return Err(ParseError::RaggedEach(lens));
         }
+        Ok(match lens.first() {
+            Some(n) => (0..*n).map(|i| collected.pick(i)).collect(),
+            None => vec![collected],
+        })
     }
 
     /// Substitute bound variables. Unbound variables stay as they are.
@@ -129,11 +139,19 @@ fn collect_all(v: &Val) -> Val {
     match v {
         Val::All(inner) => {
             let inner = collect_all(inner);
-            match inner.each_len() {
-                Some(n) => Val::List((0..n).map(|i| inner.pick(i)).collect()),
-                // `all` of something with nothing to expand is that one thing, in a list.
-                None => Val::List(vec![inner]),
+            let picked: Vec<Val> = match inner.each_len() {
+                Some(n) => (0..n).map(|i| inner.pick(i)).collect(),
+                None => vec![inner],
+            };
+            // `all([X])` and `all(X)` mean the same thing: a list, never a list of lists.
+            let mut out = Vec::new();
+            for v in picked {
+                match v {
+                    Val::List(xs) => out.extend(xs),
+                    other => out.push(other),
+                }
             }
+            Val::List(out)
         }
         Val::List(xs) => {
             // A list whose element is an `all` splices that list in, so
@@ -185,12 +203,22 @@ impl Val {
 
     /// The length of the first `each(...)` found, if any.
     pub fn each_len(&self) -> Option<usize> {
+        self.each_lens().into_iter().next()
+    }
+
+    /// Every `each(...)` length inside, in order. Two different lengths in one want is an error,
+    /// not a zip: the shorter one would silently pad.
+    pub fn each_lens(&self) -> Vec<usize> {
         match self {
-            Val::Each(xs) => Some(xs.len()),
-            Val::All(_) => None,
-            Val::List(xs) => xs.iter().find_map(|x| x.each_len()),
-            Val::Entity(p) => p.each_len(),
-            _ => None,
+            Val::Each(xs) => {
+                let mut v = vec![xs.len()];
+                v.extend(xs.iter().flat_map(|x| x.each_lens()));
+                v
+            }
+            Val::All(_) => vec![],
+            Val::List(xs) => xs.iter().flat_map(|x| x.each_lens()).collect(),
+            Val::Entity(p) => p.each_lens(),
+            _ => vec![],
         }
     }
 
@@ -451,32 +479,57 @@ mod tests {
     fn each_unrolls_one_predicate_per_element() {
         let p = Pred::parse("invoice(customer=customer(name=each(['Acme','Globex','Initech']))).status='sent'").unwrap();
         assert_eq!(p.to_string(), "invoice(customer=customer(name=each(['Acme','Globex','Initech']))).status='sent'");
-        let rolled = p.unroll();
+        let rolled = p.unroll().unwrap();
         assert_eq!(rolled.len(), 3);
         assert_eq!(rolled[1].to_string(), "invoice(customer=customer(name='Globex')).status='sent'");
-        assert_eq!(Pred::parse("invoice(id=3).exists").unwrap().unroll().len(), 1);
+        assert_eq!(Pred::parse("invoice(id=3).exists").unwrap().unroll().unwrap().len(), 1);
     }
 
     #[test]
     fn each_fans_out_and_all_collects() {
         // all(...) collects: one report over three invoices.
         let p = Pred::parse("report(invoices=[all(invoice(customer=each(['Acme','Globex','Initech'])))]).exists").unwrap();
-        let rolled = p.unroll();
+        let rolled = p.unroll().unwrap();
         assert_eq!(rolled.len(), 1);
         assert_eq!(rolled[0].to_string(), "report(invoices=[invoice(customer='Acme'),invoice(customer='Globex'),invoice(customer='Initech')]).exists");
         // each(...) fans out: one report per invoice.
         let p = Pred::parse("report(invoices=[invoice(customer=each(['Acme','Globex']))]).exists").unwrap();
-        let rolled = p.unroll();
+        let rolled = p.unroll().unwrap();
         assert_eq!(rolled.len(), 2);
         assert_eq!(rolled[0].to_string(), "report(invoices=[invoice(customer='Acme')]).exists");
         // and in a plain argument.
-        assert_eq!(Pred::parse("invoice(customer=each(['Acme','Globex'])).status='sent'").unwrap().unroll().len(), 2);
+        assert_eq!(Pred::parse("invoice(customer=each(['Acme','Globex'])).status='sent'").unwrap().unroll().unwrap().len(), 2);
         // A list with neither is untouched.
         let p = Pred::parse("report(invoices=[$A.id,$B.id]).exists").unwrap();
-        assert_eq!(p.unroll()[0].to_string(), "report(invoices=[$A.id,$B.id]).exists");
+        assert_eq!(p.unroll().unwrap()[0].to_string(), "report(invoices=[$A.id,$B.id]).exists");
         // all(...) round-trips through Display.
         let src = "report(invoices=[all(invoice(customer=each(['A'])))]).exists";
         assert_eq!(Pred::parse(src).unwrap().to_string(), src);
+    }
+
+    #[test]
+    fn two_each_of_different_lengths_is_an_error_not_a_zip() {
+        let p = Pred::parse("invoice(customer=customer(name=each(['A','B','C'])),amount_cents=each([1,2])).exists").unwrap();
+        assert!(matches!(p.unroll().unwrap_err(), ParseError::RaggedEach(_)));
+        // Equal lengths still zip, which is what a reader expects.
+        let p = Pred::parse("invoice(customer=customer(name=each(['A','B'])),amount_cents=each([1,2])).exists").unwrap();
+        let r = p.unroll().unwrap();
+        assert_eq!(r.len(), 2);
+        assert_eq!(r[1].to_string(), "invoice(customer=customer(name='B'),amount_cents=2).exists");
+    }
+
+    #[test]
+    fn an_empty_each_unrolls_to_nothing() {
+        assert!(Pred::parse("invoice(customer=each([])).exists").unwrap().unroll().unwrap().is_empty());
+    }
+
+    #[test]
+    fn all_of_a_list_is_the_same_as_all_of_the_thing() {
+        let a = Pred::parse("report(invoices=[all([invoice(customer=each(['A','B']))])]).exists").unwrap().unroll().unwrap();
+        let b = Pred::parse("report(invoices=[all(invoice(customer=each(['A','B'])))]).exists").unwrap().unroll().unwrap();
+        assert_eq!(a.len(), 1);
+        assert_eq!(a[0].to_string(), b[0].to_string());
+        assert_eq!(a[0].to_string(), "report(invoices=[invoice(customer='A'),invoice(customer='B')]).exists");
     }
 
     #[test]

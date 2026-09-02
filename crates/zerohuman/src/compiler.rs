@@ -61,7 +61,7 @@ pub fn compile(intent: &Intent, world: &World, opts: &CompileOptions) -> Result<
     let mut c = Compiler { ops: world.ops.clone(), intent, opts, nodes: Vec::new(), memo: HashMap::new(), deps: Vec::new(), canon: HashMap::new() };
     for w in &intent.wants {
         let pred = Pred::parse(w).map_err(|e| CompileError::Parse(w.clone(), e))?;
-        for one in pred.unroll() {
+        for one in pred.unroll().map_err(|e| CompileError::Parse(w.clone(), e))? {
             c.satisfy(&one)?;
         }
     }

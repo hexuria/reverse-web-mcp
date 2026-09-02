@@ -66,6 +66,8 @@ pub enum LintError {
     Empty,
     #[error("want '{want}' has a selector this engine cannot expand: {selector}")]
     UnexpandedSelector { want: String, selector: String },
+    #[error("want '{want}' matches nothing, so it asks for no work")]
+    MatchesNothing { want: String },
 }
 
 fn has_var(v: &Val) -> bool {
@@ -145,6 +147,11 @@ pub fn lint(intent: &Intent, world: &World, opts: &CompileOptions) -> Vec<LintEr
                 errs.push(LintError::UnexpandedSelector { want: want.clone(), selector: bad });
             }
         }
+        match pred.unroll() {
+            Ok(rolled) if rolled.is_empty() => errs.push(LintError::MatchesNothing { want: want.clone() }),
+            Err(source) => errs.push(LintError::Unparseable { want: want.clone(), source }),
+            _ => {}
+        }
         if pred.is_existence() && resolvable.contains(&pred.entity.as_str()) {
             errs.push(LintError::WantsAnEntityThatAlreadyExists { want: want.clone() });
         }
@@ -196,6 +203,8 @@ mod tests {
             ("invoice(customer=customer(name='Acme')).approved=true", |e| matches!(e, LintError::Unsatisfiable { .. })),
             ("invoice(customer=each(customer())).exists", |e| matches!(e, LintError::UnexpandedSelector { .. })),
             ("invoice(customer=each(customer(name_prefix='C'))).exists", |e| matches!(e, LintError::UnexpandedSelector { .. })),
+            ("invoice(customer=each([])).exists", |e| matches!(e, LintError::MatchesNothing { .. })),
+            ("invoice(customer=customer(name=each(['A','B'])),amount_cents=each([1])).exists", |e| matches!(e, LintError::Unparseable { .. })),
         ];
         for (want, expected) in cases {
             let errs = lint_one(want);

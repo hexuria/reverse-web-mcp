@@ -51,10 +51,10 @@ impl Oracle {
         Ok(self.client.get(format!("{}/oracle/effects", self.base)).send().await?.json().await?)
     }
 
-    pub async fn pay(&self, invoice_id: u64, delay_ms: u64) -> anyhow::Result<()> {
+    pub async fn pay(&self, invoice_id: u64, delay_ms: u64, silent: bool) -> anyhow::Result<()> {
         self.client
             .post(format!("{}/oracle/pay", self.base))
-            .json(&json!({"invoice_id": invoice_id, "delay_ms": delay_ms}))
+            .json(&json!({"invoice_id": invoice_id, "delay_ms": delay_ms, "silent": silent}))
             .send()
             .await?
             .error_for_status()?;
@@ -63,14 +63,14 @@ impl Oracle {
 
     /// The outside world: every invoice that appears gets paid `delay_ms` later.
     /// Runs until the returned handle is aborted.
-    pub fn pay_on_create(&self, bus: Arc<EventBus>, delay_ms: u64) -> tokio::task::JoinHandle<()> {
+    pub fn pay_on_create(&self, bus: Arc<EventBus>, delay_ms: u64, silent: bool) -> tokio::task::JoinHandle<()> {
         let oracle = self.clone();
         tokio::spawn(async move {
             let mut seen = std::collections::HashSet::new();
             loop {
                 for ev in bus.events() {
                     if ev.kind == "invoice.created" && seen.insert(ev.id) {
-                        let _ = oracle.pay(ev.id, delay_ms).await;
+                        let _ = oracle.pay(ev.id, delay_ms, silent).await;
                     }
                 }
                 tokio::time::sleep(Duration::from_millis(50)).await;

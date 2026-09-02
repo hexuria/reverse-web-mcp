@@ -79,6 +79,9 @@ pub struct ScriptSpec {
 pub struct Hooks {
     #[serde(default)]
     pub pay_after_create_ms: Option<u64>,
+    /// The payment lands but its webhook is lost, so only reading the world reveals it.
+    #[serde(default)]
+    pub pay_silently: bool,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]

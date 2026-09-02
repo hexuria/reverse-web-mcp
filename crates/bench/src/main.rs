@@ -161,7 +161,7 @@ async fn run(opts: RunOpts) -> anyhow::Result<()> {
                 }
                 oracle.chaos(&chaos).await?;
                 let bus = EventBus::connect(&base).await?;
-                let hook = task.hooks.pay_after_create_ms.map(|ms| oracle.pay_on_create(bus.clone(), ms));
+                let hook = task.hooks.pay_after_create_ms.map(|ms| oracle.pay_on_create(bus.clone(), ms, task.hooks.pay_silently));
                 let ctx = ArmContext {
                     base: base.clone(),
                     world: world.clone(),

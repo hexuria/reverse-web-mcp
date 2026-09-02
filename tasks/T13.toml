@@ -1,0 +1,31 @@
+id = "T13"
+title = "the payment arrives but its webhook is lost"
+phase = 3
+depth = 5
+seed = 13
+goal = "Invoice Acme, send it, and email a receipt once the payment lands."
+wants = [
+  "invoice(customer=customer(name='Acme')).exists",
+  "invoice(customer=customer(name='Acme')).status='sent'",
+  "invoice(customer=customer(name='Acme')).receipt_sent=true",
+]
+
+[hooks]
+# The oracle pays every created invoice this long after it appears, and drops the webhook, so
+# the fact is only discoverable by reading the world.
+pay_after_create_ms = 600
+pay_silently = true
+
+[script]
+customers = ["Acme"]
+send = true
+wait_paid = true
+receipt = true
+
+[expect]
+status = "committed"
+invoices = 1
+sent = 1
+paid = 1
+receipts = 1
+double_sends = 0

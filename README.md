@@ -106,6 +106,7 @@ The compiler derives everything from that file. It is never hand-authored anywhe
 | T10 | T9 plus a report per invoice | six deep, ten wide, eleven joins | 3 |
 | T11 | three hundred invoices, all sent, from one `each(...)` want | fan-out without naming every row | 3 |
 | T12 | T2 under a limit of eight writes per second | 429s, backoff, keys: twenty writes, none doubled | 3 |
+| T13 | T4 with the payment webhook lost | a wait that reads the world when the event never comes | 3 |
 
 A want may contain `each([...])`; the compiler unrolls it into one want per element before
 compiling, so three hundred rows are still one sample. Keys are identical to the written-out form.
@@ -209,6 +210,109 @@ turn under `results/<run>/shots/`, which is the recording. Point `BASE_URL` at
 
 Not built, on purpose: a stdio MCP client for a desktop computer-use driver. The a11y door drives
 the page through CDP instead, which works identically on the Mac and in the container.
+
+## Using chiffon on your own app
+
+Chiffon is two things: a Rust **engine** (`crates/zerohuman`) and a **benchmark** around it. The
+engine never touches your code. It drives your app through HTTP, the way any client would, so
+the app can be Rust, Node, Python, PHP, Go, or something that already exists. The engine itself
+is Rust today: embed the crate, or run the `bench` binary. There is no JavaScript or Python SDK,
+no hosted service, and no HTTP wrapper around the engine yet.
+
+### Requirements
+
+- Rust (stable, `cargo`).
+- A model endpoint for the planner: `ANTHROPIC_API_KEY`, or any local gateway that speaks the
+  Messages shape (`--base-url http://localhost:8080` with opencodex needs no key). Skip this if
+  you write the wants yourself.
+- Chrome only for screen steps (the a11y and pixel doors); Docker only for the sandbox.
+
+### Install and see it work
+
+```sh
+git clone <chiffon> && cd chiffon
+cargo build --release
+make app                      # the sample invoicing app on http://127.0.0.1:47310
+make bench                    # ours + the script ceiling on every phase ≤3 task
+```
+
+### What your app must provide
+
+| door | required | what |
+|---|---|---|
+| `GET /openapi.json` | yes | an OpenAPI document with an `operationId` on every operation and an `x-zerohuman` block per operation (below) |
+| `idempotency-key` header on writes | yes | the same key twice returns the first response and changes nothing; this is where "zero double-sends" comes from |
+| `GET /events` | for waits | server-sent events, one `data: {"seq","kind","entity","id","data"}` per state change, so a "wait for payment" is an edge instead of a poll |
+| `POST /mcp` | optional | JSON-RPC `initialize`, `tools/list`, `tools/call`; writes take an `idempotency_key` argument |
+| a web page | for UI-only steps | every control has a role and a name; the engine clicks it through headless Chrome |
+
+The `x-zerohuman` block is the world model. One per operation:
+
+```json
+"x-zerohuman": {
+  "post":     "invoice(id=$id).status='sent'",        what becomes true
+  "requires": ["invoice(id=$id).exists"],             what must be true first
+  "reads":    ["invoice:$id", "customer:*"],          footprint: reads
+  "writes":   ["invoice:$id", "outbox:new"],          footprint: writes (a write gets a key)
+  "produces": "invoice",                              for creators and finders
+  "defaults": {"amount_cents": 10000},                body fields the goal need not mention
+  "fork":     {"when": "result.count != 1", "ask": "which customer named $name"},
+  "external": true,                                   leaves the system (email, money)
+  "surfaces": {"api": 1, "mcp": 3, "a11y": 50}        which doors expose it, at what cost
+}
+```
+
+Reads and writes decide the parallelism: two operations with disjoint footprints get no edge and
+run together; a shared token serialises them. Three document-level blocks complete the model:
+`x-zerohuman-entities` (each noun, its id field and fields), `x-zerohuman-events` (things the
+outside world does, with a `check` read for a lost webhook) and `x-zerohuman-ui` (button-only
+actions with a route and a control). `crates/app/static/openapi.json` is a complete example.
+
+### Embedding the engine
+
+```rust
+use std::sync::Arc;
+use zerohuman::{compile, CompileOptions, Intent, Ledger, Scheduler};
+use zerohuman::{events::EventBus, ledger::Recorder};
+
+let base = "http://localhost:8000";
+let world = Arc::new(zerohuman::world_from(base).await?);           // reads /openapi.json
+let intent = Intent {
+    goal: "invoice Acme and send it".into(),
+    wants: vec!["invoice(customer=customer(name='Acme')).status='sent'".into()],
+    ..Default::default()
+};
+let opts = CompileOptions { plan_id: "job-42".into(), surfaces: vec!["api".into()] };
+let plan = compile(&intent, &world, &opts)?;                          // the DAG, keys included
+let sched = Scheduler {
+    effectors: zerohuman::default_effectors(base, world.clone(), &opts.surfaces),
+    bus: Some(EventBus::connect(base).await?),
+    pools: Default::default(),
+    policy: Default::default(),
+    recorder: Recorder::new(world.clone()),
+};
+let mut ledger = Ledger::new();
+let outcome = sched.run(&plan, &mut ledger).await;
+let receipt = ledger.receipt(&plan, outcome.status, outcome.yield_reason, outcome.evidence, outcome.error);
+```
+
+`receipt.status` is `committed` (every keyed node has an ok row), `need_think` (stopped at a
+declared fork or gate; `yield_reason` says which) or `error`. Write the wants by hand, as above,
+or let a model write them: the planner (goal → wants, lint, one re-ask) lives in
+`crates/bench/src/planner.rs` behind the `Sampler` trait and works with any Messages-shaped
+endpoint through `loops::ModelClient`. To resume after answering a fork, recompile and call
+`sched.resume(&plan, &mut ledger, &ledger.completed(&plan))`: nothing already proven done by
+its key is re-sent.
+
+### Framework notes
+
+- **Already-built app:** add the `x-zerohuman` notes to the OpenAPI you already serve and honor
+  `idempotency-key` on writes. No rewrite.
+- **React Native / mobile:** chiffon drives the app's backend API. It can also click a *web*
+  page through headless Chrome; it does not drive a phone screen.
+- **Rust project:** add `zerohuman` as a path dependency and use the snippet above.
+- **Anything else (Node, Python, PHP, Go):** your app is the target; run the engine as a
+  separate Rust process. A non-Rust SDK is not built yet.
 
 ## Tests
 

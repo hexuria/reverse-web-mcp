@@ -12,7 +12,7 @@ fn honest() -> RunResult {
     let samples = json!([{"seq":1,"kind":"plan","started_us":0,"ended_us":50000,"tokens_in":10,"tokens_out":5,"model":"m","effort":"low"}]);
     let r: RunResult = serde_json::from_value(json!({
         "task":"T2","task_title":"","arm":"D","run":1,"status":"committed","planner":"model","samples":1,"tokens_in":10,"tokens_out":5,
-        "wall_ms":60,"plan_ms":50,"run_ms":3,"max_parallel":2,"nodes":2,"depth":1,"correct":true,"checks":[],"double_sends":0,"forks":0,
+        "wall_ms":60,"plan_ms":50,"run_ms":3,"busy_ms":3,"max_parallel":2,"nodes":2,"depth":1,"correct":true,"checks":[],"double_sends":0,"forks":0,
         "yield_reason":null,"error":null,"snapshot":{"outbox":[]},"receipt":{"ledger":{"rows":rows,"samples":samples}},"intent":null
     }))
     .unwrap();
@@ -35,6 +35,12 @@ fn every_doctored_headline_is_caught() {
     let mut r = honest();
     r.run_ms = 99;
     assert!(problems_for(&r, None).iter().any(|p| p.contains("run_ms")));
+    let mut r = honest();
+    r.busy_ms = Some(99);
+    assert!(problems_for(&r, None).iter().any(|p| p.contains("busy_ms")));
+    let mut r = honest();
+    r.forks = 2;
+    assert!(problems_for(&r, None).iter().any(|p| p.contains("forks")));
     let mut r = honest();
     r.samples = 3;
     assert!(problems_for(&r, None).iter().any(|p| p.contains("samples")));

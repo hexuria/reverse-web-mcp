@@ -25,6 +25,9 @@ pub struct RunResult {
     pub plan_ms: u128,
     #[serde(default)]
     pub run_ms: u128,
+    /// Time at least one call was in flight. None in results written before this existed.
+    #[serde(default)]
+    pub busy_ms: Option<u128>,
     pub max_parallel: usize,
     #[serde(default)]
     pub max_parallel_by_surface: BTreeMap<String, usize>,
@@ -67,6 +70,7 @@ pub struct Cell {
     pub wall_ms_max: u128,
     pub plan_ms_median: f64,
     pub run_ms_median: f64,
+    pub busy_ms_median: f64,
     pub samples_p25: f64,
     pub samples_p75: f64,
     pub wall_ms_p25: f64,
@@ -141,6 +145,7 @@ pub fn summarize(results: &[RunResult]) -> Vec<Cell> {
             wall_ms_max: rs.iter().map(|r| r.wall_ms).max().unwrap_or(0),
             plan_ms_median: median(rs.iter().map(|r| r.plan_ms as f64).collect()),
             run_ms_median: median(rs.iter().map(|r| r.run_ms as f64).collect()),
+            busy_ms_median: median(rs.iter().map(|r| r.busy_ms.unwrap_or(r.run_ms) as f64).collect()),
             samples_p25: quantile(rs.iter().map(|r| r.samples as f64).collect(), 0.25),
             samples_p75: quantile(rs.iter().map(|r| r.samples as f64).collect(), 0.75),
             wall_ms_p25: quantile(rs.iter().map(|r| r.wall_ms as f64).collect(), 0.25),

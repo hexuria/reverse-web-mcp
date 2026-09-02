@@ -283,12 +283,12 @@ pub async fn run_tool_loop(
             let text: String =
                 content.as_array().map(|a| a.iter().filter_map(|b| b.get("text").and_then(|t| t.as_str())).collect::<Vec<_>>().join(" ")).unwrap_or_default();
             let t = text.trim();
-            if t.eq_ignore_ascii_case("done") || t.to_lowercase().contains("done") {
-                status = Status::Committed;
-            } else if t.ends_with('?') {
+            if t.ends_with('?') {
                 status = Status::NeedThink;
                 yield_reason = Some(t.to_string());
                 ledger.forks.push(json!({"ask": t}));
+            } else if says_done(t) {
+                status = Status::Committed;
             } else {
                 // Neither done nor a question: the model gave up. That is a failure, not a commit.
                 status = Status::Error;
@@ -341,6 +341,20 @@ pub async fn run_webmcp_loop(task: &Task, ctx: &ArmContext, model: &dyn crate::p
     let pool = ctx.browser.clone().ok_or_else(|| anyhow::anyhow!("arm C needs a browser pool"))?;
     let backend = Arc::new(WebMcpBackend { base: ctx.base.clone(), pool });
     run_tool_loop(task, ctx, model, facts, true, backend, "C").await
+}
+
+/// "done" means finished; "not done", "nothing done" and the like do not. A question is checked
+/// before this, so a loop that asks without a question mark still reads as giving up.
+pub fn says_done(text: &str) -> bool {
+    let t = text.trim().to_lowercase();
+    if t == "done" {
+        return true;
+    }
+    const NEGATIONS: [&str; 6] = ["not done", "n't done", "nothing", "unable", "cannot", "can not"];
+    if NEGATIONS.iter().any(|n| t.contains(n)) {
+        return false;
+    }
+    t.split(|c: char| !c.is_alphanumeric()).any(|w| w == "done")
 }
 
 const CUA_SYSTEM: &str = "You are operating a web application by looking at screenshots and acting with a mouse and keyboard. \

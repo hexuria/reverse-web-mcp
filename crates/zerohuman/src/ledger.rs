@@ -101,8 +101,10 @@ pub struct Receipt {
     pub wall_ms: u128,
     /// Time the model was thinking: the union of sample spans.
     pub plan_ms: u128,
-    /// Time the kitchen was running: first effect start to last effect end.
+    /// First effect start to last effect end, including any gaps.
     pub run_ms: u128,
+    /// Time at least one call was actually in flight.
+    pub busy_ms: u128,
     pub max_parallel: usize,
     /// The same sweep per surface: the screen pool should read 1 while the API stays wide.
     #[serde(default)]
@@ -123,8 +125,8 @@ impl Ledger {
         Ledger { started_ms: now_ms(), ..Default::default() }
     }
 
-    /// Sweep-line over rows that executed against a surface (waits excluded): the largest
-    /// number of effects in flight at one instant. This is the decisive benchmark column.
+    /// Sweep-line over rows that executed against a surface (waits excluded): the largest number
+    /// of calls in flight at one instant. Reads count, so this is concurrency, not writes.
     pub fn max_parallel(&self) -> usize {
         max_overlap(self.rows.iter().filter(|r| r.surface != "event").map(|r| (r.started_us, r.ended_us)))
     }
@@ -173,7 +175,13 @@ impl Ledger {
         done
     }
 
-    /// Microseconds from the first effect starting to the last effect ending.
+    /// Microseconds in which at least one call was in flight. Unlike `run_us` this excludes the
+    /// gaps an agent loop spends thinking between tool calls, so arms are comparable.
+    pub fn busy_us(&self) -> u128 {
+        union_length(self.rows.iter().filter(|r| r.surface != "event").map(|r| (r.started_us, r.ended_us)))
+    }
+
+    /// Microseconds from the first effect starting to the last effect ending, gaps included.
     pub fn run_us(&self) -> u128 {
         let start = self.rows.iter().map(|r| r.started_us).min();
         let end = self.rows.iter().map(|r| r.ended_us).max();
@@ -210,6 +218,7 @@ impl Ledger {
             wall_ms: ended.saturating_sub(self.started_ms),
             plan_ms: self.plan_us() / 1000,
             run_ms: self.run_us() / 1000,
+            busy_ms: self.busy_us() / 1000,
             max_parallel: self.max_parallel(),
             max_parallel_by_surface: self.max_parallel_by_surface(),
             nodes: plan.nodes.len(),

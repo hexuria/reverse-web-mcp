@@ -191,7 +191,8 @@ impl Scheduler {
 
     /// Run a plan, skipping every node in `done` and using its recorded output. The ledger keeps
     /// its earlier rows; new rows are appended. With content-addressed keys this is safe to call
-    /// after a fork answer or a crash: nothing in `done` is re-sent.
+    /// after a fork answer or any other yield: nothing in `done` is re-sent. Rows live in the
+    /// Recorder until the run ends, so this is not crash recovery.
     pub async fn resume(&self, plan: &Plan, ledger: &mut Ledger, done: &HashMap<String, Value>) -> Outcome {
         let rec = self.recorder.clone();
         let sems: HashMap<String, Arc<Semaphore>> = self.pools.per_surface.iter().map(|(s, n)| (s.clone(), Arc::new(Semaphore::new(*n)))).collect();
@@ -241,7 +242,10 @@ impl Scheduler {
             match result {
                 Ok(v) => {
                     if let Some(rule) = v.get("__fork_default") {
-                        ledger.forks.push(json!({"node": id, "ask": v["__fork_ask"], "evidence": v["__evidence"], "auto": rule, "chosen": v["chosen"]}));
+                        // A resumed plan re-runs the unkeyed lookup, so record each node once.
+                        if !ledger.forks.iter().any(|f| f.get("node").and_then(|n| n.as_str()) == Some(id.as_str())) {
+                            ledger.forks.push(json!({"node": id, "ask": v["__fork_ask"], "evidence": v["__evidence"], "auto": rule, "chosen": v["chosen"]}));
+                        }
                     }
                     state.complete(&id, v)
                 }

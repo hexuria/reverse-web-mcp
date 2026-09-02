@@ -257,6 +257,7 @@ async fn run(opts: RunOpts) -> anyhow::Result<()> {
                     wall_ms: receipt.wall_ms,
                     plan_ms: receipt.plan_ms,
                     run_ms: receipt.run_ms,
+                    busy_ms: Some(receipt.busy_ms),
                     max_parallel: receipt.max_parallel,
                     max_parallel_by_surface: receipt.max_parallel_by_surface.clone(),
                     nodes: receipt.nodes,

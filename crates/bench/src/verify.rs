@@ -61,9 +61,19 @@ pub fn problems_for(r: &RunResult, task: Option<&Task>) -> Vec<String> {
     if (tin, tout) != (r.tokens_in, r.tokens_out) {
         out.push(format!("{who}: tokens stored {}/{} recomputed {tin}/{tout}", r.tokens_in, r.tokens_out));
     }
+    let forks = r.receipt.pointer("/ledger/forks").and_then(|f| f.as_array()).map(|a| a.len()).unwrap_or(0);
+    if forks != r.forks {
+        out.push(format!("{who}: forks stored {} recomputed {forks}", r.forks));
+    }
+    if let Some(stored) = r.busy_ms {
+        let busy = union_length(spans(&rows, true)) / 1000;
+        if busy != stored {
+            out.push(format!("{who}: busy_ms stored {stored} recomputed {busy}"));
+        }
+    }
     if let Some(t) = task {
         let expect = t.expect.applicable(crate::tasks::resumed_after_fork(&r.receipt));
-        let checks = check(expect, &r.status, r.forks, &r.snapshot, r.double_sends);
+        let checks = check(expect, &r.status, forks, &r.snapshot, r.double_sends);
         let correct = checks.iter().all(|c| c.ok);
         if correct != r.correct {
             out.push(format!("{who}: correctness stored {} recomputed {correct}", r.correct));

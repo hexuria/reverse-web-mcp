@@ -582,6 +582,24 @@ mod tests {
     }
 
     #[test]
+    fn one_report_over_every_invoice_from_one_want() {
+        let plan = compile(
+            &intent(&[
+                "invoice(customer=each([customer(name='Acme'),customer(name='Globex'),customer(name='Initech')])).exists",
+                "invoice(customer=each([customer(name='Acme'),customer(name='Globex'),customer(name='Initech')])).status='sent'",
+                "report(invoices=[invoice(customer=each([customer(name='Acme'),customer(name='Globex'),customer(name='Initech')]))]).exists",
+            ]),
+            &world(),
+            &CompileOptions::default(),
+        )
+        .unwrap();
+        assert_eq!(plan.nodes.iter().filter(|n| n.op == "createReport").count(), 1, "{}", plan.render());
+        assert_eq!(plan.nodes.iter().filter(|n| n.op == "sendInvoice").count(), 3);
+        let report = plan.nodes.iter().find(|n| n.op == "createReport").unwrap();
+        assert_eq!(plan.preds_of(&report.id).len(), 3, "the report joins all three lanes");
+    }
+
+    #[test]
     fn keys_survive_node_renumbering() {
         let a = intent(&[
             "invoice(customer=customer(name='Acme')).exists",

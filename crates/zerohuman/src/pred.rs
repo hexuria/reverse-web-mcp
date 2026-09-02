@@ -90,11 +90,21 @@ impl Pred {
         self.args.iter().find_map(|(_, v)| v.each_len()).or_else(|| self.value.each_len())
     }
 
-    /// One predicate per element of the `each(...)` inside, or just this one.
+    /// Expand every `each(...)`, with two meanings decided by position:
+    ///
+    /// - inside a list literal, an element containing `each` splices into that list, so
+    ///   `report(invoices=[invoice(customer=each([A,B]))])` is one report over two invoices;
+    /// - anywhere else, it fans the whole want out, so `invoice(customer=each([A,B]))` is two wants.
     pub fn unroll(&self) -> Vec<Pred> {
-        match self.each_len() {
-            Some(n) => (0..n).map(|i| self.pick(i)).collect(),
-            None => vec![self.clone()],
+        let spliced = Pred {
+            entity: self.entity.clone(),
+            args: self.args.iter().map(|(k, v)| (k.clone(), splice_lists(v))).collect(),
+            field: self.field.clone(),
+            value: splice_lists(&self.value),
+        };
+        match spliced.each_len() {
+            Some(n) => (0..n).map(|i| spliced.pick(i)).collect(),
+            None => vec![spliced],
         }
     }
 
@@ -106,6 +116,31 @@ impl Pred {
             field: self.field.clone(),
             value: self.value.subst(bind),
         }
+    }
+}
+
+/// Inside a list, an element carrying an `each(...)` becomes several elements.
+fn splice_lists(v: &Val) -> Val {
+    match v {
+        Val::List(xs) => {
+            let mut out = Vec::new();
+            for x in xs {
+                let x = splice_lists(x);
+                match x.each_len() {
+                    Some(n) => (0..n).for_each(|i| out.push(x.pick(i))),
+                    None => out.push(x),
+                }
+            }
+            Val::List(out)
+        }
+        Val::Each(xs) => Val::Each(xs.iter().map(splice_lists).collect()),
+        Val::Entity(p) => Val::Entity(Box::new(Pred {
+            entity: p.entity.clone(),
+            args: p.args.iter().map(|(k, a)| (k.clone(), splice_lists(a))).collect(),
+            field: p.field.clone(),
+            value: splice_lists(&p.value),
+        })),
+        other => other.clone(),
     }
 }
 
@@ -395,6 +430,22 @@ mod tests {
         assert_eq!(rolled.len(), 3);
         assert_eq!(rolled[1].to_string(), "invoice(customer=customer(name='Globex')).status='sent'");
         assert_eq!(Pred::parse("invoice(id=3).exists").unwrap().unroll().len(), 1);
+    }
+
+    #[test]
+    fn each_inside_a_list_splices_instead_of_fanning_out() {
+        // One report over three invoices, not three reports.
+        let p = Pred::parse("report(invoices=[invoice(customer=each(['Acme','Globex','Initech']))]).exists").unwrap();
+        let rolled = p.unroll();
+        assert_eq!(rolled.len(), 1);
+        assert_eq!(rolled[0].to_string(), "report(invoices=[invoice(customer='Acme'),invoice(customer='Globex'),invoice(customer='Initech')]).exists");
+        // A bare each in an argument still fans the want out.
+        let p = Pred::parse("invoice(customer=each(['Acme','Globex'])).status='sent'").unwrap();
+        assert_eq!(p.unroll().len(), 2);
+        // A list with no each is untouched.
+        let p = Pred::parse("report(invoices=[$A.id,$B.id]).exists").unwrap();
+        assert_eq!(p.unroll().len(), 1);
+        assert_eq!(p.unroll()[0].to_string(), "report(invoices=[$A.id,$B.id]).exists");
     }
 
     #[test]

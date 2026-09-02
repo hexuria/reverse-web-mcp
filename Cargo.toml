@@ -17,10 +17,12 @@ tokio-stream = { version = "0.1", features = ["sync"] }
 futures = "0.3"
 axum = { version = "0.8", features = ["json", "query"] }
 tower-http = { version = "0.6", features = ["fs", "cors", "trace"] }
-reqwest = { version = "0.12", default-features = false, features = ["json", "stream", "rustls-tls"] }
+# 0.13 rather than 0.12 because chromiumoxide already needs 0.13: one version was compiling two
+# hyper stacks and two TLS backends (ring for ours, aws-lc-rs for theirs). Same for rand below.
+reqwest = { version = "0.13", default-features = false, features = ["json", "query", "stream", "rustls"] }
 clap = { version = "4", features = ["derive", "env"] }
-rand = "0.8"
-rand_chacha = "0.3"
+rand = "0.9"
+rand_chacha = "0.9"
 sha2 = "0.10"
 hex = "0.4"
 regex = "1"
@@ -29,6 +31,12 @@ chrono = { version = "0.4", features = ["serde"] }
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 async-trait = "0.1"
+
+# Line tables keep panic locations and backtraces readable; the rest of the debuginfo is what
+# makes a test build slow to link and its artifacts large to cache, and nothing here steps
+# through code in a debugger.
+[profile.dev]
+debug = "line-tables-only"
 
 [profile.release]
 debug = 1

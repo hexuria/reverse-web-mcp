@@ -2,7 +2,17 @@ name: ci
 on:
   push:
   pull_request:
+
+# A newer push to the same branch makes the running one obsolete.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+
 jobs:
+  # Everything that needs no browser. This is the job to wait on.
   check:
     runs-on: ubuntu-latest
     steps:
@@ -10,8 +20,41 @@ jobs:
       # No toolchain is named here on purpose. rustup reads rust-toolchain.toml and installs the
       # pinned version, with rustfmt and clippy, on the first cargo call — so CI runs exactly what
       # ./scripts/gate.sh runs. Asking for `stable` here is what let the two drift apart.
+      #
+      # mold links the twenty-odd test binaries several times faster than the default ld, and it
+      # is only a linker: nothing about what gets built changes, so the cache key does not either.
+      - uses: rui314/setup-mold@v1
       - uses: Swatinem/rust-cache@v2
-      - run: rustc --version && cargo clippy --version
+        with:
+          shared-key: deps
+          # A failed run used to save nothing, so the run that fixed it was cold too — which is
+          # how it took three tries to find out what a warm run even costs.
+          cache-on-failure: true
+      - run: rustc --version && cargo clippy --version && ld --version | head -1
       - run: cargo fmt --all --check
       - run: cargo clippy --workspace --all-targets -- -D warnings
       - run: cargo test --workspace
+        env:
+          # The browser tests skip themselves; the job below runs them with a Chrome it set up.
+          RWMCP_SKIP_BROWSER: "1"
+
+  # The four tests that drive a real Chrome. Separate so a slow or wedged browser never delays
+  # the verdict on the code, and so it can be rerun alone.
+  browser:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: rui314/setup-mold@v1
+      - uses: browser-actions/setup-chrome@v1
+        id: chrome
+      - uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: deps
+          # The check job owns the cache; this one only reads it.
+          save-if: false
+      - run: cargo test -p driver --test page
+        env:
+          RWMCP_CHROME: ${{ steps.chrome.outputs.chrome-path }}
+      - run: cargo test -p bench --test arm_a --test arm_c --test t7
+        env:
+          RWMCP_CHROME: ${{ steps.chrome.outputs.chrome-path }}

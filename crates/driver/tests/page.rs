@@ -20,18 +20,9 @@ async fn serve() -> String {
     format!("http://{addr}")
 }
 
-fn chrome() -> Option<String> {
-    std::env::var("CHIFFON_CHROME").ok().or_else(|| {
-        ["/Applications/Google Chrome.app/Contents/MacOS/Google Chrome", "/usr/bin/chromium", "/usr/bin/chromium-browser", "/usr/bin/google-chrome"]
-            .iter()
-            .find(|p| std::path::Path::new(p).exists())
-            .map(|p| p.to_string())
-    })
-}
-
 #[tokio::test]
 async fn webmcp_tools_and_the_approve_button() {
-    let Some(chrome) = chrome() else {
+    let Some(chrome) = driver::find_chrome() else {
         eprintln!("no chrome found; skipping");
         return;
     };

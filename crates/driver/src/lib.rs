@@ -46,7 +46,17 @@ impl BrowserPool {
         // singleton lock, and two lanes must never share a profile.
         let profile = std::env::temp_dir().join(format!("rwmcp-chrome-{}-{}", std::process::id(), now_nanos()));
         std::fs::create_dir_all(&profile)?;
-        cfg = cfg.no_sandbox().window_size(SCREEN_W, SCREEN_H).viewport(None).user_data_dir(&profile);
+        // A CI runner has a few megabytes of /dev/shm and no GPU; without these two flags Chrome
+        // starts, stalls, and never reports its websocket URL. The default launch timeout is
+        // twenty seconds, which is exactly how long that stall took to fail.
+        cfg = cfg
+            .no_sandbox()
+            .arg("--disable-dev-shm-usage")
+            .arg("--disable-gpu")
+            .launch_timeout(std::time::Duration::from_secs(60))
+            .window_size(SCREEN_W, SCREEN_H)
+            .viewport(None)
+            .user_data_dir(&profile);
         let cfg = cfg.build().map_err(|e| anyhow::anyhow!(e))?;
         let (browser, mut handler) = Browser::launch(cfg).await?;
         let handle = tokio::spawn(async move {
@@ -149,9 +159,14 @@ impl Lease {
     }
 }
 
-/// Where Chrome lives on this machine: `CHIFFON_CHROME`, else the usual places.
+/// Where Chrome lives on this machine: `RWMCP_CHROME` (or the older `CHIFFON_CHROME`), else the
+/// usual places. `RWMCP_SKIP_BROWSER=1` reports no Chrome at all, so the tests that need one skip
+/// themselves: that is how the fast CI job stays fast while the browser job runs them for real.
 pub fn find_chrome() -> Option<String> {
-    std::env::var("CHIFFON_CHROME").ok().or_else(|| {
+    if std::env::var_os("RWMCP_SKIP_BROWSER").is_some_and(|v| v != "0" && !v.is_empty()) {
+        return None;
+    }
+    std::env::var("RWMCP_CHROME").or_else(|_| std::env::var("CHIFFON_CHROME")).ok().or_else(|| {
         [
             "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
             "/Applications/Chromium.app/Contents/MacOS/Chromium",

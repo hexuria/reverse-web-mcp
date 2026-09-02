@@ -357,7 +357,7 @@ impl World {
             return Err(DomainError::NotApproved(id));
         }
         let lat = self.write_gate("sendInvoice")?;
-        if self.chaos.send_fail_rate > 0.0 && self.rng.gen::<f64>() < self.chaos.send_fail_rate {
+        if self.chaos.send_fail_rate > 0.0 && self.rng.random::<f64>() < self.chaos.send_fail_rate {
             self.record_effect("sendInvoice", door, key, format!("invoice:{id} (chaos fail)"), false);
             return Err(DomainError::ChaosFail);
         }

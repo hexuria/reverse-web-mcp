@@ -101,11 +101,15 @@ where
 #[derive(Deserialize)]
 struct NameQuery {
     name: Option<String>,
+    name_prefix: Option<String>,
 }
 
 async fn list_customers(State(s): State<Shared>, Query(q): Query<NameQuery>) -> Json<Value> {
     let w = s.world.lock().unwrap();
-    Json(json!(w.find_customers(q.name.as_deref())))
+    match &q.name_prefix {
+        Some(p) => Json(json!(w.find_customers_by_prefix(p))),
+        None => Json(json!(w.find_customers(q.name.as_deref()))),
+    }
 }
 
 #[derive(Deserialize)]
@@ -228,6 +232,9 @@ struct Pay {
     invoice_id: u64,
     #[serde(default)]
     delay_ms: u64,
+    /// The webhook is lost: the payment lands but no event is emitted.
+    #[serde(default)]
+    silent: bool,
 }
 
 /// The outside world paying an invoice, optionally later. Used by the wait-for-event task.
@@ -235,7 +242,7 @@ async fn oracle_pay(State(s): State<Shared>, Json(p): Json<Pay>) -> Result<Json<
     if p.delay_ms == 0 {
         let (v, evs) = {
             let mut w = s.world.lock().unwrap();
-            w.receive_payment(p.invoice_id)?
+            w.receive_payment(p.invoice_id, p.silent)?
         };
         for ev in evs {
             let _ = s.events.send(ev);
@@ -247,7 +254,7 @@ async fn oracle_pay(State(s): State<Shared>, Json(p): Json<Pay>) -> Result<Json<
         tokio::time::sleep(Duration::from_millis(p.delay_ms)).await;
         let res = {
             let mut w = s2.world.lock().unwrap();
-            w.receive_payment(p.invoice_id)
+            w.receive_payment(p.invoice_id, p.silent)
         };
         if let Ok((_, evs)) = res {
             for ev in evs {

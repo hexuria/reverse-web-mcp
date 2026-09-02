@@ -29,7 +29,7 @@ pub async fn world_facts(base: &str) -> anyhow::Result<String> {
     let customers: Value = reqwest::get(format!("{}/api/customers", base.trim_end_matches('/'))).await?.json().await?;
     let names: Vec<String> =
         customers.as_array().map(|a| a.iter().filter_map(|c| c.get("name").and_then(|n| n.as_str()).map(|s| s.to_string())).collect()).unwrap_or_default();
-    Ok(format!("  customers ({}): {}", names.len(), names.join(", ")))
+    Ok(format!("  customers ({}): {}", names.len(), summarise_names(&names)))
 }
 
 fn intent_tool() -> Value {
@@ -76,6 +76,7 @@ fn intent_from(resp: &Value, task: &Task) -> anyhow::Result<Intent> {
 }
 
 /// Plan, lint, and if the intent is wrong hand the errors back exactly once.
+/// Plan, lint, and hand the errors back up to twice. Every attempt is a counted sample.
 pub async fn plan_with_lint(
     task: &Task,
     world: &World,
@@ -84,19 +85,21 @@ pub async fn plan_with_lint(
     ledger: &mut Ledger,
     opts: &CompileOptions,
 ) -> anyhow::Result<Intent> {
-    let first = plan_intent(task, world, facts, sampler, ledger).await?;
-    let errs = lint(&first, world, opts);
-    if errs.is_empty() {
-        return Ok(first);
+    let mut intent = plan_intent(task, world, facts, sampler, ledger).await?;
+    for _ in 0..2 {
+        let errs = lint(&intent, world, opts);
+        if errs.is_empty() {
+            return Ok(intent);
+        }
+        ledger.notes.push(json!({"lint": errs.iter().map(|e| e.to_string()).collect::<Vec<_>>(), "wants": intent.wants}));
+        intent = replan(task, world, facts, &intent, &errs, sampler, ledger).await?;
     }
-    ledger.notes.push(json!({"lint": errs.iter().map(|e| e.to_string()).collect::<Vec<_>>(), "wants": first.wants}));
-    let second = replan(task, world, facts, &first, &errs, sampler, ledger).await?;
-    let errs = lint(&second, world, opts);
+    let errs = lint(&intent, world, opts);
     if errs.is_empty() {
-        return Ok(second);
+        return Ok(intent);
     }
-    ledger.notes.push(json!({"lint": errs.iter().map(|e| e.to_string()).collect::<Vec<_>>(), "wants": second.wants}));
-    anyhow::bail!("intent still wrong after one re-ask: {}", errs.iter().map(|e| e.to_string()).collect::<Vec<_>>().join("; "))
+    ledger.notes.push(json!({"lint": errs.iter().map(|e| e.to_string()).collect::<Vec<_>>(), "wants": intent.wants}));
+    anyhow::bail!("intent still wrong after two re-asks: {}", errs.iter().map(|e| e.to_string()).collect::<Vec<_>>().join("; "))
 }
 
 async fn replan(
@@ -143,6 +146,8 @@ Rules:\n\
 - If a fact depends on something the outside world does (a payment arriving), still want the final fact; \
   the engine waits for the event. Forks are only for genuine ambiguity, not for waiting or retrying.\n\
 - Use the real names from the world facts. Never use variables like $name.\n\
+- For many rows, never list names: write each(customer(name_prefix='...')) and the engine expands it \
+  from the world before compiling. each([...]) with explicit names is for a handful.\n\
 - If a name in the goal matches more than one entity in the facts, still refer to it by name. \
   The engine stops at that point and asks you which one; do not ask now and do not leave wants out.\n\n\
 Example goal: Invoice Acme and Globex, send both, then one report over both.\n\
@@ -152,6 +157,10 @@ Example wants:\n\
   invoice(customer=customer(name='Globex')).exists\n\
   invoice(customer=customer(name='Globex')).status='sent'\n\
   report(invoices=[invoice(customer=customer(name='Acme')),invoice(customer=customer(name='Globex'))]).exists\n\
+Example goal: Invoice every customer whose name starts with 'Bulk ' and send each.\n\
+Example wants:\n\
+  invoice(customer=each(customer(name_prefix='Bulk '))).exists\n\
+  invoice(customer=each(customer(name_prefix='Bulk '))).status='sent'\n\
 Example goal: Invoice Acme, send it, and email a receipt once it is paid.\n\
 Example wants:\n\
   invoice(customer=customer(name='Acme')).exists\n\
@@ -212,12 +221,24 @@ if the goal gives no basis to choose, choose the lowest id and say nothing else.
         "tools": [intent_tool()],
         "messages": [{"role": "user", "content": user}],
     });
-    let resp = sampler.sample(ledger, SampleKind::ForkAnswer, body).await?;
+    let resp = sampler.sample(ledger, SampleKind::ForkAnswer, body.clone()).await?;
+    let answered = intent_from(&resp, task)?;
+    let errs = lint(&answered, world, &CompileOptions::default());
+    if errs.is_empty() {
+        return Ok(answered);
+    }
+    ledger.notes.push(json!({"fork_answer_rejected": errs.iter().map(|e| e.to_string()).collect::<Vec<_>>(), "wants": answered.wants}));
+    // One more try, with the rejection in hand.
+    let mut body2 = body;
+    let listed = errs.iter().map(|e| format!("- {e}")).collect::<Vec<_>>().join("\n");
+    let prior = body2["messages"][0]["content"].as_str().unwrap_or("").to_string();
+    body2["messages"] = json!([{"role": "user", "content": format!("{prior}\n\nYour previous answer was rejected:\n{listed}\n\nAnswer again with emit_intent, keeping every unaffected want unchanged.")}]);
+    let resp = sampler.sample(ledger, SampleKind::ForkAnswer, body2).await?;
     let answered = intent_from(&resp, task)?;
     let errs = lint(&answered, world, &CompileOptions::default());
     if !errs.is_empty() {
         ledger.notes.push(json!({"fork_answer_rejected": errs.iter().map(|e| e.to_string()).collect::<Vec<_>>(), "wants": answered.wants}));
-        anyhow::bail!("fork answer rejected: {}", errs.iter().map(|e| e.to_string()).collect::<Vec<_>>().join("; "));
+        anyhow::bail!("fork answer rejected twice: {}", errs.iter().map(|e| e.to_string()).collect::<Vec<_>>().join("; "));
     }
     Ok(answered)
 }
@@ -277,4 +298,108 @@ pub async fn plan_cached(
     let i = plan_with_lint(task, world, facts, sampler, ledger, opts).await?;
     cache.put(&task.goal, facts, &opts.surfaces, &i)?;
     Ok((i, false))
+}
+
+/// "Acme, Globex, and 300 named 'Customer 001' … 'Customer 300' (prefix 'Customer ')".
+pub fn summarise_names(names: &[String]) -> String {
+    use std::collections::BTreeMap;
+    let prefix_of = |n: &str| -> String {
+        match n.rfind(' ') {
+            Some(i) if !n[i + 1..].is_empty() && n[i + 1..].chars().all(|c| c.is_ascii_digit()) => n[..=i].to_string(),
+            _ => String::new(),
+        }
+    };
+    let mut by_prefix: BTreeMap<String, Vec<String>> = BTreeMap::new();
+    for n in names {
+        by_prefix.entry(prefix_of(n)).or_default().push(n.clone());
+    }
+    let big: BTreeMap<String, Vec<String>> = by_prefix.into_iter().filter(|(p, v)| !p.is_empty() && v.len() >= 20).collect();
+    let mut parts: Vec<String> = names.iter().filter(|n| !big.contains_key(&prefix_of(n))).cloned().collect();
+    for (p, v) in &big {
+        parts.push(format!("and {} named '{}' … '{}' (prefix '{}')", v.len(), v[0], v[v.len() - 1], p));
+    }
+    parts.join(", ")
+}
+
+/// Replace `each(customer(name_prefix='X'))` with the matching names, read from the app.
+/// A read before compiling, not a sample; keys come out identical to the written-out form.
+pub async fn expand_selectors(intent: &Intent, base: &str) -> anyhow::Result<Intent> {
+    use zerohuman::pred::Pred;
+    let client = reqwest::Client::new();
+    let mut out = intent.clone();
+    for w in out.wants.iter_mut() {
+        let Ok(mut pred) = Pred::parse(w) else { continue };
+        let mut changed = false;
+        for (_, v) in pred.args.iter_mut() {
+            if let Some(nv) = expand_val(v, &client, base).await? {
+                *v = nv;
+                changed = true;
+            }
+        }
+        if changed {
+            *w = pred.to_string();
+        }
+    }
+    Ok(out)
+}
+
+#[async_recursion::async_recursion]
+async fn expand_val(v: &zerohuman::pred::Val, client: &reqwest::Client, base: &str) -> anyhow::Result<Option<zerohuman::pred::Val>> {
+    use zerohuman::pred::{Pred, Val};
+    match v {
+        Val::Each(items) if items.len() == 1 => {
+            if let Val::Entity(p) = &items[0] {
+                if p.entity == "customer" {
+                    if let Some(Val::Str(prefix)) = p.arg("name_prefix") {
+                        let rows: Value =
+                            client.get(format!("{}/api/customers", base.trim_end_matches('/'))).query(&[("name_prefix", prefix)]).send().await?.json().await?;
+                        let names: Vec<Val> = rows
+                            .as_array()
+                            .map(|a| {
+                                a.iter()
+                                    .filter_map(|c| c.get("name").and_then(|n| n.as_str()))
+                                    .map(|n| {
+                                        Val::Entity(Box::new(Pred {
+                                            entity: "customer".into(),
+                                            args: vec![("name".into(), Val::Str(n.to_string()))],
+                                            field: String::new(),
+                                            value: Val::Bool(true),
+                                        }))
+                                    })
+                                    .collect()
+                            })
+                            .unwrap_or_default();
+                        return Ok(Some(Val::Each(names)));
+                    }
+                }
+            }
+            Ok(None)
+        }
+        Val::Entity(p) => {
+            let mut p2 = (**p).clone();
+            let mut changed = false;
+            for (_, a) in p2.args.iter_mut() {
+                if let Some(nv) = expand_val(a, client, base).await? {
+                    *a = nv;
+                    changed = true;
+                }
+            }
+            Ok(if changed { Some(Val::Entity(Box::new(p2))) } else { None })
+        }
+        Val::List(xs) => {
+            let mut ys = Vec::new();
+            let mut changed = false;
+            for x in xs {
+                match expand_val(x, client, base).await? {
+                    Some(nv) => {
+                        ys.push(nv);
+                        changed = true;
+                    }
+                    None => ys.push(x.clone()),
+                }
+            }
+            Ok(if changed { Some(Val::List(ys)) } else { None })
+        }
+        _ => Ok(None),
+    }
 }

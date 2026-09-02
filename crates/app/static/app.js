@@ -144,9 +144,9 @@ document.getElementById('modal-close').addEventListener('click', () => document.
 const webmcpTools = [
   {
     name: 'listCustomers',
-    description: 'Find customers, optionally by exact name.',
-    inputSchema: { type: 'object', properties: { name: { type: 'string' } } },
-    execute: async ({ name }) => api.call('GET', `/api/customers${name ? `?name=${encodeURIComponent(name)}` : ''}`, null, 'webmcp'),
+    description: 'Find customers, optionally by exact name or by name prefix.',
+    inputSchema: { type: 'object', properties: { name: { type: 'string' }, name_prefix: { type: 'string' } } },
+    execute: async ({ name, name_prefix }) => api.call('GET', `/api/customers${name_prefix ? `?name_prefix=${encodeURIComponent(name_prefix)}` : name ? `?name=${encodeURIComponent(name)}` : ''}`, null, 'webmcp'),
   },
   {
     name: 'createInvoice',

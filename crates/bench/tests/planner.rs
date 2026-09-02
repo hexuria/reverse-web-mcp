@@ -60,12 +60,33 @@ async fn a_good_first_intent_costs_one_sample() {
 }
 
 #[tokio::test]
-async fn two_bad_intents_is_an_error_not_a_third_sample() {
-    let sampler = Scripted(Mutex::new(vec![vec!["nonsense("], vec!["customer(name='Acme').exists"], vec!["should not be asked"]]));
+async fn two_bad_intents_then_a_good_one_is_three_samples() {
+    let sampler =
+        Scripted(Mutex::new(vec![vec!["nonsense("], vec!["customer(name='Acme').exists"], vec!["invoice(customer=customer(name='Acme')).status='sent'"]]));
+    let mut ledger = Ledger::new();
+    let intent = plan_with_lint(&task(), &world(), "", &sampler, &mut ledger, &CompileOptions::default()).await.unwrap();
+    assert_eq!(intent.wants.len(), 1);
+    assert_eq!(ledger.sample_count(), 3);
+    assert_eq!(ledger.notes.len(), 2, "both rejections are on record");
+}
+
+#[tokio::test]
+async fn three_bad_intents_is_an_error_not_a_fourth_sample() {
+    let sampler = Scripted(Mutex::new(vec![vec!["nonsense("], vec!["customer(name='Acme').exists"], vec![], vec!["should not be asked"]]));
     let mut ledger = Ledger::new();
     let err = plan_with_lint(&task(), &world(), "", &sampler, &mut ledger, &CompileOptions::default()).await.unwrap_err();
-    assert!(err.to_string().contains("still wrong"), "{err}");
-    assert_eq!(ledger.sample_count(), 2);
+    assert!(err.to_string().contains("two re-asks"), "{err}");
+    assert_eq!(ledger.sample_count(), 3);
+}
+
+#[test]
+fn long_runs_of_numbered_names_are_summarised() {
+    use bench::planner::summarise_names;
+    let mut names: Vec<String> = vec!["Acme".into(), "Globex".into()];
+    names.extend((1..=300).map(|i| format!("Customer {i:03}")));
+    let s = summarise_names(&names);
+    assert_eq!(s, "Acme, Globex, and 300 named 'Customer 001' … 'Customer 300' (prefix 'Customer ')");
+    assert_eq!(summarise_names(&["Acme".to_string(), "Wayne 7".to_string()]), "Acme, Wayne 7");
 }
 
 #[tokio::test]

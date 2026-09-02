@@ -5,7 +5,7 @@ use std::collections::BTreeMap;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-use crate::world::{Fork, OpKind, UiSpec};
+use crate::world::{Check, Fork, OpKind, UiSpec};
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 #[serde(tag = "t", content = "v", rename_all = "lowercase")]
@@ -43,6 +43,9 @@ pub struct Node {
     pub produces: Option<String>,
     pub fork: Option<Fork>,
     pub ui: Option<UiSpec>,
+    /// For a wait: how to confirm the fact by reading, if the event never arrives.
+    #[serde(default)]
+    pub check: Option<Check>,
     /// What this node makes true, for the receipt and for humans.
     pub post: String,
 }

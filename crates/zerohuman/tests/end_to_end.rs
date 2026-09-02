@@ -133,6 +133,54 @@ async fn t4_waits_for_the_payment_event_instead_of_polling() {
 }
 
 #[tokio::test]
+async fn a_lost_webhook_is_caught_by_the_state_check() {
+    let base = serve(4).await;
+    // The payment lands 300 ms after creation but its event is lost.
+    let watcher = EventBus::connect(&base).await.unwrap();
+    let payer = {
+        let base = base.clone();
+        tokio::spawn(async move {
+            let client = reqwest::Client::new();
+            let mut paid = std::collections::HashSet::new();
+            loop {
+                for ev in watcher.events() {
+                    if ev.kind == "invoice.created" && paid.insert(ev.id) {
+                        let _ = client.post(format!("{base}/oracle/pay")).json(&json!({"invoice_id": ev.id, "delay_ms": 300, "silent": true})).send().await;
+                    }
+                }
+                tokio::time::sleep(std::time::Duration::from_millis(30)).await;
+            }
+        })
+    };
+    let world = Arc::new(world_from(&base).await.unwrap());
+    let mut w = wants(&["Acme"], false);
+    w.push("invoice(customer=customer(name='Acme')).receipt_sent=true".into());
+    let intent = Intent { goal: "t4 lost".into(), wants: w, ..Default::default() };
+    let opts = CompileOptions { plan_id: "lost".into(), surfaces: vec!["api".into()] };
+    let plan = compile(&intent, &world, &opts).unwrap();
+    let bus = EventBus::connect(&base).await.unwrap();
+    let policy = zerohuman::Policy { check_every: std::time::Duration::from_millis(700), ..Default::default() };
+    let sched = Scheduler {
+        effectors: default_effectors(&base, world.clone(), &opts.surfaces),
+        bus: Some(bus),
+        pools: Default::default(),
+        policy,
+        recorder: Recorder::new(world.clone()),
+    };
+    let mut ledger = Ledger::new();
+    let outcome = sched.run(&plan, &mut ledger).await;
+    payer.abort();
+    assert_eq!(outcome.status, Status::Committed, "{:?}", outcome.error);
+    let wait = ledger.rows.iter().find(|x| x.surface == "event").unwrap();
+    assert!(wait.ok);
+    assert_eq!(wait.observed["checked"], true, "the fact was confirmed by a read, not an event");
+    let glances = ledger.rows.iter().filter(|x| x.op == "getInvoice").count();
+    assert!((1..=3).contains(&glances), "a glance or two, not a poll storm: {glances}");
+    let state: Value = reqwest::get(format!("{base}/oracle/state")).await.unwrap().json().await.unwrap();
+    assert_eq!(state["invoices"][0]["receipt_sent"], true);
+}
+
+#[tokio::test]
 async fn t6_two_acmes_yield_once_without_writing() {
     let base = serve(6).await;
     let (r, effects) = run(&base, wants(&["Acme"], false)).await;

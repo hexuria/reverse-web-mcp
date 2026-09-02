@@ -49,7 +49,7 @@ async fn a_failed_planner_is_an_error_not_the_handwritten_intent() {
     let out = run_ours_planned(&task, &ctx, Some(PlanRequest { sampler: &Nothing, facts: String::new(), cache: None })).await.unwrap();
     assert_eq!(out.receipt.status, Status::Error);
     assert!(out.receipt.error.as_deref().unwrap_or("").starts_with("planner:"), "{:?}", out.receipt.error);
-    assert_eq!(out.receipt.samples, 2, "plan and one re-ask");
+    assert_eq!(out.receipt.samples, 3, "plan and two re-asks");
     assert!(out.intent.wants.is_empty());
     let state: Value = reqwest::get(format!("{base}/oracle/state")).await.unwrap().json().await.unwrap();
     assert_eq!(state["invoices"].as_array().unwrap().len(), 0, "nothing ran");

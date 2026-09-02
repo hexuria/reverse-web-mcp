@@ -110,3 +110,45 @@ async fn an_empty_fork_answer_leaves_the_question_open() {
     let state: Value = reqwest::get(format!("{base}/oracle/state")).await.unwrap().json().await.unwrap();
     assert_eq!(state["invoices"].as_array().unwrap().len(), 0);
 }
+
+struct EmptyThenGood(Mutex<u32>);
+
+#[async_trait]
+impl Sampler for EmptyThenGood {
+    async fn sample(&self, ledger: &mut Ledger, kind: SampleKind, _body: Value) -> anyhow::Result<Value> {
+        ledger.record_sample(Sample { seq: 0, kind, started_us: 0, ended_us: 1, tokens_in: 1, tokens_out: 1, model: "stub".into(), effort: "low".into() });
+        let mut n = self.0.lock().unwrap();
+        *n += 1;
+        let wants: Vec<&str> = if *n == 1 { vec![] } else { vec!["invoice(customer=customer(id=1)).exists", "invoice(customer=customer(id=1)).status='sent'"] };
+        Ok(json!({"content": [{"type": "tool_use", "name": "emit_intent", "input": {"wants": wants}}]}))
+    }
+}
+
+#[tokio::test]
+async fn an_empty_fork_answer_is_asked_again_once() {
+    let (tx, _) = broadcast::channel(1024);
+    let state = Arc::new(AppState { world: Mutex::new(AppWorld::seeded(6)), events: tx });
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let addr = listener.local_addr().unwrap();
+    tokio::spawn(async move {
+        axum::serve(listener, router(state)).await.unwrap();
+    });
+    let base = format!("http://{addr}");
+    let task = Task::load(std::path::Path::new(concat!(env!("CARGO_MANIFEST_DIR"), "/../../tasks/T6.toml"))).unwrap();
+    let world = Arc::new(zerohuman::world_from(&base).await.unwrap());
+    let ctx = ArmContext {
+        base: base.clone(),
+        world,
+        bus: EventBus::connect(&base).await.unwrap(),
+        surfaces: vec!["api".into()],
+        run_id: "r1".into(),
+        browser: None,
+        shots_dir: None,
+        max_turns: 40,
+    };
+    let receipt = run_ours(&task, &ctx, None, Ledger::new(), Some(Planner { sampler: &EmptyThenGood(Mutex::new(0)), facts: String::new() })).await.unwrap();
+    assert_eq!(receipt.status, Status::Committed, "{:?}", receipt.error);
+    assert_eq!(receipt.samples, 2, "the empty answer and the good one");
+    let state: Value = reqwest::get(format!("{base}/oracle/state")).await.unwrap().json().await.unwrap();
+    assert_eq!(state["invoices"].as_array().unwrap().len(), 1);
+}

@@ -282,6 +282,10 @@ impl World {
         }
     }
 
+    pub fn find_customers_by_prefix(&self, prefix: &str) -> Vec<Customer> {
+        self.customers.iter().filter(|c| c.name.to_lowercase().starts_with(&prefix.to_lowercase())).cloned().collect()
+    }
+
     pub fn resolve_customer(&self, name: &str) -> DomainResult<Customer> {
         let found = self.find_customers(Some(name));
         match found.len() {
@@ -434,14 +438,18 @@ impl World {
         Ok((v, lat, vec![ev]))
     }
 
-    /// The outside world paying. Fired by the oracle, never by an arm.
-    pub fn receive_payment(&mut self, invoice_id: u64) -> DomainResult<(serde_json::Value, Vec<Event>)> {
+    /// The outside world paying. Fired by the oracle, never by an arm. `silent` models a lost
+    /// webhook: the payment lands, no event is emitted.
+    pub fn receive_payment(&mut self, invoice_id: u64, silent: bool) -> DomainResult<(serde_json::Value, Vec<Event>)> {
         let idx = self.invoices.iter().position(|i| i.id == invoice_id).ok_or(DomainError::NotFound("invoice", invoice_id))?;
         let id = self.alloc();
         self.invoices[idx].status = InvoiceStatus::Paid;
         let p = Payment { id, invoice_id };
         self.payments.push(p.clone());
         self.record_effect("receivePayment", "webhook", None, format!("payment:{id}"), false);
+        if silent {
+            return Ok((serde_json::to_value(&p).unwrap(), vec![]));
+        }
         let ev = self.emit("payment.received", "invoice", invoice_id, serde_json::to_value(&p).unwrap());
         Ok((serde_json::to_value(&p).unwrap(), vec![ev]))
     }

@@ -12,7 +12,11 @@
     "report": { "id": "id", "fields": ["invoice_ids", "total_cents", "sent_count"] }
   },
   "x-zerohuman-events": {
-    "payment.received": { "entity": "invoice", "post": "invoice(id=$id).status='paid'" }
+    "payment.received": {
+      "entity": "invoice",
+      "post": "invoice(id=$id).status='paid'",
+      "check": { "op": "getInvoice", "arg": "id", "field": "status", "value": "paid" }
+    }
   },
   "x-zerohuman-ui": {
     "approveInvoice": {
@@ -29,7 +33,10 @@
     "/api/customers": {
       "get": {
         "operationId": "listCustomers",
-        "parameters": [{ "name": "name", "in": "query", "schema": { "type": "string" } }],
+        "parameters": [
+          { "name": "name", "in": "query", "schema": { "type": "string" } },
+          { "name": "name_prefix", "in": "query", "schema": { "type": "string" } }
+        ],
         "x-zerohuman": {
           "post": "customer(name=$name).resolved",
           "produces": "customer",

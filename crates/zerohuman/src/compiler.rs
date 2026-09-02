@@ -286,6 +286,7 @@ impl<'a> Compiler<'a> {
             produces: op.produces.clone(),
             fork,
             ui: op.ui.clone(),
+            check: op.check.clone(),
             post,
         });
         deps.sort();

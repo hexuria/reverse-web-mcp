@@ -140,3 +140,17 @@ async fn sending_a_paid_invoice_keeps_it_paid() {
     let r = c.post(format!("{base}/api/invoices/{id}/receipt")).send().await.unwrap();
     assert_eq!(r.status().as_u16(), 200);
 }
+
+#[tokio::test]
+async fn a_silent_payment_lands_without_an_event_and_prefixes_match() {
+    let (base, c) = serve(11).await;
+    let (_, inv) = create_invoice(&c, &base, None).await;
+    let id = inv["id"].as_u64().unwrap();
+    c.post(format!("{base}/oracle/pay")).json(&json!({"invoice_id": id, "silent": true})).send().await.unwrap();
+    let v: Value = c.get(format!("{base}/api/invoices/{id}")).send().await.unwrap().json().await.unwrap();
+    assert_eq!(v["status"], "paid");
+    let eff = effects(&c, &base).await;
+    assert!(eff["effects"].as_array().unwrap().iter().any(|e| e["op"] == "receivePayment"));
+    let bulk: Value = c.get(format!("{base}/api/customers?name_prefix=Customer%20")).send().await.unwrap().json().await.unwrap();
+    assert_eq!(bulk.as_array().unwrap().len(), 300);
+}

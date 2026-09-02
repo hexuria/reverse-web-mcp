@@ -24,7 +24,7 @@ pub struct Pools {
 impl Default for Pools {
     fn default() -> Self {
         let mut m = HashMap::new();
-        m.insert("api".into(), 16);
+        m.insert("api".into(), 64);
         m.insert("mcp".into(), 16);
         m.insert("webmcp".into(), 4);
         // A screen is one pair of hands.
@@ -40,12 +40,21 @@ pub struct Policy {
     pub backoff_ms: u64,
     pub wait_timeout: Duration,
     pub node_timeout: Duration,
+    /// While a wait has not fired, glance at the world this often. A lost webhook is not a
+    /// lost fact. Long enough that a normal wait never reads at all.
+    pub check_every: Duration,
 }
 
 impl Default for Policy {
     fn default() -> Self {
         // Six attempts at 40·2^n ms is ~1.3 s of backoff: enough to outlast a one-second rate-limit window.
-        Policy { max_attempts: 6, backoff_ms: 40, wait_timeout: Duration::from_secs(30), node_timeout: Duration::from_secs(20) }
+        Policy {
+            max_attempts: 6,
+            backoff_ms: 40,
+            wait_timeout: Duration::from_secs(30),
+            node_timeout: Duration::from_secs(20),
+            check_every: Duration::from_secs(3),
+        }
     }
 }
 
@@ -199,12 +208,13 @@ impl Scheduler {
                         }
                     };
                     let effector = self.effectors.get(&node.surface).cloned();
+                    let reader = self.effectors.get("api").cloned();
                     let sem = sems.get(&node.surface).cloned();
                     let bus = self.bus.clone();
                     let policy = self.policy.clone();
                     let rec2 = rec.clone();
                     running.spawn(async move {
-                        let r = execute(&node, args, effector, sem, bus, &policy, rec2).await;
+                        let r = execute(&node, args, effector, reader, sem, bus, &policy, rec2).await;
                         (id, r)
                     });
                 }
@@ -257,6 +267,57 @@ impl Scheduler {
     }
 }
 
+/// Wait for the event; every `check_every` without it, read the world once and accept the fact
+/// if it already holds. The wait row spans the whole wait; each glance is its own read row.
+async fn wait_with_check(
+    node: &Node,
+    args: &Map<String, Value>,
+    reader: Option<Arc<dyn Effector>>,
+    bus: Option<Arc<EventBus>>,
+    policy: &Policy,
+    rec: &Recorder,
+) -> Result<Value, String> {
+    let id = args.get("id").and_then(|v| v.as_u64());
+    let attempt = rec.start(&node.id, &node.op, "event", None, 1);
+    let Some(bus) = bus else {
+        let e = Err(crate::events::BusError::Missing.to_string());
+        attempt.finish(&e);
+        return e;
+    };
+    let deadline = tokio::time::Instant::now() + policy.wait_timeout;
+    let mut glances = 0u32;
+    let res: Result<Value, String> = loop {
+        let remaining = deadline.saturating_duration_since(tokio::time::Instant::now());
+        if remaining.is_zero() {
+            break Err(format!("timed out waiting for {}{}", node.op, id.map(|i| format!(" id={i}")).unwrap_or_default()));
+        }
+        let slice = remaining.min(policy.check_every);
+        match bus.wait_for(&node.op, id, slice).await {
+            Ok(ev) => break Ok(serde_json::to_value(ev).unwrap()),
+            Err(crate::events::BusError::Timeout { .. }) => {}
+            Err(e) => break Err(e.to_string()),
+        }
+        let (Some(check), Some(reader)) = (&node.check, &reader) else { continue };
+        glances += 1;
+        let mut read_args = Map::new();
+        if let Some(v) = args.get(&check.arg) {
+            read_args.insert(check.arg.clone(), v.clone());
+        }
+        let read_node =
+            Node { id: format!("{}~{glances}", node.id), op: check.op.clone(), kind: OpKind::Http, surface: "api".into(), key: None, ..node.clone() };
+        let glance = rec.start(&read_node.id, &read_node.op, "api", None, glances);
+        let seen = reader.execute(&read_node, &read_args).await;
+        glance.finish(&seen);
+        if let Ok(v) = seen {
+            if v.get(&check.field) == Some(&check.value) {
+                break Ok(json!({"checked": true, "kind": node.op, "id": id, "state": v}));
+            }
+        }
+    };
+    attempt.finish(&res);
+    res
+}
+
 fn gate_kind_name(k: &crate::plan::GateKind) -> &'static str {
     match k {
         crate::plan::GateKind::External => "external",
@@ -264,23 +325,19 @@ fn gate_kind_name(k: &crate::plan::GateKind) -> &'static str {
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 async fn execute(
     node: &Node,
     args: Map<String, Value>,
     effector: Option<Arc<dyn Effector>>,
+    reader: Option<Arc<dyn Effector>>,
     sem: Option<Arc<Semaphore>>,
     bus: Option<Arc<EventBus>>,
     policy: &Policy,
     rec: Recorder,
 ) -> Result<Value, Failure> {
     if node.kind == OpKind::Event {
-        let id = args.get("id").and_then(|v| v.as_u64());
-        let attempt = rec.start(&node.id, &node.op, "event", None, 1);
-        let res: Result<Value, String> = match &bus {
-            Some(b) => b.wait_for(&node.op, id, policy.wait_timeout).await.map(|ev| serde_json::to_value(ev).unwrap()).map_err(|e| e.to_string()),
-            None => Err(crate::events::BusError::Missing.to_string()),
-        };
-        attempt.finish(&res);
+        let res = wait_with_check(node, &args, reader, bus, policy, &rec).await;
         return res.map_err(Failure::Fatal);
     }
 

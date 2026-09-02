@@ -130,6 +130,8 @@ pub async fn run_ours_planned(task: &Task, ctx: &ArmContext, req: Option<PlanReq
     };
     match planned {
         Ok(intent) => {
+            // Selectors like each(customer(name_prefix='…')) become names by a read, not a sample.
+            let intent = crate::planner::expand_selectors(&intent, &ctx.base).await?;
             let receipt = run_ours(task, ctx, Some(intent.clone()), ledger, Some(Planner { sampler: req.sampler, facts: req.facts })).await?;
             Ok(OursOutcome { receipt, intent, cache_hit })
         }

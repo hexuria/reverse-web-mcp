@@ -50,6 +50,15 @@ pub struct Fork {
     pub ask: String,
 }
 
+/// How to confirm an event's postcondition by reading the world, for when the event is lost.
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
+pub struct Check {
+    pub op: String,
+    pub arg: String,
+    pub field: String,
+    pub value: Value,
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct UiSpec {
     pub route: String,
@@ -84,6 +93,7 @@ pub struct Op {
     pub defaults: BTreeMap<String, Value>,
     pub fork: Option<Fork>,
     pub ui: Option<UiSpec>,
+    pub check: Option<Check>,
 }
 
 impl Op {
@@ -187,6 +197,7 @@ impl World {
                         .unwrap_or_default(),
                     fork: fork(zh.get("fork")),
                     ui: None,
+                    check: None,
                 });
             }
         }
@@ -217,6 +228,7 @@ impl World {
                     defaults: BTreeMap::new(),
                     fork: None,
                     ui: Some(UiSpec { route, control: zh.get("control").cloned().unwrap_or(Value::Null) }),
+                    check: None,
                 });
             }
         }
@@ -240,6 +252,7 @@ impl World {
                     defaults: BTreeMap::new(),
                     fork: None,
                     ui: None,
+                    check: zh.get("check").and_then(|c| serde_json::from_value(c.clone()).ok()),
                 });
             }
         }

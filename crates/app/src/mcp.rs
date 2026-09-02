@@ -11,8 +11,8 @@ use crate::{write, ApiError, Shared};
 
 pub fn tools() -> Value {
     json!([
-        {"name":"listCustomers","description":"Find customers, optionally by exact name.",
-         "inputSchema":{"type":"object","properties":{"name":{"type":"string"}}}},
+        {"name":"listCustomers","description":"Find customers, optionally by exact name or by name prefix.",
+         "inputSchema":{"type":"object","properties":{"name":{"type":"string"},"name_prefix":{"type":"string"}}}},
         {"name":"listInvoices","description":"List invoices, optionally for one customer id.",
          "inputSchema":{"type":"object","properties":{"customer_id":{"type":"integer"}}}},
         {"name":"getInvoice","description":"Read one invoice by id.",
@@ -46,7 +46,10 @@ async fn call(state: &Shared, name: &str, args: &Value) -> Result<Value, ApiErro
     match name {
         "listCustomers" => {
             let w = state.world.lock().unwrap();
-            Ok(json!(w.find_customers(args.get("name").and_then(|v| v.as_str()))))
+            match args.get("name_prefix").and_then(|v| v.as_str()) {
+                Some(p) => Ok(json!(w.find_customers_by_prefix(p))),
+                None => Ok(json!(w.find_customers(args.get("name").and_then(|v| v.as_str())))),
+            }
         }
         "listInvoices" => {
             let w = state.world.lock().unwrap();

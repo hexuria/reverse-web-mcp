@@ -205,8 +205,25 @@ Examples:
   rwmcp --app http://localhost:8000 --goal \"...\" --save billing --run --yes
   rwmcp --app http://localhost:8000 --recipe billing --set who=Globex --run --yes
 
+  rwmcp --app http://localhost:8000 --validate                     is the world model coherent?
+  rwmcp --app http://localhost:8000 --wants w.wants --order-check  does the plan depend on want order?
+  rwmcp --app openapi.json --init                                  what blocks does my OpenAPI doc need?
+
 A recipe is a plan that already worked, with the changing bits left as $placeholders.
-Re-running one costs no model calls.";
+Re-running one costs no model calls.
+
+Exit codes, so a caller can branch without reading the prose:
+   0  done
+   2  bad usage
+  10  the wants, the recipe or the world model did not hold up
+  11  it stopped to ask; answer with --answer \"OLD=>NEW\" or --answer-with-model
+  12  steps leave the system and --yes was not given
+  13  the app or its world model could not be reached
+  14  the planner failed
+  15  a step failed while running
+
+--json prints exactly one object on every path: {\"ok\":true,...} or {\"ok\":false,\"code\":...}.
+Environment: RWMCP_APP, RWMCP_SURFACES, RWMCP_RECIPES_DIR, RWMCP_BASE_URL, RWMCP_MODEL.";
 
 /// A plan that worked, kept so it can be run again with different values. JSON, because the thing
 /// that writes it is usually an agent and the thing that reads it is usually a program.

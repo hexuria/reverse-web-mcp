@@ -24,7 +24,8 @@ use rwmcp::intent::{lint, Intent};
 use rwmcp::ledger::{Ledger, Recorder};
 use rwmcp::planner::{self, ModelClient};
 use rwmcp::pred::{Pred, Val};
-use rwmcp::{compile, default_effectors, CompileOptions, Plan, Scheduler, Status, World};
+use rwmcp::scheduler::Outcome;
+use rwmcp::{compile, default_effectors, CompileOptions, Plan, Receipt, Scheduler, Status, World};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
@@ -44,6 +45,9 @@ struct Cli {
     /// Fill a `$name` placeholder in the wants. Repeatable: --set who=Acme --set amount=5000
     #[arg(long = "set", value_name = "KEY=VALUE")]
     sets: Vec<String>,
+    /// Pick up a run saved with --receipt-out, skipping whatever already succeeded.
+    #[arg(long, value_name = "FILE", conflicts_with_all = ["goal", "wants", "recipe"])]
+    resume: Option<PathBuf>,
 
     // ---- what to do ----
     /// Execute the plan. Without this, the plan is printed and nothing happens.
@@ -61,6 +65,17 @@ struct Cli {
     /// List saved recipes and stop.
     #[arg(long)]
     list: bool,
+    /// Answer a fork without a model, by rewriting the ambiguous part of every want:
+    /// --answer "customer(name='Acme')=customer(id=11)". Repeatable.
+    #[arg(long = "answer", value_name = "OLD=NEW")]
+    answers: Vec<String>,
+    /// Answer a fork by asking the model which one was meant. Costs one model call, and only
+    /// when a fork actually happens.
+    #[arg(long)]
+    answer_with_model: bool,
+    /// Write the receipt and enough state to --resume this run later.
+    #[arg(long, value_name = "FILE")]
+    receipt_out: Option<PathBuf>,
 
     // ---- where ----
     /// The app's base URL, or a path to an OpenAPI file for offline checks. A recipe remembers
@@ -207,6 +222,20 @@ impl Recipe {
     }
 }
 
+/// Enough to pick a run back up in another process. The plan id matters as much as the ledger:
+/// idempotency keys are `{plan_id}/{content hash}`, so resuming under a fresh id would match
+/// nothing already done and send every email a second time.
+#[derive(Serialize, Deserialize)]
+struct RunState {
+    app: String,
+    goal: String,
+    plan_id: String,
+    surfaces: Vec<String>,
+    wants: Vec<String>,
+    ledger: Ledger,
+    receipt: Receipt,
+}
+
 #[tokio::main]
 async fn main() {
     tracing_subscriber::fmt().with_env_filter(tracing_subscriber::EnvFilter::from_default_env()).with_writer(std::io::stderr).init();
@@ -250,6 +279,11 @@ impl Cli {
 
     fn opts(&self) -> CompileOptions {
         CompileOptions { plan_id: format!("cli-{}", std::process::id()), surfaces: self.surface_list() }
+    }
+
+    /// The same options under a plan id from somewhere else, so a resumed run keeps its keys.
+    fn opts_under(&self, plan_id: &str) -> CompileOptions {
+        CompileOptions { plan_id: plan_id.to_string(), surfaces: self.surface_list() }
     }
 
     fn offline(&self) -> bool {
@@ -407,16 +441,40 @@ async fn show_world(cli: &Cli) -> Result<(), Fail> {
 async fn act(cli: &Cli) -> Result<(), Fail> {
     let world = cli.world().await.map_err(unreachable_fail)?;
     let bind = cli.bindings().map_err(|e| Fail::new(Exit::WantsRejected, "bad_set", format!("{e:#}")))?;
-    let mut ledger = Ledger::new();
 
-    // Where the wants come from: a model once, a file, or a recipe that already worked.
+    // A resumed run brings its own ledger and plan id; everything else starts empty.
+    let prior: Option<RunState> = match &cli.resume {
+        Some(p) => Some(load_state(p).map_err(unreachable_fail)?),
+        None => None,
+    };
+    let opts = match &prior {
+        Some(st) => cli.opts_under(&st.plan_id),
+        None => cli.opts(),
+    };
+    let mut ledger = prior.as_ref().map(|st| st.ledger.clone()).unwrap_or_default();
+
+    // Where the wants come from: a saved run, a model once, a file, or a recipe that already worked.
+    if let Some(st) = &prior {
+        let intent = Intent { goal: st.goal.clone(), wants: st.wants.clone(), ..Default::default() };
+        let plan = compile(&intent, &world, &opts)
+            .map_err(|e| Fail::new(Exit::WantsRejected, "compile_failed", e.to_string()).with(serde_json::json!({ "error": e })))?;
+        if !cli.json {
+            let done = ledger.completed(&plan).len();
+            println!("{}\n\nResuming: {done} of {} steps already succeeded.", plan.render(), plan.nodes.len());
+        }
+        return execute(cli, &intent, &plan, ledger, &world, &opts).await;
+    }
+
     let (goal, raw): (String, Vec<String>) = match (&cli.goal, &cli.wants, &cli.recipe) {
         (Some(goal), _, _) => {
             let facts = if cli.offline() { String::new() } else { planner::world_facts(cli.app()).await.unwrap_or_default() };
             let sampler = ModelClient::from_env(&cli.model, &cli.effort, false, cli.base_url.as_deref(), cli.api_key.as_deref())
                 .map_err(|e| Fail::new(Exit::PlannerFailed, "no_model", format!("{e:#}")))?;
-            let base = if cli.offline() { None } else { Some(cli.app()) };
-            let i = planner::plan_with_lint(&planner::Ask::new(goal), &world, &facts, &sampler, &mut ledger, &cli.opts(), base)
+            let mut ctx = planner::Ctx::new(&world, &opts).facts(&facts);
+            if !cli.offline() {
+                ctx = ctx.at(cli.app());
+            }
+            let i = planner::plan_with_lint(&planner::Ask::new(goal), &ctx, &sampler, &mut ledger)
                 .await
                 .map_err(|e| Fail::new(Exit::PlannerFailed, "planner_failed", format!("{e:#}")))?;
             (goal.clone(), i.wants)
@@ -430,7 +488,7 @@ async fn act(cli: &Cli) -> Result<(), Fail> {
             return Err(Fail::new(
                 Exit::WantsRejected,
                 "no_source",
-                "say what you want: --goal \"...\", --wants FILE, or --recipe NAME (--world to look around first)",
+                "say what you want: --goal \"...\", --wants FILE, --recipe NAME, or --resume FILE (--world to look around first)",
             ))
         }
     };
@@ -466,7 +524,7 @@ async fn act(cli: &Cli) -> Result<(), Fail> {
         true => intent,
     };
 
-    let errs = lint(&intent, &world, &cli.opts());
+    let errs = lint(&intent, &world, &opts);
     if !errs.is_empty() {
         let mut prose = String::from("These wants do not hold up:\n");
         for e in &errs {
@@ -479,8 +537,8 @@ async fn act(cli: &Cli) -> Result<(), Fail> {
             .with(serde_json::json!({"errors": errs, "codes": errs.iter().map(|e| e.code()).collect::<Vec<_>>()})));
     }
 
-    let plan = compile(&intent, &world, &cli.opts())
-        .map_err(|e| Fail::new(Exit::WantsRejected, "compile_failed", e.to_string()).with(serde_json::json!({ "error": e })))?;
+    let plan =
+        compile(&intent, &world, &opts).map_err(|e| Fail::new(Exit::WantsRejected, "compile_failed", e.to_string()).with(serde_json::json!({ "error": e })))?;
     if cli.json && !cli.run {
         println!("{}", serde_json::to_string_pretty(&serde_json::json!({"ok": true, "intent": intent, "plan": plan})).unwrap_or_default());
         return Ok(());
@@ -495,7 +553,44 @@ async fn act(cli: &Cli) -> Result<(), Fail> {
         }
         return Ok(());
     }
-    execute(cli, &plan, ledger, &world).await
+    execute(cli, &intent, &plan, ledger, &world, &opts).await
+}
+
+/// Resolve a fork, if the caller offered a way to. `None` means they did not, so the fork stands
+/// and the run stops with a question — which is the right outcome when nobody said what they meant.
+async fn answer_fork(cli: &Cli, intent: &Intent, world: &World, outcome: &Outcome, ledger: &mut Ledger, opts: &CompileOptions) -> Result<Option<Intent>, Fail> {
+    if !cli.answers.is_empty() {
+        let mut wants = intent.wants.clone();
+        for a in &cli.answers {
+            let (old, new) = a.split_once("=>").ok_or_else(|| {
+                Fail::new(Exit::WantsRejected, "bad_answer", format!("--answer takes OLD=>NEW, as in \"customer(name='Acme')=>customer(id=11)\"; got {a:?}"))
+            })?;
+            let (old, new) = (old.trim(), new.trim());
+            if !wants.iter().any(|w| w.contains(old)) {
+                return Err(Fail::new(Exit::WantsRejected, "bad_answer", format!("no want contains {old:?}, so this answer would change nothing"))
+                    .with(serde_json::json!({ "wants": wants })));
+            }
+            wants = wants.iter().map(|w| w.replace(old, new)).collect();
+        }
+        return Ok(Some(Intent { wants, ..intent.clone() }));
+    }
+    if cli.answer_with_model {
+        let sampler = ModelClient::from_env(&cli.model, &cli.effort, false, cli.base_url.as_deref(), cli.api_key.as_deref())
+            .map_err(|e| Fail::new(Exit::PlannerFailed, "no_model", format!("{e:#}")))?;
+        let facts = planner::world_facts(cli.app()).await.unwrap_or_default();
+        let fork = planner::ForkQuestion { ask: outcome.yield_reason.clone().unwrap_or_default(), evidence: outcome.evidence.clone().unwrap_or(Value::Null) };
+        let ctx = planner::Ctx::new(world, opts).facts(&facts).at(cli.app());
+        let answered = planner::answer_fork(&planner::Ask::new(&intent.goal), &ctx, intent, &fork, &sampler, ledger)
+            .await
+            .map_err(|e| Fail::new(Exit::PlannerFailed, "fork_answer_failed", format!("{e:#}")))?;
+        return Ok(Some(answered));
+    }
+    Ok(None)
+}
+
+fn load_state(p: &std::path::Path) -> anyhow::Result<RunState> {
+    let text = std::fs::read_to_string(p).with_context(|| format!("reading run state {}", p.display()))?;
+    serde_json::from_str(&text).with_context(|| format!("parsing run state {}", p.display()))
 }
 
 /// The part a person reads before saying yes.
@@ -528,7 +623,7 @@ fn plural(n: usize) -> &'static str {
     }
 }
 
-async fn execute(cli: &Cli, plan: &Plan, mut ledger: Ledger, world: &World) -> Result<(), Fail> {
+async fn execute(cli: &Cli, intent: &Intent, plan: &Plan, mut ledger: Ledger, world: &World, opts: &CompileOptions) -> Result<(), Fail> {
     if cli.offline() {
         return Err(Fail::new(Exit::Unreachable, "offline", "--app is a file, so there is nothing to run against; give me the app's URL"));
     }
@@ -541,19 +636,55 @@ async fn execute(cli: &Cli, plan: &Plan, mut ledger: Ledger, world: &World) -> R
         )
         .with(serde_json::json!({ "external_steps": external })));
     }
-    let world = Arc::new(world.clone());
+    let shared = Arc::new(world.clone());
     let sched = Scheduler {
-        effectors: default_effectors(cli.app(), world.clone(), &cli.surface_list()),
+        effectors: default_effectors(cli.app(), shared.clone(), &cli.surface_list()),
         bus: Some(EventBus::connect(cli.app()).await.map_err(unreachable_fail)?),
         pools: Default::default(),
         policy: Default::default(),
-        recorder: Recorder::new(world.clone()),
+        recorder: Recorder::new(shared.clone()),
     };
     if !cli.json {
         println!("\nRunning.");
     }
-    let outcome = sched.run(plan, &mut ledger).await;
+
+    let mut intent = intent.clone();
+    let mut plan = plan.clone();
+    let mut outcome = sched.run(&plan, &mut ledger).await;
+
+    // A fork is a question, not a failure. Answering it recompiles the same wants with the
+    // ambiguity resolved; every other want keeps its text, so it keeps its key and is not redone.
+    if outcome.status == Status::NeedThink {
+        if let Some(answered) = answer_fork(cli, &intent, world, &outcome, &mut ledger, opts).await? {
+            intent = answered;
+            plan = compile(&intent, world, opts)
+                .map_err(|e| Fail::new(Exit::WantsRejected, "compile_failed", e.to_string()).with(serde_json::json!({ "error": e })))?;
+            let done = ledger.completed(&plan);
+            if !cli.json {
+                println!("Answered. {} of {} steps already done; carrying on.", done.len(), plan.nodes.len());
+            }
+            outcome = sched.resume(&plan, &mut ledger, &done).await;
+        }
+    }
+
+    let plan = &plan;
     let receipt = ledger.receipt(plan, outcome.status, outcome.yield_reason, outcome.evidence, outcome.error);
+
+    if let Some(path) = &cli.receipt_out {
+        let state = RunState {
+            app: cli.app().to_string(),
+            goal: intent.goal.clone(),
+            plan_id: plan.plan_id.clone(),
+            surfaces: cli.surface_list(),
+            wants: intent.wants.clone(),
+            ledger: ledger.clone(),
+            receipt: receipt.clone(),
+        };
+        std::fs::write(path, serde_json::to_string_pretty(&state).map_err(unreachable_fail)?).map_err(unreachable_fail)?;
+        if !cli.json {
+            println!("Saved {}. Pick it back up with --resume {}.", path.display(), path.display());
+        }
+    }
 
     let as_json = || {
         let mut body = serde_json::to_value(&receipt).unwrap_or_default();
@@ -579,7 +710,7 @@ async fn execute(cli: &Cli, plan: &Plan, mut ledger: Ledger, world: &World) -> R
             receipt.max_parallel
         );
         if let Some(q) = &receipt.yield_reason {
-            println!("\nIt stopped to ask: {q}\nAnswer by naming what you meant, then run it again.");
+            println!("\nIt stopped to ask: {q}\nAnswer with --answer \"OLD=>NEW\", or --answer-with-model to let the model choose.");
         }
         if let Some(e) = &receipt.error {
             println!("\nIt stopped: {e}");

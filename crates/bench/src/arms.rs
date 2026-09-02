@@ -77,17 +77,8 @@ pub async fn run_ours(
     if outcome.status == Status::NeedThink {
         if let (Some(p), Some(evidence)) = (&planner, outcome.evidence.clone()) {
             let fork = rwmcp::planner::ForkQuestion { ask: outcome.yield_reason.clone().unwrap_or_default(), evidence };
-            match rwmcp::planner::answer_fork(
-                &rwmcp::planner::Ask::with(&task.goal, &task.constraints),
-                &ctx.world,
-                &p.facts,
-                &intent,
-                &fork,
-                p.sampler,
-                &mut ledger,
-            )
-            .await
-            {
+            let pctx = rwmcp::planner::Ctx::new(&ctx.world, &opts).facts(&p.facts).at(&ctx.base);
+            match rwmcp::planner::answer_fork(&rwmcp::planner::Ask::with(&task.goal, &task.constraints), &pctx, &intent, &fork, p.sampler, &mut ledger).await {
                 Ok(answered) => {
                     intent = answered;
                     plan = match compile(&intent, &ctx.world, &opts) {
@@ -131,34 +122,14 @@ pub async fn run_ours_planned(task: &Task, ctx: &ArmContext, req: Option<PlanReq
     let mut ledger = Ledger::new();
     let opts = CompileOptions { plan_id: format!("{}-{}", task.id, ctx.run_id), surfaces: ctx.surfaces.clone() };
     let mut cache_hit = false;
+    let pctx = rwmcp::planner::Ctx::new(&ctx.world, &opts).facts(&req.facts).at(&ctx.base);
+    let ask = rwmcp::planner::Ask::with(&task.goal, &task.constraints);
     let planned = match req.cache {
-        Some(cache) => rwmcp::planner::plan_cached(
-            cache,
-            &rwmcp::planner::Ask::with(&task.goal, &task.constraints),
-            &ctx.world,
-            &req.facts,
-            req.sampler,
-            &mut ledger,
-            &opts,
-            Some(&ctx.base),
-        )
-        .await
-        .map(|(i, hit)| {
+        Some(cache) => rwmcp::planner::plan_cached(cache, &ask, &pctx, req.sampler, &mut ledger).await.map(|(i, hit)| {
             cache_hit = hit;
             i
         }),
-        None => {
-            rwmcp::planner::plan_with_lint(
-                &rwmcp::planner::Ask::with(&task.goal, &task.constraints),
-                &ctx.world,
-                &req.facts,
-                req.sampler,
-                &mut ledger,
-                &opts,
-                Some(&ctx.base),
-            )
-            .await
-        }
+        None => rwmcp::planner::plan_with_lint(&ask, &pctx, req.sampler, &mut ledger).await,
     };
     match planned {
         Ok(intent) => {

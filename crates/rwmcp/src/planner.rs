@@ -237,34 +237,56 @@ fn intent_from(resp: &Value, ask: &Ask) -> anyhow::Result<Intent> {
 }
 
 /// Plan, lint, and if the intent is wrong hand the errors back exactly once.
-#[allow(clippy::too_many_arguments)]
+/// The situation a planner call happens in, as opposed to the question being asked. Passing it as
+/// one value keeps the two entry points honest: a fork answer must be linted against the same
+/// world and the same surfaces as the plan it is fixing, and taking them separately made it easy
+/// to forget — `answer_fork` used to lint against `CompileOptions::default()`.
+pub struct Ctx<'a> {
+    pub world: &'a World,
+    /// What the app says is true right now, in the planner's own words.
+    pub facts: &'a str,
+    pub opts: &'a CompileOptions,
+    /// The app's base URL, when there is a live app to expand selectors against.
+    pub base: Option<&'a str>,
+}
+
+impl<'a> Ctx<'a> {
+    /// The offline case: a world model with no app behind it.
+    pub fn new(world: &'a World, opts: &'a CompileOptions) -> Ctx<'a> {
+        Ctx { world, facts: "", opts, base: None }
+    }
+
+    pub fn facts(mut self, facts: &'a str) -> Ctx<'a> {
+        self.facts = facts;
+        self
+    }
+
+    pub fn at(mut self, base: &'a str) -> Ctx<'a> {
+        self.base = Some(base);
+        self
+    }
+}
+
 /// Plan, expand selectors by reading the app, lint, and hand the errors back up to twice. Every
 /// attempt is a counted sample; the expansion is a read.
-pub async fn plan_with_lint(
-    ask: &Ask,
-    world: &World,
-    facts: &str,
-    sampler: &dyn Sampler,
-    ledger: &mut Ledger,
-    opts: &CompileOptions,
-    base: Option<&str>,
-) -> anyhow::Result<Intent> {
+pub async fn plan_with_lint(ask: &Ask, ctx: &Ctx<'_>, sampler: &dyn Sampler, ledger: &mut Ledger) -> anyhow::Result<Intent> {
+    let (world, facts) = (ctx.world, ctx.facts);
     let mut intent = plan_intent(ask, world, facts, sampler, ledger).await?;
     for _ in 0..2 {
-        if let Some(b) = base {
+        if let Some(b) = ctx.base {
             intent = expand_selectors(&intent, b).await?;
         }
-        let errs = lint(&intent, world, opts);
+        let errs = lint(&intent, world, ctx.opts);
         if errs.is_empty() {
             return Ok(intent);
         }
         ledger.notes.push(json!({"lint": errs.iter().map(|e| e.to_string()).collect::<Vec<_>>(), "wants": intent.wants}));
         intent = replan(ask, world, facts, &intent, &errs, sampler, ledger).await?;
     }
-    if let Some(b) = base {
+    if let Some(b) = ctx.base {
         intent = expand_selectors(&intent, b).await?;
     }
-    let errs = lint(&intent, world, opts);
+    let errs = lint(&intent, world, ctx.opts);
     if errs.is_empty() {
         return Ok(intent);
     }
@@ -385,15 +407,8 @@ pub struct ForkQuestion {
 
 /// The planner answers a fork: it rewrites only the wants about the ambiguous entity, naming
 /// the chosen one by id, and leaves every other want byte-identical so their keys survive.
-pub async fn answer_fork(
-    ask: &Ask,
-    world: &World,
-    facts: &str,
-    prior: &Intent,
-    fork: &ForkQuestion,
-    sampler: &dyn Sampler,
-    ledger: &mut Ledger,
-) -> anyhow::Result<Intent> {
+pub async fn answer_fork(ask: &Ask, ctx: &Ctx<'_>, prior: &Intent, fork: &ForkQuestion, sampler: &dyn Sampler, ledger: &mut Ledger) -> anyhow::Result<Intent> {
+    let (world, facts, opts) = (ctx.world, ctx.facts, ctx.opts);
     let (question, evidence) = (&fork.ask, &fork.evidence);
     let user = format!(
         "World model:\n{}\nWorld facts (read just now):\n{}\nGoal: {}\n\nThe plan compiled from your intent stopped with a question:\n  {}\nEvidence:\n{}\n\nYour intent was:\n{}\n\nAnswer by emitting the intent again with emit_intent. Rules: identify the chosen entity by id, e.g. customer(id=11), \
@@ -414,7 +429,7 @@ if the ask.goal gives no basis to choose, choose the lowest id and say nothing e
     });
     let resp = sampler.sample(ledger, SampleKind::ForkAnswer, body.clone()).await?;
     let answered = intent_from(&resp, ask)?;
-    let errs = lint(&answered, world, &CompileOptions::default());
+    let errs = lint(&answered, world, opts);
     if errs.is_empty() {
         return Ok(answered);
     }
@@ -426,7 +441,7 @@ if the ask.goal gives no basis to choose, choose the lowest id and say nothing e
     body2["messages"] = json!([{"role": "user", "content": format!("{prior}\n\nYour previous answer was rejected:\n{listed}\n\nAnswer again with emit_intent, keeping every unaffected want unchanged.")}]);
     let resp = sampler.sample(ledger, SampleKind::ForkAnswer, body2).await?;
     let answered = intent_from(&resp, ask)?;
-    let errs = lint(&answered, world, &CompileOptions::default());
+    let errs = lint(&answered, world, opts);
     if !errs.is_empty() {
         ledger.notes.push(json!({"fork_answer_rejected": errs.iter().map(|e| e.to_string()).collect::<Vec<_>>(), "wants": answered.wants}));
         anyhow::bail!("fork answer rejected twice: {}", errs.iter().map(|e| e.to_string()).collect::<Vec<_>>().join("; "));
@@ -474,22 +489,13 @@ impl IntentCache {
 }
 
 /// Plan through the cache: a hit is free, a miss is planned, linted and stored.
-#[allow(clippy::too_many_arguments)]
-pub async fn plan_cached(
-    cache: &IntentCache,
-    ask: &Ask,
-    world: &World,
-    facts: &str,
-    sampler: &dyn Sampler,
-    ledger: &mut Ledger,
-    opts: &CompileOptions,
-    base: Option<&str>,
-) -> anyhow::Result<(Intent, bool)> {
-    if let Some(i) = cache.get(&ask.goal, facts, &opts.surfaces) {
+pub async fn plan_cached(cache: &IntentCache, ask: &Ask, ctx: &Ctx<'_>, sampler: &dyn Sampler, ledger: &mut Ledger) -> anyhow::Result<(Intent, bool)> {
+    let (facts, surfaces) = (ctx.facts, &ctx.opts.surfaces);
+    if let Some(i) = cache.get(&ask.goal, facts, surfaces) {
         return Ok((i, true));
     }
-    let i = plan_with_lint(ask, world, facts, sampler, ledger, opts, base).await?;
-    cache.put(&ask.goal, facts, &opts.surfaces, &i)?;
+    let i = plan_with_lint(ask, ctx, sampler, ledger).await?;
+    cache.put(&ask.goal, facts, surfaces, &i)?;
     Ok((i, false))
 }
 

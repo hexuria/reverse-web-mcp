@@ -70,10 +70,14 @@ async fn a_selector_from_the_planner_passes_lint_in_one_sample() {
     let world = world_from(&base).await.unwrap();
     let task = Task::load(std::path::Path::new(concat!(env!("CARGO_MANIFEST_DIR"), "/../../tasks/T11.toml"))).unwrap();
     let mut ledger = Ledger::new();
-    let intent =
-        plan_with_lint(&rwmcp::planner::Ask::with(&task.goal, &task.constraints), &world, "", &Selector, &mut ledger, &CompileOptions::default(), Some(&base))
-            .await
-            .unwrap();
+    let intent = plan_with_lint(
+        &rwmcp::planner::Ask::with(&task.goal, &task.constraints),
+        &rwmcp::planner::Ctx { world: &world, facts: "", opts: &CompileOptions::default(), base: Some(&base) },
+        &Selector,
+        &mut ledger,
+    )
+    .await
+    .unwrap();
     assert_eq!(ledger.sample_count(), 1, "the selector is expanded before lint, so no re-ask");
     assert!(intent.wants[0].contains("customer(name='Customer 300')"));
     let plan = compile(&intent, &Arc::new(world), &CompileOptions::default()).unwrap();

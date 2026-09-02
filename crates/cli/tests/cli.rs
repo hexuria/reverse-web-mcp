@@ -257,3 +257,56 @@ fn a_parse_error_points_at_the_column() {
     assert!(err.contains("^"), "a caret marks the spot: {err}");
     assert!(err.contains("at byte 17"), "{err}");
 }
+
+/// The fork loop, which is what an agent hits first on any ambiguous world: run, get asked, answer,
+/// carry on. The answer is a rewrite of the ambiguous part, so every other want keeps its text and
+/// therefore its idempotency key.
+#[test]
+fn a_fork_can_be_answered_without_a_model() {
+    let base = serve(6); // two customers named Acme, ids 1 and 11
+    let w = wants_file("fork", "invoice(customer=customer(name='Acme')).status='sent'\n");
+    let w = w.to_str().unwrap();
+
+    // Unanswered, it stops and asks, and nothing is invoiced.
+    assert_eq!(code(&["--app", &base, "--wants", w, "--run", "--yes"]), 11);
+    assert!(get_json(format!("{base}/oracle/state"))["invoices"].as_array().unwrap().is_empty());
+
+    // An answer that matches no want is refused before anything runs.
+    let (ok, _, err) = rwmcp(&["--app", &base, "--wants", w, "--run", "--yes", "--answer", "customer(name='Nobody')=>customer(id=11)"]);
+    assert!(!ok);
+    assert!(err.contains("would change nothing"), "{err}");
+
+    // A well-formed one resolves it.
+    let state = std::env::temp_dir().join(format!("rwmcp-{}-run.json", std::process::id()));
+    let state = state.to_str().unwrap();
+    let (ok, _, err) = rwmcp(&["--app", &base, "--wants", w, "--run", "--yes", "--answer", "customer(name='Acme')=>customer(id=11)", "--receipt-out", state]);
+    assert!(ok, "{err}");
+    let invoices = get_json(format!("{base}/oracle/state"))["invoices"].as_array().unwrap().clone();
+    assert_eq!(invoices.len(), 1);
+    assert_eq!(invoices[0]["customer_id"], 11, "it invoiced the customer that was named");
+    assert_eq!(invoices[0]["status"], "sent");
+
+    // And resuming does the work again only in name: the keys match, so no second invoice.
+    assert_eq!(code(&["--app", &base, "--resume", state, "--run", "--yes"]), 0);
+    assert_eq!(get_json(format!("{base}/oracle/state"))["invoices"].as_array().unwrap().len(), 1, "resume must not repeat committed effects");
+}
+
+/// A resumed run must keep the plan id it was saved under: idempotency keys are
+/// `{plan_id}/{hash}`, so a fresh id would match nothing and send everything twice.
+#[test]
+fn a_saved_run_keeps_its_plan_id() {
+    let base = serve(2);
+    let w = wants_file("keep-id", "invoice(customer=customer(name='Acme')).status='sent'\n");
+    let state = std::env::temp_dir().join(format!("rwmcp-{}-keepid.json", std::process::id()));
+    let state = state.to_str().unwrap();
+    let (ok, _, err) = rwmcp(&["--app", &base, "--wants", w.to_str().unwrap(), "--run", "--yes", "--receipt-out", state]);
+    assert!(ok, "{err}");
+
+    let saved: Value = serde_json::from_str(&std::fs::read_to_string(state).unwrap()).unwrap();
+    assert!(saved["plan_id"].as_str().unwrap().starts_with("cli-"), "{saved}");
+    assert!(!saved["wants"].as_array().unwrap().is_empty());
+    assert_eq!(saved["receipt"]["status"], "committed");
+
+    assert_eq!(code(&["--app", &base, "--resume", state, "--run", "--yes"]), 0);
+    assert_eq!(get_json(format!("{base}/oracle/state"))["invoices"].as_array().unwrap().len(), 1);
+}

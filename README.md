@@ -1,4 +1,7 @@
-# chiffon
+# rwmcp
+
+**Reverse-WebMCP: the execution layer.** WebMCP declares an app's *actions* and lets a model
+pick the order. rwmcp declares what those actions *mean* and lets a compiler pick both.
 
 One model sample in, a parallel plan out, a receipt that proves it. And a benchmark anyone can rerun.
 
@@ -14,7 +17,7 @@ Everything is Rust. Nothing runs on your screen.
 
 ```
 crates/app         the target app we own: invoicing, one handler set, five doors, an oracle
-crates/zerohuman   world model deriver · predicate language · compiler · scheduler · ledger · effectors · event bus
+crates/rwmcp   world model deriver · predicate language · compiler · scheduler · ledger · effectors · event bus
 crates/bench       the arms, the tasks runner, the report, verify
 tasks/             T1..T7 as TOML: goal, wants, seed, chaos, hooks, expected end state
 docker/            the sandbox: app + headless Chromium + one virtual display per screen lane
@@ -75,9 +78,69 @@ limit, require approval, a UI modal), `POST /oracle/pay` (the outside world payi
 **Approve** is deliberately UI-only. There is no API for it and the server refuses the call
 without the page's header, so every arm has to prove it can mix one screen node into a plan.
 
-The `x-zerohuman` blocks in `crates/app/static/openapi.json` are the world model: postcondition,
+The `x-reverse-webmcp` blocks in `crates/app/static/openapi.json` are the world model: postcondition,
 requirements, read/write footprint, and which surfaces expose each operation at what cost.
 The compiler derives everything from that file. It is never hand-authored anywhere else.
+
+## What "reverse" means
+
+Reversed **arrow**, not reversed effort. Both approaches need the app's author to declare
+something and neither infers anything, so if you came here expecting an engine that reads your
+API and guesses: it does not, and nothing could do that safely.
+
+What is reversed is the direction the work is derived in.
+
+- **WebMCP / MCP:** the app declares its *actions*. The model picks which one to call, and in
+  what order, one turn at a time. Actions in, outcome hopefully out.
+- **Reverse-WebMCP:** the app declares what each action *means* — its postcondition, its
+  requirements, its read/write footprint. The model declares the *outcome* once. A compiler
+  derives the actions and their order from the footprints. Outcome in, actions out.
+
+That inversion is the whole reason one model call covers depth 3 to 6 and width 1 to 300: there
+is no per-level decision left for a model to make.
+
+| | MCP / WebMCP | rwmcp |
+|---|---|---|
+| the app declares | callable functions: name, prose, arg schema | per operation: `post`, `requires`, `reads`/`writes`, surfaces and their cost |
+| the model produces | the next tool call, every turn | a set of end-state facts, once |
+| ordering comes from | the model's judgment | the footprints, mechanically |
+| model calls | roughly one per dependency level | one, whatever the depth or width |
+| doing it twice | whatever key the model remembers to reuse | a content-addressed key stamped by the compiler |
+| resuming | replay the transcript | skip every node whose key already has an ok row |
+| the artifact | a conversation | a plan you can read before it runs, and a receipt after |
+| who writes the declaration | the site author | the site author, or you about someone else's API — drafted by the `annotate-world-model` skill, then verified against the running app |
+| works when | the app ships MCP tools | the app has an HTTP API, a web page, or events |
+
+They are not rivals. WebMCP is one of rwmcp's five doors: an operation exposed several ways
+carries a cost per surface (`"surfaces": {"api": 1, "webmcp": 2, "mcp": 3, "a11y": 50}`) and the
+compiler picks the cheapest one the run is allowed to use. Arm C in the benchmark *is* a WebMCP
+loop, run as an honest baseline.
+
+Reach for a tool loop when the job is one or two calls, genuinely open-ended, or when each
+result changes what should happen next. Reach for rwmcp when the same shape of job runs
+repeatedly, when doing something twice costs money or sends an email, when someone will ask what
+happened and "the transcript" is not an answer, or when part of the job is waiting on the
+outside world.
+
+## Renamed from chiffon / zerohuman
+
+This project was called **chiffon**, and its engine crate **zerohuman**, until the rebrand to
+reverse-WebMCP. Three things changed at once:
+
+| was | now |
+|---|---|
+| the OpenAPI extension `x-zerohuman` (and `-entities`, `-events`, `-ui`) | `x-reverse-webmcp` (same suffixes) |
+| `crates/zerohuman`, package `zerohuman` | `crates/rwmcp`, package `rwmcp` |
+| the project name `chiffon` | `rwmcp` |
+
+**Migrating a document.** The extension key is the only breaking change, and it fails loudly:
+an old `x-zerohuman` document derives an empty world model, every want becomes unsatisfiable,
+and since `7ff8216` a zero-node plan is `CompileError::Empty` rather than a run that commits
+having done nothing. Rename the four keys and you are done.
+
+**Reading older results.** Everything under `results/` predating the rebrand was produced under
+the old names, and those files are left exactly as they were: their provenance is accurate for
+when they ran. `bench verify` still recomputes every number in them.
 
 ## The arms
 
@@ -211,9 +274,98 @@ turn under `results/<run>/shots/`, which is the recording. Point `BASE_URL` at
 Not built, on purpose: a stdio MCP client for a desktop computer-use driver. The a11y door drives
 the page through CDP instead, which works identically on the Mac and in the container.
 
-## Using chiffon on your own app
+## Layers and boundaries
 
-Chiffon is two things: a Rust **engine** (`crates/zerohuman`) and a **benchmark** around it. The
+Four crates, three layers, and a short list of things outside the process.
+
+```
+L2  crates/bench      the harness: planner (goal → wants), arms, tasks, report, verify
+                      the ONLY layer that talks to a model
+        │ Intent
+L1  crates/rwmcp  the engine: compiler (pred · world · intent · plan) + scheduler
+                      + ledger + event bus.  "Zero model calls in here."
+        │ Node + args
+L0  effectors.rs      one adapter per surface: ApiEffector, McpEffector, Unavailable
+    crates/driver     A11yEffector — a CDP page pool, the screen surfaces
+- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - process boundary
+    your app (HTTP · /mcp · /events · a page)   Chromium over CDP
+    the model endpoint (/v1/messages)           the disk (results/, plan cache)
+```
+
+The dependency graph is `bench → {rwmcp, driver}`, `driver → rwmcp`, and `rwmcp`
+depends on nothing of ours. `crates/app` is the target we own; it is a **dev-dependency only**
+of the other three, for in-process door tests, and never a runtime one. Embedding rwmcp means
+depending on `rwmcp` alone: `tokio`, `reqwest`, `serde`, `sha2`. No database, no broker, no
+agent framework, and no browser unless you add `driver`.
+
+The model endpoint touches L2 only. The engine takes an `Intent` struct and has no idea where it
+came from, which is why "one sample per goal" is structural rather than a discipline someone has
+to maintain. Credentials are read once in `ModelClient::from_env` and each run directory's
+`config.json` is written with the key omitted; the engine crate has no notion of a credential.
+
+### External dependencies, and what breaks without each
+
+| external | reached by | needed for | if it is missing |
+|---|---|---|---|
+| your HTTP API | `ApiEffector` → `reqwest` | everything | the node fails `Fatal` and the plan stops |
+| `GET /openapi.json` | `world_from(base)`, one GET at startup | the world model | `WorldError::Fetch`. Bypass it with `World::from_openapi(&json)`, which takes any JSON you supply |
+| `GET /events` (SSE) | `EventBus::connect`, one shared stream | waits | falls back to a read every `check_every` (3 s); with no `check` declared, times out at `wait_timeout` (30 s) |
+| a model endpoint | `ModelClient` → `POST /v1/messages` | goal → wants | not needed if you write the wants yourself |
+| Chromium | `chromiumoxide` over CDP | `a11y`, `pixels` | compile fails with `NoSurface` rather than silently using another door |
+| `POST /mcp` | `McpEffector` → JSON-RPC | the `mcp` surface, arms B/B2 | the compiler picks another allowed surface |
+| the filesystem | `std::fs` | results, plan cache, screenshots | benchmark only; the engine writes nothing to disk |
+| the system clock | `SystemTime::now`, microseconds | every ledger row's span | `max_parallel` is only as good as this clock's resolution |
+
+What you write is the `x-reverse-webmcp` notes (once per operation), `idempotency-key` handling (once
+per write), an SSE endpoint if anything waits, and the wants (per goal) — the first and last of
+those have skills that draft and then verify them; see **Skills** below. The DAG, the edges, the
+keys, the ordering, the concurrency and the receipt are all derived — there is no place to
+hand-write a plan, on purpose.
+
+## Skills: the setup work an agent should do for you
+
+Two jobs used to be described here as "write this by hand". Both are now agent jobs with a
+machine check at the end, packaged as skills in `.claude/skills/`. Claude Code picks them up
+automatically inside this repo; any other agent can read the same `SKILL.md` as a prompt.
+
+| skill | the job | the check that ends it |
+|---|---|---|
+| `annotate-world-model` | write the `x-reverse-webmcp` blocks for an app | call each operation against a reset app and diff the state; every row that changed must appear in `writes` |
+| `write-wants` | turn a goal into wants and forks | `lint`, read `plan.render()`, then compile the same wants in a different order and diff the two plans |
+
+The principle in both: **the agent drafts, the machine verifies.** A drafted footprint is a
+guess, and a wrong `writes` list is the worst failure this design has — it deletes an edge, the
+plan looks *more* parallel, and two writes race with nothing in the output saying so. So neither
+skill ends at "looks right". In this repo the app does the checking for you: every write logs
+its own footprint into `GET /oracle/effects`, so the diff is a direct comparison rather than a
+judgement.
+
+### Two different agents
+
+Keep these apart when reading anything below.
+
+| | the planner | your coding agent |
+|---|---|---|
+| what it is | a model call rwmcp makes at runtime, `crates/bench/src/planner.rs` | Claude Code, Codex, Grok Build |
+| when | once per goal | once, at setup |
+| writes | the wants and forks | the annotations, task files, glue code |
+| skills apply | no — a fixed system prompt over `/v1/messages` | yes |
+
+### Words, precisely
+
+- **goal** — your sentence. Always yours.
+- **want** — one predicate: one fact that must be true at the end.
+- **fork** — a declared question the planner agrees to be woken for.
+- **Intent** — the struct holding goal, wants, constraints and forks.
+- **plan** — what the compiler derives. Nobody writes this, by design.
+
+The model's tool call is `emit_intent` and it returns `{wants, forks}` only; the goal and
+constraints are stapled on by `intent_from()`. So "the agent writes the intent" is loose — it
+writes the wants and the forks.
+
+## Using rwmcp on your own app
+
+rwmcp is two things: a Rust **engine** (`crates/rwmcp`) and a **benchmark** around it. The
 engine never touches your code. It drives your app through HTTP, the way any client would, so
 the app can be Rust, Node, Python, PHP, Go, or something that already exists. The engine itself
 is Rust today: embed the crate, or run the `bench` binary. There is no JavaScript or Python SDK,
@@ -230,7 +382,7 @@ no hosted service, and no HTTP wrapper around the engine yet.
 ### Install and see it work
 
 ```sh
-git clone <chiffon> && cd chiffon
+git clone <rwmcp> && cd rwmcp
 cargo build --release
 make app                      # the sample invoicing app on http://127.0.0.1:47310
 make bench                    # ours + the script ceiling on every phase ≤3 task
@@ -240,16 +392,16 @@ make bench                    # ours + the script ceiling on every phase ≤3 ta
 
 | door | required | what |
 |---|---|---|
-| `GET /openapi.json` | yes | an OpenAPI document with an `operationId` on every operation and an `x-zerohuman` block per operation (below) |
+| `GET /openapi.json` | yes | an OpenAPI document with an `operationId` on every operation and an `x-reverse-webmcp` block per operation (below) |
 | `idempotency-key` header on writes | yes | the same key twice returns the first response and changes nothing; this is where "zero double-sends" comes from |
 | `GET /events` | for waits | server-sent events, one `data: {"seq","kind","entity","id","data"}` per state change, so a "wait for payment" is an edge instead of a poll |
 | `POST /mcp` | optional | JSON-RPC `initialize`, `tools/list`, `tools/call`; writes take an `idempotency_key` argument |
 | a web page | for UI-only steps | every control has a role and a name; the engine clicks it through headless Chrome |
 
-The `x-zerohuman` block is the world model. One per operation:
+The `x-reverse-webmcp` block is the world model. One per operation:
 
 ```json
-"x-zerohuman": {
+"x-reverse-webmcp": {
   "post":     "invoice(id=$id).status='sent'",        what becomes true
   "requires": ["invoice(id=$id).exists"],             what must be true first
   "reads":    ["invoice:$id", "customer:*"],          footprint: reads
@@ -264,19 +416,19 @@ The `x-zerohuman` block is the world model. One per operation:
 
 Reads and writes decide the parallelism: two operations with disjoint footprints get no edge and
 run together; a shared token serialises them. Three document-level blocks complete the model:
-`x-zerohuman-entities` (each noun, its id field and fields), `x-zerohuman-events` (things the
-outside world does, with a `check` read for a lost webhook) and `x-zerohuman-ui` (button-only
+`x-reverse-webmcp-entities` (each noun, its id field and fields), `x-reverse-webmcp-events` (things the
+outside world does, with a `check` read for a lost webhook) and `x-reverse-webmcp-ui` (button-only
 actions with a route and a control). `crates/app/static/openapi.json` is a complete example.
 
 ### Embedding the engine
 
 ```rust
 use std::sync::Arc;
-use zerohuman::{compile, CompileOptions, Intent, Ledger, Scheduler};
-use zerohuman::{events::EventBus, ledger::Recorder};
+use rwmcp::{compile, CompileOptions, Intent, Ledger, Scheduler};
+use rwmcp::{events::EventBus, ledger::Recorder};
 
 let base = "http://localhost:8000";
-let world = Arc::new(zerohuman::world_from(base).await?);           // reads /openapi.json
+let world = Arc::new(rwmcp::world_from(base).await?);           // reads /openapi.json
 let intent = Intent {
     goal: "invoice Acme and send it".into(),
     wants: vec!["invoice(customer=customer(name='Acme')).status='sent'".into()],
@@ -285,7 +437,7 @@ let intent = Intent {
 let opts = CompileOptions { plan_id: "job-42".into(), surfaces: vec!["api".into()] };
 let plan = compile(&intent, &world, &opts)?;                          // the DAG, keys included
 let sched = Scheduler {
-    effectors: zerohuman::default_effectors(base, world.clone(), &opts.surfaces),
+    effectors: rwmcp::default_effectors(base, world.clone(), &opts.surfaces),
     bus: Some(EventBus::connect(base).await?),
     pools: Default::default(),
     policy: Default::default(),
@@ -297,8 +449,9 @@ let receipt = ledger.receipt(&plan, outcome.status, outcome.yield_reason, outcom
 ```
 
 `receipt.status` is `committed` (every keyed node has an ok row), `need_think` (stopped at a
-declared fork or gate; `yield_reason` says which) or `error`. Write the wants by hand, as above,
-or let a model write them: the planner (goal → wants, lint, one re-ask) lives in
+declared fork or gate; `yield_reason` says which) or `error`. Write the wants yourself, as above
+(the `write-wants` skill is this job with the lint and plan-diff checks attached), or let a model
+write them at runtime: the planner (goal → wants, lint, one re-ask) lives in
 `crates/bench/src/planner.rs` behind the `Sampler` trait and works with any Messages-shaped
 endpoint through `loops::ModelClient`. To resume after answering a fork, recompile and call
 `sched.resume(&plan, &mut ledger, &ledger.completed(&plan))`: nothing already proven done by
@@ -306,11 +459,11 @@ its key is re-sent.
 
 ### Framework notes
 
-- **Already-built app:** add the `x-zerohuman` notes to the OpenAPI you already serve and honor
+- **Already-built app:** add the `x-reverse-webmcp` notes to the OpenAPI you already serve and honor
   `idempotency-key` on writes. No rewrite.
-- **React Native / mobile:** chiffon drives the app's backend API. It can also click a *web*
+- **React Native / mobile:** rwmcp drives the app's backend API. It can also click a *web*
   page through headless Chrome; it does not drive a phone screen.
-- **Rust project:** add `zerohuman` as a path dependency and use the snippet above.
+- **Rust project:** add `rwmcp` as a path dependency and use the snippet above.
 - **Anything else (Node, Python, PHP, Go):** your app is the target; run the engine as a
   separate Rust process. A non-Rust SDK is not built yet.
 

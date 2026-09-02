@@ -7,10 +7,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
-        with:
-          components: rustfmt, clippy
+      # No toolchain is named here on purpose. rustup reads rust-toolchain.toml and installs the
+      # pinned version, with rustfmt and clippy, on the first cargo call — so CI runs exactly what
+      # ./scripts/gate.sh runs. Asking for `stable` here is what let the two drift apart.
       - uses: Swatinem/rust-cache@v2
+      - run: rustc --version && cargo clippy --version
       - run: cargo fmt --all --check
       - run: cargo clippy --workspace --all-targets -- -D warnings
       - run: cargo test --workspace

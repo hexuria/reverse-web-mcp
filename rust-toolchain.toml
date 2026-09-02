@@ -1,0 +1,10 @@
+# The one place the toolchain is chosen, so `./scripts/gate.sh` and CI cannot disagree.
+#
+# CI used to ask for `stable` while this machine happened to be three releases behind it. The
+# gate was green locally and red on push, twice, on a clippy lint that only the newer toolchain
+# knows about — which makes the gate worthless, because a gate you can pass while CI fails is
+# not a gate. Bump this deliberately and fix what the new release complains about in the same
+# commit.
+[toolchain]
+channel = "1.98.0"
+components = ["rustfmt", "clippy"]

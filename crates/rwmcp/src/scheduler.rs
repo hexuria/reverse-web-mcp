@@ -209,7 +209,9 @@ impl Scheduler {
 
         loop {
             if !stopping {
-                for id in state.ready.drain(..).collect::<Vec<_>>() {
+                // Taken, not drained: the loop below spawns tasks that push new ids onto
+                // state.ready, so it must not be borrowed while iterating.
+                for id in std::mem::take(&mut state.ready) {
                     let node = plan.node(&id).unwrap().clone();
                     if let Some(gate) = plan.gates.iter().find(|g| g.node == id) {
                         if !gate.allowed {

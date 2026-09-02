@@ -1,3 +1,5 @@
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
 <title>One Sample Deep</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Familjen+Grotesk:wght@500;700&family=Source+Sans+3:ital,wght@0,400;0,600;1,400&family=JetBrains+Mono:wght@400;600&display=swap">
 <style>
@@ -66,16 +68,16 @@ details summary{cursor:pointer;color:var(--teal);font-size:15px}
 <header>
   <span class="eyebrow">rwmcp · benchmark results · 2026-09-02</span>
   <h1>One Sample Deep</h1>
-  <p class="lede">A compiler turns a goal into a dependency graph and a scheduler runs it with one model call, at any depth and any width. The agent loops we compare against pay a call per dependency level. Two models, one app we own, every number recomputed from raw ledgers by <code>bench verify</code>.</p>
-  <div class="meta"><span>models: grok-4.6 · gpt-5.6-luna</span><span>via a local gateway</span><span>25 ms per write</span><span>arms: D ours · B2 parallel MCP · C WebMCP · E hand-written script</span></div>
+  <p class="lede">A compiler turns a goal into a dependency graph and a scheduler runs it. Planning costs one model call — in 53 of 60 runs exactly one, never more than two — whatever the depth or the width. The agent loops we compare against pay a call per dependency level, and their token bill grows with the work. Two models, one app we own, 168 runs recomputed from raw ledgers by <code>bench verify</code>.</p>
+  <div class="meta"><span>models: grok-4.6 · gpt-5.6-luna</span><span>via a local gateway</span><span>25 ms per write</span><span>arms: D ours · B2 parallel MCP · C WebMCP · E hand-written script</span><span>campaign-7</span></div>
 </header>
 
 <section>
   <div class="tiles">
-    <div class="tile"><span class="n">1</span><span class="l">model call per task for ours, at depth 3 to 6 and width 1 to 300</span></div>
-    <div class="tile"><span class="n">110<span style="font-size:22px">/110</span></span><span class="l">runs correct in the final pass, eleven tasks, five runs each</span></div>
-    <div class="tile"><span class="n">0</span><span class="l">double-sends, every arm, every task, counted by the app itself</span></div>
-    <div class="tile"><span class="n">0</span><span class="l">verify problems: every headline recomputed from raw rows</span></div>
+    <div class="tile"><span class="n">1</span><span class="l">model call to plan, median over 60 runs — plans of 3 to 900 steps. Seven runs took a second repair call; none took three.</span></div>
+    <div class="tile"><span class="n">120<span style="font-size:22px">/120</span></span><span class="l">runs correct: twelve tasks, two arms, five runs each, checked by the app's own oracle</span></div>
+    <div class="tile"><span class="n">0</span><span class="l">double-sends across all 168 runs of every arm, counted by the app rather than claimed by us</span></div>
+    <div class="tile"><span class="n">54×</span><span class="l">fewer input tokens per run than the parallel MCP loop, on the four tasks both arms ran</span></div>
   </div>
 </section>
 
@@ -87,16 +89,16 @@ details summary{cursor:pointer;color:var(--teal);font-size:15px}
     <div class="legend"><span><i style="background:var(--s1)"></i>D ours</span><span><i style="background:var(--s2)"></i>B2 parallel MCP</span><span><i style="background:var(--s3)"></i>C WebMCP</span></div>
     <svg viewBox="0 0 900 330" role="img" aria-label="Median model calls per task for three arms on grok-4.6"></svg>
     <div class="tip"></div>
-    <p class="cap">grok-4.6, medians. Square-root scale so 1 and 40 both fit. C on the 300-row task hit the 40-turn cap without finishing.</p>
+    <p class="cap">grok-4.6, medians. Square-root scale so 1 and 40 both fit. C on the 300-row task hit the 40-turn cap in all three runs, having created up to 283 of the 300 invoices and sent none of them. Depth here is the task's declared dependency depth; the compiled plan comes out one level shallower on five of the twelve tasks.</p>
   </div>
   <div class="tbl"><table id="head"><thead><tr><th>task</th><th>depth</th><th>arm</th><th>model</th><th>correct</th><th>model calls</th><th>thinking</th><th>executing</th><th>max parallel</th></tr></thead><tbody></tbody></table></div>
-  <p class="cap">Ours ran five times per cell on grok and three on luna; the loops ran three. Thinking is the union of model-call spans, executing is first effect to last.</p>
+  <p class="cap">Ours ran five times per cell on grok and three on luna; the loops ran three. Thinking is the union of model-call spans; executing is first effect to last. For ours the two are sequential and sum to the wall clock. For a loop arm they overlap — it thinks, acts, and thinks again — so do not add them.</p>
 </section>
 
 <section>
   <span class="eyebrow">the replication</span>
   <h2>It is not one model's habit</h2>
-  <p>If only one model were tested, the obvious objection is that the result is a quirk of its habits. Swapping the model and changing nothing else leaves the shape intact: ours takes one call on both, the loop takes four to fourteen on both.</p>
+  <p>If only one model were tested, the obvious objection is that the result is a quirk of its habits. Swapping the model and changing nothing else leaves the shape intact. All twelve of the second model's planning runs took exactly one call — it never needed the repair call the first model occasionally did — and the loop took four to fourteen on both, task for task.</p>
   <div class="fig" id="fig-models">
     <div class="legend"><span><i style="background:var(--s1)"></i>D ours</span><span><i style="background:var(--s2)"></i>B2 parallel MCP</span></div>
     <svg viewBox="0 0 900 260" role="img" aria-label="Model calls for ours and the parallel MCP loop on two different models"></svg>
@@ -106,19 +108,27 @@ details summary{cursor:pointer;color:var(--teal);font-size:15px}
 </section>
 
 <section>
+  <span class="eyebrow">the bill</span>
+  <h2>What it costs to think that many times</h2>
+  <p>Model calls are the structural claim; tokens are what you are actually charged for. A loop carries its whole transcript into every turn, so the context it re-reads grows with both the number of turns and the size of the world it has looked at. A compiled plan reads the world model once.</p>
+  <div class="tbl"><table id="tok"><thead><tr><th>task</th><th>arm</th><th>model calls</th><th>input tokens</th><th>output tokens</th><th>input vs ours</th></tr></thead><tbody></tbody></table></div>
+  <p class="cap">grok-4.6, medians over the runs of each cell, on the four tasks every arm ran. The gap is modest while the work is small and becomes the whole story at three hundred rows: the same goal costs ours 1,563 input tokens and the parallel MCP loop 357,927.</p>
+</section>
+
+<section>
   <span class="eyebrow">every task</span>
   <h2>Ours, across the whole suite</h2>
   <div class="tbl"><table id="ours"><thead><tr><th>task</th><th>what it tests</th><th>correct</th><th>model calls</th><th>thinking</th><th>executing</th><th>max parallel</th><th>hand-written script</th></tr></thead><tbody></tbody></table></div>
-  <p class="cap">grok-4.6, five runs per task. The last column is arm E, a hand-written parallel program with no model at all: the speed of light for this app. Our execution time matches it to within tens of milliseconds everywhere.</p>
+  <p class="cap">grok-4.6, five runs per task, medians. The last column is arm E, a hand-written parallel program with no model at all — the speed of light for this app. Execution matches it to within tens of milliseconds on nine of the twelve tasks. It does not on three, and those are the interesting ones: on T11 the script fires all three hundred writes at once while our scheduler holds itself to sixty-four, on T13 a dropped webhook is only noticed at the next three-second glance, and on T6 the script has no way to resolve the ambiguity at all, so it stops and asks. Its cell is marked <b>—</b> rather than given a time, because refusing to act is not a speed.</p>
 </section>
 
 <section>
   <span class="eyebrow">the clock</span>
   <h2>The thinking is the cost, not the doing</h2>
-  <p>Execution runs in tens of milliseconds, or under a second when it is waiting on a webhook. The single planning call is nearly all of the wall time, which is exactly why a plan cache matters: a repeat goal costs zero calls.</p>
+  <p>Execution runs in tens of milliseconds, or in hundreds when it is waiting for the outside world. Two tasks take longer, and both are waiting rather than working: T12 is being rate-limited by the app and obeying it, and T13 is discovering a payment whose webhook was dropped. The planning call is nearly all of the wall time everywhere else, which is why a plan cache matters — and that one is measured too, in <code>campaign-3-cache</code>: every task planned once, then ran a second time at zero model calls, twenty-one of twenty-two correct.</p>
   <div class="fig" id="fig-clock">
     <div class="legend"><span><i style="background:var(--s1l)"></i>thinking</span><span><i style="background:var(--s1b)"></i>executing</span></div>
-    <svg viewBox="0 0 900 400" role="img" aria-label="Thinking time and execution time per task for ours"></svg>
+    <svg viewBox="0 0 900 436" role="img" aria-label="Thinking time and execution time per task for ours"></svg>
     <div class="tip"></div>
   </div>
 </section>
@@ -127,26 +137,47 @@ details summary{cursor:pointer;color:var(--teal);font-size:15px}
   <span class="eyebrow">what to believe</span>
   <h2>Reading it honestly</h2>
   <ul>
-    <li><b>The difference that holds is calls, not width.</b> Parallel tool calls parallelise fine: the loop went 50 wide on the 300-row task. What it cannot do is stop thinking between levels.</li>
-    <li><b>Correctness is close when the harness is fair.</b> The loop is right on almost everything at depth 3 to 6. It falls over on scale: on 300 rows it needs fourteen calls and three minutes, and the browser-driven variant never finished.</li>
-    <li><b>The guarantees are structural, not prompted.</b> Idempotency keys, spend gates, event waits and the join order are inserted by the compiler, so no amount of model drift can skip them. Zero double-sends across every arm and task is the visible consequence.</li>
-    <li><b>Five runs is a smoke signal, not a proof.</b> Two models, twelve tasks, five runs per cell. Enough to see a shape; not enough to publish a confidence interval.</li>
+    <li><b>One call is a median, not a guarantee.</b> 53 of 60 planning runs took exactly one call; seven took two. Every one of those seven failed the same way — the planner returned an intent with an empty list of wants, the lint rejected it, and one repair call fixed it. None took three. Under the second model all twelve planning runs took one.</li>
+    <li><b>The difference that holds is calls, not width.</b> Parallel tool calls parallelise fine: the loop went 50 wide on the 300-row task. What it cannot do is stop thinking between levels, and every stop re-reads the transcript.</li>
+    <li><b>Correctness is close when the harness is fair.</b> Of 48 loop runs, 45 were correct. The three that were not are the WebMCP loop on 300 rows, which hit its 40-turn budget in all three runs having created up to 283 invoices and sent none. That cap is a configuration value, not a discovered ceiling, so read it as "did not finish within the budget we gave it", not as "cannot".</li>
+    <li><b>The guarantees are structural, not prompted.</b> Idempotency keys, spend gates, event waits and join order are inserted by the compiler, so no amount of model drift can skip them. Zero double-sends across all 168 runs is the visible consequence.</li>
+    <li><b>Repeating a chaos task does not test chaos.</b> T5 injects a 30% send-failure rate and T12 a write limit, but both are seeded, so all five runs draw the identical failures. Those repeats measure model and network jitter, nothing about robustness to a different draw.</li>
+    <li><b>Coverage is uneven, and the table does not make that obvious.</b> Ours ran twelve tasks five times; the loops ran four tasks three times; the second model ran four tasks three times with no WebMCP arm. Every cross-arm comparison here rests on those four tasks.</li>
+    <li><b>Wall clock has a long tail we report as medians.</b> Two planning calls took 60 and 130 seconds against medians of 6 and 5 — single calls, no retry, gateway latency rather than extra work. Means would be badly misleading; every number on this page is a median.</li>
+    <li><b>Twelve tasks, not thirteen.</b> T7 needs a screen — its approval step exists only as a button — and every campaign here ran the API surface. It is written and it is excluded, rather than quietly absent.</li>
+    <li><b>Five runs is a smoke signal, not a proof.</b> Enough to see a shape; not enough to publish a confidence interval.</li>
   </ul>
-  <div class="callout"><b>Four things this benchmark caught us doing wrong.</b> A stale binary that made a smoke test measure old code. A silent fallback to a hand-written plan when the planner failed, scoring a model failure as a success. An app bug that erased payments only for the slower arms, which made the loops look worse than they were and forced a retraction of an earlier claim. And a quantifier whose meaning depended on position, so "one report over ten invoices" compiled into ten reports. Each one is fixed, pinned by a test, and disclosed here rather than quietly rerun.</div>
-  <div class="note"><b>The pixel arm is not in this table.</b> A screenshot-and-click loop was built and run: 40 clicks per task, about 760k tokens, nothing finished, and no prompt-tuning parity with the other arms. It is the straw the whole design exists to avoid, and it is reported as the straw rather than as a scalp.</div>
+  <div class="callout"><b>Five things this benchmark caught us doing wrong.</b> A stale binary that made a smoke test measure old code. A silent fallback to a hand-written plan when the planner failed, scoring a model failure as a success. An app bug that erased payments only for the slower arms, which made the loops look worse than they were and forced a retraction of an earlier claim. A quantifier whose meaning depended on position, so "one report over ten invoices" compiled into ten reports. And an edge orientation that followed the order the wants were written in, so listing a report first produced a report over draft invoices with every check passing — found by a reviewer, not by us. Each one is fixed, pinned by a test, and disclosed here rather than quietly rerun. <code>rwmcp --order-check</code> now compiles a set of wants forwards and backwards and diffs the two graphs, so the last of them cannot come back unnoticed.</div>
+  <div class="note"><b>The pixel arm is not in this table.</b> A screenshot-and-click loop was built and run, but only as a smoke test — two tasks, one run each, in <code>results/screens-smoke</code>. Both hit the 40-turn cap having finished nothing, at 762,880 and 759,148 input tokens. That is two data points with no prompt-tuning parity with the other arms, so it is reported as the straw the design exists to avoid rather than as a scalp, and it is kept out of every comparison above.</div>
   <details><summary>Provenance and how to reproduce</summary>
-    <p style="margin-top:8px">Rust workspace, roughly fifty commits, every one green through <code>make gate</code>: rustfmt, clippy with warnings denied, and the full test suite including in-process end-to-end runs. The target app is ours, with five doors and an oracle that counts effects independently of any arm's claim. Cells come from <code>results/campaign-5-final</code> (ours and the script, eleven tasks, five runs), <code>campaign-5-loops</code> (the loops, same commit, three runs) and <code>campaign-4-luna</code> (the second model). Reproduce with <code>make bench-ocx ARMS=D,E,B2,C PLANNER=model RUNS=5</code>, then <code>make verify</code>.</p>
+    <p style="margin-top:8px">Rust workspace, every commit green through <code>make gate</code>: rustfmt, clippy with warnings denied, and the full test suite including in-process end-to-end runs. The target app is ours, with five doors and an oracle that counts effects independently of any arm's claim — a run is correct when the app's own final state matches the task's declared expectations, not when the arm says it finished.</p>
+    <p style="margin-top:10px">Three campaigns, 168 runs, all verified clean:</p>
+    <ul style="margin-top:6px">
+      <li><code>results/campaign-7-ours</code> — 120 runs. Arms D and E, twelve tasks, five runs each. Planner grok-4.6 at low effort.</li>
+      <li><code>results/campaign-7-loops</code> — 24 runs. Arms B2 and C, tasks T2, T4, T9 and T11, three runs each, grok-4.6 at medium effort, 40-turn cap.</li>
+      <li><code>results/campaign-7-luna</code> — 24 runs. Arms D and B2, the same four tasks, three runs each, gpt-5.6-luna.</li>
+    </ul>
+    <p style="margin-top:10px">The planning arm ran at <em>low</em> effort and the loop arms at <em>medium</em>, which favours the loops. Every arm reached the app over the same 25 ms-per-write latency, on the API surface only. Reproduce the three in turn:</p>
+    <p style="margin-top:6px"><code>make bench-ocx ARMS=D,E PLANNER=model RUNS=5</code><br>
+    <code>make bench-ocx ARMS=B2,C RUNS=3 TASKS=T2,T4,T9,T11</code><br>
+    <code>make bench-ocx ARMS=D,B2 PLANNER=model RUNS=3 TASKS=T2,T4,T9,T11 MODEL=gpt-5.6-luna</code><br>
+    then <code>make verify RUN=results/&lt;stamp&gt;</code> on each, which recomputes every number here from the raw ledgers.</p>
   </details>
 </section>
 </div>
 
 <script>
-const HEAD=[{"model":"grok-4.6","task":"T2","arm":"D","runs":5,"correct":5,"samples":1,"plan":3461,"run":57,"par":10},{"model":"grok-4.6","task":"T2","arm":"B2","runs":3,"correct":3,"samples":4,"plan":15579,"run":9348,"par":10},{"model":"grok-4.6","task":"T2","arm":"C","runs":3,"correct":3,"samples":7,"plan":31924,"run":24932,"par":10},{"model":"gpt-5.6-luna","task":"T2","arm":"D","runs":3,"correct":3,"samples":1,"plan":2441,"run":56,"par":10},{"model":"gpt-5.6-luna","task":"T2","arm":"B2","runs":3,"correct":3,"samples":4,"plan":12582,"run":8239,"par":10},{"model":"grok-4.6","task":"T4","arm":"D","runs":5,"correct":5,"samples":1,"plan":3407,"run":664,"par":1},{"model":"grok-4.6","task":"T4","arm":"B2","runs":3,"correct":3,"samples":5,"plan":11040,"run":6448,"par":1},{"model":"grok-4.6","task":"T4","arm":"C","runs":3,"correct":3,"samples":5,"plan":11216,"run":7209,"par":1},{"model":"gpt-5.6-luna","task":"T4","arm":"D","runs":3,"correct":3,"samples":1,"plan":3987,"run":672,"par":1},{"model":"gpt-5.6-luna","task":"T4","arm":"B2","runs":3,"correct":3,"samples":5,"plan":7835,"run":5072,"par":1},{"model":"grok-4.6","task":"T9","arm":"D","runs":5,"correct":5,"samples":1,"plan":3888,"run":693,"par":10},{"model":"grok-4.6","task":"T9","arm":"B2","runs":3,"correct":3,"samples":6,"plan":21063,"run":14880,"par":10},{"model":"grok-4.6","task":"T9","arm":"C","runs":3,"correct":3,"samples":9,"plan":40344,"run":34214,"par":10},{"model":"gpt-5.6-luna","task":"T9","arm":"D","runs":3,"correct":3,"samples":2,"plan":11113,"run":687,"par":10},{"model":"gpt-5.6-luna","task":"T9","arm":"B2","runs":3,"correct":2,"samples":6,"plan":22343,"run":17306,"par":11},{"model":"grok-4.6","task":"T11","arm":"D","runs":5,"correct":5,"samples":1,"plan":3189,"run":289,"par":64},{"model":"grok-4.6","task":"T11","arm":"B2","runs":3,"correct":3,"samples":14,"plan":201637,"run":196161,"par":50},{"model":"grok-4.6","task":"T11","arm":"C","runs":3,"correct":0,"samples":40,"plan":200657,"run":201776,"par":50},{"model":"gpt-5.6-luna","task":"T11","arm":"D","runs":3,"correct":3,"samples":1,"plan":3071,"run":300,"par":64},{"model":"gpt-5.6-luna","task":"T11","arm":"B2","runs":3,"correct":3,"samples":14,"plan":222847,"run":216143,"par":50}];
-const OURS=[{"task":"T1","runs":5,"correct":5,"samples":1,"plan":2300,"run":55,"par":1,"e_run":56},{"task":"T2","runs":5,"correct":5,"samples":1,"plan":3461,"run":57,"par":10,"e_run":58},{"task":"T3","runs":5,"correct":5,"samples":1,"plan":8526,"run":84,"par":3,"e_run":84},{"task":"T4","runs":5,"correct":5,"samples":1,"plan":3407,"run":664,"par":1,"e_run":696},{"task":"T5","runs":5,"correct":5,"samples":1,"plan":3625,"run":99,"par":10,"e_run":112},{"task":"T6","runs":5,"correct":5,"samples":1,"plan":4033,"run":56,"par":1,"e_run":1},{"task":"T8","runs":5,"correct":5,"samples":2,"plan":14481,"run":682,"par":3,"e_run":754},{"task":"T9","runs":5,"correct":5,"samples":1,"plan":3888,"run":693,"par":10,"e_run":733},{"task":"T10","runs":5,"correct":5,"samples":1,"plan":4450,"run":693,"par":11,"e_run":770},{"task":"T11","runs":5,"correct":5,"samples":1,"plan":3189,"run":289,"par":64,"e_run":210},{"task":"T12","runs":5,"correct":5,"samples":1,"plan":3074,"run":2080,"par":10,"e_run":2085}];
-const TITLE={T1:"one invoice",T2:"ten invoices",T3:"three invoices and a report",T4:"send the receipt once payment lands",T5:"ten invoices, a third of sends fail",T6:"two customers share a name",T8:"three chains, six levels deep",T9:"ten chains, six levels deep",T10:"ten chains and eleven reports",T11:"three hundred invoices from one want",T12:"ten invoices under a write limit"};
+const HEAD=[{"model":"grok-4.6","task":"T2","arm":"D","runs":5,"correct":5,"samples":1,"plan":5005,"run":55,"par":10},{"model":"gpt-5.6-luna","task":"T2","arm":"D","runs":3,"correct":3,"samples":1,"plan":2933,"run":56,"par":10},{"model":"grok-4.6","task":"T2","arm":"B2","runs":3,"correct":3,"samples":4,"plan":13382,"run":7699,"par":10},{"model":"gpt-5.6-luna","task":"T2","arm":"B2","runs":3,"correct":3,"samples":4,"plan":12409,"run":8297,"par":10},{"model":"grok-4.6","task":"T2","arm":"C","runs":3,"correct":3,"samples":7,"plan":23100,"run":19419,"par":10},{"model":"grok-4.6","task":"T4","arm":"D","runs":5,"correct":5,"samples":1,"plan":3132,"run":669,"par":1},{"model":"gpt-5.6-luna","task":"T4","arm":"D","runs":3,"correct":3,"samples":1,"plan":3227,"run":644,"par":1},{"model":"grok-4.6","task":"T4","arm":"B2","runs":3,"correct":3,"samples":5,"plan":9680,"run":5438,"par":1},{"model":"gpt-5.6-luna","task":"T4","arm":"B2","runs":3,"correct":3,"samples":5,"plan":15468,"run":10048,"par":1},{"model":"grok-4.6","task":"T4","arm":"C","runs":3,"correct":3,"samples":5,"plan":13711,"run":9077,"par":1},{"model":"grok-4.6","task":"T9","arm":"D","runs":5,"correct":5,"samples":1,"plan":3490,"run":696,"par":10},{"model":"gpt-5.6-luna","task":"T9","arm":"D","runs":3,"correct":3,"samples":1,"plan":3832,"run":708,"par":10},{"model":"grok-4.6","task":"T9","arm":"B2","runs":3,"correct":3,"samples":6,"plan":20744,"run":14945,"par":10},{"model":"gpt-5.6-luna","task":"T9","arm":"B2","runs":3,"correct":3,"samples":6,"plan":18154,"run":14446,"par":10},{"model":"grok-4.6","task":"T9","arm":"C","runs":3,"correct":3,"samples":10,"plan":37729,"run":32794,"par":10},{"model":"grok-4.6","task":"T11","arm":"D","runs":5,"correct":5,"samples":1,"plan":4821,"run":291,"par":64},{"model":"gpt-5.6-luna","task":"T11","arm":"D","runs":3,"correct":3,"samples":1,"plan":3427,"run":287,"par":64},{"model":"grok-4.6","task":"T11","arm":"B2","runs":3,"correct":3,"samples":14,"plan":209461,"run":205316,"par":50},{"model":"gpt-5.6-luna","task":"T11","arm":"B2","runs":3,"correct":3,"samples":14,"plan":199664,"run":196267,"par":50},{"model":"grok-4.6","task":"T11","arm":"C","runs":3,"correct":0,"samples":40,"plan":262075,"run":263525,"par":50}];
+const OURS=[{"task":"T1","runs":5,"correct":5,"samples":1,"smax":2,"plan":3602,"run":55,"par":1,"nodes":3,"e_run":56},{"task":"T2","runs":5,"correct":5,"samples":1,"smax":2,"plan":5005,"run":55,"par":10,"nodes":30,"e_run":59},{"task":"T3","runs":5,"correct":5,"samples":1,"smax":1,"plan":4956,"run":85,"par":3,"nodes":10,"e_run":81},{"task":"T4","runs":5,"correct":5,"samples":1,"smax":1,"plan":3132,"run":669,"par":1,"nodes":5,"e_run":695},{"task":"T5","runs":5,"correct":5,"samples":1,"smax":2,"plan":3143,"run":99,"par":10,"nodes":30,"e_run":105},{"task":"T6","runs":5,"correct":5,"samples":1,"smax":2,"plan":4673,"run":57,"par":1,"nodes":3,"e_run":0},{"task":"T8","runs":5,"correct":5,"samples":1,"smax":1,"plan":6495,"run":684,"par":3,"nodes":16,"e_run":752},{"task":"T9","runs":5,"correct":5,"samples":1,"smax":2,"plan":3490,"run":696,"par":10,"nodes":51,"e_run":727},{"task":"T10","runs":5,"correct":5,"samples":1,"smax":1,"plan":4455,"run":682,"par":11,"nodes":61,"e_run":750},{"task":"T11","runs":5,"correct":5,"samples":1,"smax":1,"plan":4821,"run":291,"par":64,"nodes":900,"e_run":79},{"task":"T12","runs":5,"correct":5,"samples":1,"smax":1,"plan":3285,"run":2057,"par":10,"nodes":30,"e_run":2083},{"task":"T13","runs":5,"correct":5,"samples":1,"smax":1,"plan":3985,"run":3060,"par":1,"nodes":5,"e_run":697}];
+const TITLE={T1:"one invoice",T2:"ten invoices",T3:"three invoices and a report",T4:"send the receipt once payment lands",T5:"ten invoices, a third of sends fail",T6:"two customers share a name",T8:"three chains, six levels deep",T9:"ten chains, six levels deep",T10:"ten chains and eleven reports",T11:"three hundred invoices from one want",T12:"ten invoices under a write limit",T13:"the payment webhook is lost"};
+const TOK=[
+ {task:"T2",arm:"D",calls:1,in:1531,out:36},{task:"T2",arm:"B2",calls:4,in:7095,out:599},{task:"T2",arm:"C",calls:7,in:14755,out:977},
+ {task:"T4",arm:"D",calls:1,in:1535,out:59},{task:"T4",arm:"B2",calls:5,in:6082,out:93},{task:"T4",arm:"C",calls:5,in:5802,out:93},
+ {task:"T9",arm:"D",calls:1,in:1547,out:69},{task:"T9",arm:"B2",calls:6,in:14245,out:971},{task:"T9",arm:"C",calls:10,in:26993,out:1403},
+ {task:"T11",arm:"D",calls:1,in:1563,out:50},{task:"T11",arm:"B2",calls:14,in:357927,out:17242},{task:"T11",arm:"C",calls:40,in:824014,out:15924}];
 const SHORT={T2:"ten invoices",T4:"wait for payment",T9:"ten chains, 6 deep",T11:"300 from one want"};
-const TESTS={T1:"a plan with nothing to parallelise",T2:"fan-out over disjoint writes",T3:"a join: the report waits for every send",T4:"waiting is an edge, not a poll",T5:"retries reuse the key, so nothing sends twice",T6:"an ambiguity the plan declares how to resolve",T8:"a six-level chain per lane",T9:"ten six-level chains at once",T10:"a report per lane and one over all of them",T11:"one want expands to three hundred rows",T12:"the server says when to retry, and it is obeyed"};
-const DEPTH={T1:3,T2:3,T3:4,T4:5,T5:3,T6:3,T8:6,T9:6,T10:6,T11:3,T12:3};
+const TESTS={T1:"a plan with nothing to parallelise",T2:"fan-out over disjoint writes",T3:"a join: the report waits for every send",T4:"waiting is an edge, not a poll",T5:"retries reuse the key, so nothing sends twice",T6:"an ambiguity the plan declares how to resolve",T8:"a six-level chain per lane",T9:"ten six-level chains at once",T10:"a report per lane and one over all of them",T11:"one want expands to three hundred rows",T12:"the server says when to retry, and it is obeyed",T13:"a dropped webhook is found by reading, not waited for forever"};
+const DEPTH={T1:3,T2:3,T3:4,T4:5,T5:3,T6:3,T8:6,T9:6,T10:6,T11:3,T12:3,T13:5};
 const ARM={D:{c:"var(--s1)",l:"D ours"},B2:{c:"var(--s2)",l:"B2 parallel MCP"},C:{c:"var(--s3)",l:"C WebMCP"}};
 const NS="http://www.w3.org/2000/svg";
 const el=(n,a,t)=>{const e=document.createElementNS(NS,n);for(const k in a)e.setAttribute(k,a[k]);if(t!=null)e.textContent=t;return e;};
@@ -211,7 +242,7 @@ const ms=v=>v>=10000?(v/1000).toFixed(0)+' s':v>=1000?(v/1000).toFixed(1)+' s':v
 
 (function clock(){
   const fig=document.getElementById('fig-clock'),svg=fig.querySelector('svg'),tip=tipFor(fig);
-  const W=900,H=400,L=210,R=100,T=18,B=30,iw=W-L-R,ih=H-T-B,bh=ih/OURS.length;
+  const W=900,H=436,L=210,R=100,T=18,B=30,iw=W-L-R,ih=H-T-B,bh=ih/OURS.length;
   const xmax=16000,sx=v=>L+Math.min(v,xmax)/xmax*iw;
   [0,4000,8000,12000,16000].forEach(v=>{svg.appendChild(el('line',{x1:sx(v),x2:sx(v),y1:T,y2:H-B,class:'grid'}));svg.appendChild(el('text',{x:sx(v),y:H-B+16,'text-anchor':'middle',class:'svgt'},(v/1000)+' s'));});
   svg.appendChild(el('line',{x1:sx(0)+.5,x2:sx(0)+.5,y1:T,y2:H-B,class:'axis'}));
@@ -240,10 +271,21 @@ const ms=v=>v>=10000?(v/1000).toFixed(0)+' s':v>=1000?(v/1000).toFixed(1)+' s':v
       hb.appendChild(tr);
     });
   });
+  const tb=document.querySelector('#tok tbody');
+  const num=v=>v.toLocaleString('en-US');
+  ["T2","T4","T9","T11"].forEach(t=>{
+    const base=TOK.find(x=>x.task===t&&x.arm==='D');
+    TOK.filter(x=>x.task===t).forEach(x=>{
+      const tr=document.createElement('tr');if(x.arm==='D')tr.className='us';
+      const rel=x.arm==='D'?'—':(x.in/base.in).toFixed(0)+'\u00d7';
+      tr.innerHTML=`<td>${t} <span style="color:var(--ink-3)">${SHORT[t]}</span></td><td><b>${ARM[x.arm].l}</b></td><td>${x.calls}</td><td>${num(x.in)}</td><td>${num(x.out)}</td><td>${rel}</td>`;
+      tb.appendChild(tr);
+    });
+  });
   const ob=document.querySelector('#ours tbody');
   OURS.forEach(c=>{
     const tr=document.createElement('tr');
-    tr.innerHTML=`<td>${c.task} <span style="color:var(--ink-3)">${TITLE[c.task]}</span></td><td style="color:var(--ink-2)">${TESTS[c.task]}</td><td class="ok">${c.correct}/${c.runs}</td><td><b>${c.samples}</b></td><td>${ms(c.plan)}</td><td>${ms(c.run)}</td><td>${c.par}</td><td style="color:var(--ink-3)">${ms(c.e_run)}</td>`;
+    tr.innerHTML=`<td>${c.task} <span style="color:var(--ink-3)">${TITLE[c.task]}</span></td><td style="color:var(--ink-2)">${TESTS[c.task]}</td><td class="ok">${c.correct}/${c.runs}</td><td><b>${c.samples}</b></td><td>${ms(c.plan)}</td><td>${ms(c.run)}</td><td>${c.par}</td><td style="color:var(--ink-3)">${c.task==='T6'?'<span title="the script has no way to resolve the ambiguity: it stops and asks">&mdash;</span>':ms(c.e_run)}</td>`;
     ob.appendChild(tr);
   });
 })();

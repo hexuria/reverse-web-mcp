@@ -8,9 +8,9 @@ rerun.
 
 A **compiler** turns a goal's intent graph into a dependency DAG with a surface, an idempotency
 key and a read/write footprint per node. A **scheduler** runs that DAG as wide as the data
-allows, waits on events instead of polling, and calls the model only at declared forks. The
-claim is falsifiable on one number — **max concurrent effects** — measured from the ledger and
-never taken from an arm's own word.
+allows, waits on events instead of polling, and never needs the model again unless the plan
+stops to ask. Every claim below is falsifiable from the ledger — max concurrent effects, model
+calls, tokens, double-sends — and never taken from an arm's own word.
 
 Everything is Rust. Nothing runs on your screen.
 
@@ -28,7 +28,7 @@ One command, options only, so an agent composes a single line instead of a sessi
 # What can this app be asked for?
 rwmcp --app http://localhost:8000 --world
 
-# Plan it. One model call. Nothing happens.
+# Plan it. One model call, in 53 of 60 measured runs. Nothing happens.
 rwmcp --app http://localhost:8000 --goal "invoice every customer and send it"
 
 # Run what an agent already wrote. No model call at all.
@@ -146,6 +146,34 @@ which `--set` is missing rather than guessing.
 This is the intended steady state: the model is paid once, at design time, and the thing that
 runs in production is a compiled plan with arguments.
 
+## Does it work
+
+Twelve tasks against an app we own, 168 runs across three campaigns, every number recomputed
+from the raw ledgers by `make verify`. The four tasks below are the ones every arm ran.
+
+| | ours | parallel MCP loop | WebMCP loop | hand-written script |
+|---|---|---|---|---|
+| ten invoices | **1** call · 1,531 tok | 4 calls · 7,095 tok | 7 calls · 14,755 tok | 0 calls |
+| wait for the payment, then receipt | **1** · 1,535 | 5 · 6,082 | 5 · 5,802 | 0 |
+| ten chains, six levels deep | **1** · 1,547 | 6 · 14,245 | 10 · 26,993 | 0 |
+| three hundred invoices from one want | **1** · 1,563 | 14 · 357,927 | 40 · 824,014 | 0 |
+
+Model calls and input tokens, medians, grok-4.6. The last row is the shape of the whole thing:
+the loop's bill grows with the work because it re-reads its transcript every turn; a compiled
+plan reads the world model once. On that row the WebMCP loop hit its 40-turn budget in all three
+runs, having created up to 283 of the 300 invoices and sent none.
+
+- **120/120 correct** for ours across twelve tasks, five runs each, checked by the app's own oracle.
+- **0 double-sends** across all 168 runs of every arm — the compiler inserts the idempotency key, so no model drift can skip it.
+- **One call is a median, not a guarantee.** 53 of 60 planning runs took one; seven took a second repair call after the planner returned an empty intent. None took three. On the second model, `gpt-5.6-luna`, all twelve planning runs took one.
+- **Execution matches the hand-written script** to within tens of milliseconds on nine of twelve tasks. It does not on three, and the results page says why rather than dropping them.
+
+The caveats travel with the numbers: five runs per cell is a smoke signal, not a confidence
+interval; the loops ran four tasks to our twelve; the chaos tasks are seeded, so repeating them
+tests jitter and not resilience; and T7 is excluded because it needs a screen. All of that, plus
+the five things this benchmark caught us getting wrong, is on the
+[results page](docs/results.html).
+
 ## Embedding it
 
 The CLI is a shell over the library, and the library is one object.
@@ -177,6 +205,8 @@ Open `docs/guides/index.html` in a browser, or read them online:
 | [rwmcp Stack Map](docs/guides/stack-map.html) · [online](https://claude.ai/code/artifact/8e01b51e-1bf2-4460-b185-4f4a8ae495b5) | **What is the code?** Five crates, three layers, the process boundary, and every external dependency with what breaks without it. |
 | [The Falsifiable Number](docs/guides/results.html) · [online](https://claude.ai/code/artifact/a2b0d412-41df-46ab-a493-ef75f71e8717) | **Does it work?** The benchmark results, with every caveat that comes with them. |
 | [The Benchmark Bench](docs/guides/benchmark.html) · [online](https://claude.ai/code/artifact/6b0c12fa-6677-4c71-ad4b-beec10788d33) | **How is it measured?** The target app and its oracle, the six arms, the thirteen tasks, what a result file holds. |
+
+The full results page is [`docs/results.html`](docs/results.html) · [online](https://claude.ai/code/artifact/2ab0387c-161a-4e55-927b-2e53ef5e12da).
 
 New here: start with the first. Already know MCP: the second. Wiring your own app: the third.
 Reading the source: the fourth.

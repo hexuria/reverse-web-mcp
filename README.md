@@ -114,108 +114,63 @@ Each task declares its `depth` (the longest dependency chain) so the report can 
 against depth for every arm, and a `[script]` block that arm E interprets as its hand-written
 parallel program: customers, send, wait for payment, receipt, a report per invoice, a report over all.
 
-## First campaign, 2026-09-02
+## Results
 
-`results/campaign-1`: grok-4.6 through opencodex, planner at low effort, loops at medium, 25 ms per
-write, 5 runs per cell, 120 results, `bench verify` clean. Medians.
+Full page with charts: `docs/results.html`. Every number is recomputed from raw ledgers by
+`bench verify`; every run directory below verifies clean.
 
-| task | depth | arm | correct | samples | plan ms | run ms | max parallel |
-|---|---|---|---|---|---|---|---|
-| T1 one invoice | 3 | **D ours** | 5/5 | 2 | 4849 | 54 | 1 |
-| | | B2 parallel MCP | 5/5 | 4 | 8646 | 5609 | 1 |
-| | | B sequential MCP | 5/5 | 4 | 10453 | 6055 | 1 |
-| T2 ten invoices | 3 | **D ours** | 5/5 | 1 | 5729 | 57 | 10 |
-| | | B2 | 5/5 | 4 | 12995 | 7886 | 10 |
-| | | B | 5/5 | 22 | 48767 | 44818 | 1 |
-| T3 three + report | 4 | **D ours** | 5/5 | 1 | 4120 | 98 | 3 |
-| | | B2 | 4/5 | 5 | 9859 | 6451 | 3 |
-| | | B | 5/5 | 11 | 21981 | 18005 | 1 |
-| T4 wait for payment | 5 | **D ours** | 5/5 | 1 | 4866 | 679 | 1 |
-| | | B2 | 0/5 | 6 | 18994 | 9604 | 1 |
-| | | B | 0/5 | 60 | 77651 | 75030 | 1 |
-| T5 ten, 30% failures | 3 | **D ours** | 5/5 | 1 | 6262 | 100 | 10 |
-| | | B2 | 5/5 | 5 | 17057 | 12274 | 10 |
-| | | B | 5/5 | 24 | 44654 | 40501 | 1 |
-| T6 two Acmes | 3 | **D ours** | 3/5 | 2 | 5755 | 2608 | 1 |
-| | | B2 | 5/5 | 2 | 5037 | 1 | 1 |
-| | | B | 5/5 | 2 | 5695 | 1 | 1 |
+**The final pass** (`results/campaign-5-final`, grok-4.6, five runs per task, eleven tasks):
+110 of 110 runs correct, one model call per task (two on T8), zero double-sends.
 
-Arm E, the script ceiling, is 5/5 everywhere at 0 samples; its run time equals ours to within a
-few milliseconds on every task. Double-sends were zero for every arm on every task.
+**Same commit, same tasks, ours against the loops** (`campaign-5-loops` for the loops on grok,
+`campaign-4-luna` for the second model). Medians.
 
-What the table says:
+| task | depth | arm | model | correct | model calls | thinking | executing | max parallel |
+|---|---|---|---|---|---|---|---|---|
+| T2 ten invoices | 3 | **ours** | grok-4.6 | 5/5 | **1** | 3.5 s | 57 ms | 10 |
+| | | B2 parallel MCP | grok-4.6 | 3/3 | 4 | 16 s | 9.3 s | 10 |
+| | | C WebMCP | grok-4.6 | 3/3 | 7 | 32 s | 25 s | 10 |
+| | | **ours** | gpt-5.6-luna | 3/3 | **1** | 2.4 s | 56 ms | 10 |
+| | | B2 | gpt-5.6-luna | 3/3 | 4 | 13 s | 8.2 s | 10 |
+| T4 wait for payment | 5 | **ours** | grok-4.6 | 5/5 | **1** | 3.4 s | 664 ms | 1 |
+| | | B2 | grok-4.6 | 3/3 | 5 | 11 s | 6.4 s | 1 |
+| | | **ours** | gpt-5.6-luna | 3/3 | **1** | 4.0 s | 672 ms | 1 |
+| | | B2 | gpt-5.6-luna | 3/3 | 5 | 7.8 s | 5.1 s | 1 |
+| T9 ten chains, six deep | 6 | **ours** | grok-4.6 | 5/5 | **1** | 3.9 s | 693 ms | 10 |
+| | | B2 | grok-4.6 | 3/3 | 6 | 21 s | 15 s | 10 |
+| | | C | grok-4.6 | 3/3 | 9 | 40 s | 34 s | 10 |
+| | | **ours** | gpt-5.6-luna | 3/3 | **2** | 11 s | 687 ms | 10 |
+| | | B2 | gpt-5.6-luna | 2/3 | 6 | 22 s | 17 s | 11 |
+| T11 three hundred from one want | 3 | **ours** | grok-4.6 | 5/5 | **1** | 3.2 s | 289 ms | 64 |
+| | | B2 | grok-4.6 | 3/3 | 14 | 202 s | 196 s | 50 |
+| | | C | grok-4.6 | 0/3 | 40 (cap) | 201 s | 202 s | 50 |
+| | | **ours** | gpt-5.6-luna | 3/3 | **1** | 3.1 s | 300 ms | 64 |
+| | | B2 | gpt-5.6-luna | 3/3 | 14 | 223 s | 216 s | 50 |
 
-- **Samples.** Ours is 1 on every task that needs no question. B2 pays a turn per dependency
-  level (4 at depth 3, 5 at depth 4, 6 at depth 5); B pays a turn per action.
-- **Wall time.** Ours is dominated by the one planner sample; the kitchen itself runs in tens of
-  milliseconds. B2's run time is its own thinking between tool calls.
-- **Waiting, corrected.** This campaign showed both loops at 0/5 on T4. That was a bug in the
-  target app, not in the models: a send arriving after the payment hook overwrote "paid" with
-  "sent", and only the slow arms ever sent late. Fixed in `fix(app): sending a paid invoice no
-  longer regresses it to sent`; campaign-2c below reruns those cells. Treat every loop-arm
-  wait-task number in campaign-1 as void.
-- **The honest losses.** T6: two of our five runs returned an empty fork answer that was compiled
-  as-is; that is fixed in the commit after this campaign (fork answers are linted). T1: the planner
-  needed a lint re-ask in three of five runs, which is why its median is 2 samples. T3, arm D,
-  run 2: the gateway returned the planner's tool call as garbled text, the planner failed, and the
-  runner of that build silently fell back to the task file's wants, so that one run is not
-  model-planned. Read T3 D as 4/5 model-planned. That fallback no longer exists: a planner
-  failure is now an error for arm D.
+What it says:
 
-`results/campaign-1/report.html` has the full table with spread, and every result file carries
-its ledger, snapshot and intent.
+- **Model calls do not grow with the work.** One for ours at depth 3 to 6 and width 1 to 300.
+  The parallel MCP loop pays roughly one per dependency level, and fourteen at three hundred rows.
+- **The shape survives a model swap.** Ours is one call on both models; the loop is four to
+  fourteen on both.
+- **Width is not ours to claim.** Parallel tool calls parallelise fine; the loop went 50 wide.
+  What it cannot do is stop thinking between levels.
+- **Execution matches the hand-written script** to within tens of milliseconds on every task.
+  The single planning call is nearly all our wall time, which is why the plan cache matters:
+  a repeat goal costs zero calls.
 
-`results/screens-smoke` is a single-run smoke of the screen arms with the same model. Arm C
-(WebMCP in a headless page) was correct on T1 in 4 samples and on T2 in 6 samples, ten wide.
-Arm A (pixels) clicked 40 times on each task, spent ~760k tokens, and finished neither; its
-screenshots are under `shots/`. That is the straw the whole design is built to avoid, with no
-parity coaching, and it is reported as such.
+Earlier campaigns are kept for provenance: `campaign-1`, `campaign-2*` (the first four-arm
+sweep), `campaign-3*` (after the wait, planner and selector fixes), `campaign-2d-ratelimit`.
+The loop cells on wait tasks in `campaign-1` and `campaign-2b-loops` are **void**: an app bug
+overwrote a payment with a later send, and only the slower arms ever sent late. It is fixed,
+pinned by a test, and those cells were rerun.
 
-## Second campaign, 2026-09-02, all six arms wired
+### What the benchmark caught us doing wrong
 
-Same model and settings. `results/campaign-2a` is T1-T6 with D, E, B2 and C at five runs;
-`results/campaign-2b-ours` is T8-T11 with D and E at five runs; `results/campaign-2b-loops` is
-T8-T11 with B2 and C at two runs. The loop cells on the wait tasks (T4, T8, T9, T10) in those
-directories predate the paid-then-sent fix and are void; `results/campaign-2c-wait` and
-`results/campaign-2c-deep` are their reruns against the fixed app. Every directory verifies clean.
-Medians; samples is the column that matters.
-
-| task | depth | D ours | B2 parallel MCP | C WebMCP | E ceiling |
-|---|---|---|---|---|---|
-| T1 one invoice | 3 | 5/5 · 1 sample · 2.5 s | 5/5 · 4 · 6.6 s | 5/5 · 4 · 7.6 s | 5/5 |
-| T2 ten invoices | 3 | 5/5 · 1 · 6.2 s · 10 wide | 5/5 · 4 · 14.2 s · 11 wide | 5/5 · 6 · 24.3 s · 10 wide | 5/5 |
-| T3 three + report | 4 | 4/5 · 1 · 4.9 s | 4/5 · 5 · 9.8 s | 4/5 · 5 · 19.3 s | 5/5 |
-| T4 wait for payment (2c) | 5 | 5/5 · 1 · 3.5 s | 5/5 · 5 · 9.4 s | 2/5 · 4 · 10.3 s | 5/5 |
-| T5 ten, 30% failures | 3 | 5/5 · 1 · 6.7 s · 0 doubled | 5/5 · 5 · 17.6 s · 0 doubled | 5/5 · 7 · 34.1 s · 0 doubled | 5/5 |
-| T6 two Acmes | 3 | 4/5 · 2 (plan + answer) | 5/5 · 2 (asked) | 5/5 · 2 (asked) | 5/5 |
-| T8 three deep chains (2c) | 6 | 5/5 · 1 · 5.9 s | 1/2 · 5.5 · 10.8 s | 2/2 · 6 · 11.9 s | 5/5 |
-| T9 ten deep chains (2c) | 6 | 5/5 · 1 · 11.2 s | 2/2 · 6 · 29.8 s | 2/2 · 10 · 33.0 s | 5/5 |
-| T10 ten chains + 11 reports (2c) | 6 | 4/5 · 1 · 13.5 s | 2/2 · 6 · 28.2 s · 20 wide | 2/2 · 11.5 · 42.7 s | 5/5 |
-| T11 three hundred from one want | 3 | 5/5 · 1 · 111.5 s · 16 wide | 2/2 · 14 · 197.7 s · 50 wide | 0/2 · 30 (cap) | 5/5 · 300 wide |
-| T12 ten under 8 writes/s (2d, 3 runs) | 3 | 3/3 · 1 · 6.4 s + 2.1 s kitchen | 3/3 · 5 · 23.4 s | 3/3 · 7 · 34.1 s | 3/3 · 2.1 s |
-
-Reading it honestly:
-
-- **Samples are the structural difference.** Ours is one sample on every task without a
-  question, at every depth and every width. B2 pays roughly one sample per dependency level
-  (4 at depth 3, 5 at depth 4 and 5, 6 at depth 6) and C pays a little more. That is the claim
-  the depth tasks were built to test, and it holds.
-- **Correctness is close once the harness is fair.** B2 is 5/5 on T4 and mostly right on the
-  deep tasks. Our misses are the planner's: one empty intent on T3 and one empty fork answer on
-  T6, both now scored as errors, plus one payment-event timeout on T10.
-- **Width is not ours to claim.** B2 went 20 wide on T10 and 50 wide on T11; the API pool caps us
-  at 16. Parallel tool calls parallelise fine. What they cannot do is stop paying a thought per
-  level.
-- **Wall time is the planner's.** Our kitchen time is 60 ms to 1.2 s everywhere; the sample is
-  the rest, and on T11 grok spent 111 s emitting three hundred names at low effort. B2's clock is
-  its own thinking between calls.
-- **T12 is where server-directed backoff pays.** The app answers a 429 with how long to wait and
-  every door honours it, so twenty keyed writes land in the two seconds the limit allows with
-  nothing doubled, for every arm.
-- **T11 is where fan-out pays.** One want, one sample, three hundred invoices. B2 needed 14
-  samples and C hit the turn cap at a third of the rows.
-- **Arm A** is in `results/screens-smoke` only: 40 clicks per task, ~760k tokens, nothing
-  finished. It is the straw, reported as the straw.
+A stale binary that made a smoke test measure old code. A silent fallback to the hand-written
+plan when the planner failed, scoring a model failure as a success. The payment bug above. And a
+quantifier whose meaning depended on position, so "one report over ten invoices" compiled into
+ten reports. Each is fixed, pinned by a test, and disclosed rather than quietly rerun.
 
 ## What a result contains
 

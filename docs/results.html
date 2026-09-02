@@ -4,27 +4,26 @@
 :root{
   --ground:#F3F5F2; --sheet:#FCFCFB; --ink:#1A2321; --ink-2:#4B5955; --ink-3:#7A8783; --line:#D5DCD7; --line-2:#E9EEEA;
   --teal:#0F6E7A; --teal-soft:#DCEEF0; --amber:#B7791F; --amber-soft:#F7ECD6; --code:#EEF2EF;
-  --s1:#2a78d6; --s2:#eb6834; --s3:#1baf7a; --s4:#eda100; --s1b:#0d366b; --s1l:#9ec5f4;
+  --s1:#2a78d6; --s2:#eb6834; --s3:#1baf7a; --s1b:#0d366b; --s1l:#9ec5f4;
 }
 @media (prefers-color-scheme: dark){
   :root:not([data-theme="light"]){
     --ground:#12171A; --sheet:#1a1a19; --ink:#E7ECE8; --ink-2:#A7B3AD; --ink-3:#7F8B87; --line:#2E3A3B; --line-2:#242E30;
     --teal:#63C1CC; --teal-soft:#153338; --amber:#E2AC4E; --amber-soft:#3A2D14; --code:#222B2E;
-    --s1:#3987e5; --s2:#d95926; --s3:#199e70; --s4:#c98500; --s1b:#9ec5f4; --s1l:#1c5cab;
+    --s1:#3987e5; --s2:#d95926; --s3:#199e70; --s1b:#9ec5f4; --s1l:#1c5cab;
   }
 }
 :root[data-theme="dark"]{
   --ground:#12171A; --sheet:#1a1a19; --ink:#E7ECE8; --ink-2:#A7B3AD; --ink-3:#7F8B87; --line:#2E3A3B; --line-2:#242E30;
   --teal:#63C1CC; --teal-soft:#153338; --amber:#E2AC4E; --amber-soft:#3A2D14; --code:#222B2E;
-  --s1:#3987e5; --s2:#d95926; --s3:#199e70; --s4:#c98500; --s1b:#9ec5f4; --s1l:#1c5cab;
+  --s1:#3987e5; --s2:#d95926; --s3:#199e70; --s1b:#9ec5f4; --s1l:#1c5cab;
 }
 *{box-sizing:border-box}
 body{margin:0;background:var(--ground);color:var(--ink);font-family:"Source Sans 3",system-ui,sans-serif;font-size:17px;line-height:1.55}
-.doc{max-width:960px;margin:0 auto;padding:40px 22px 100px}
+.doc{max-width:980px;margin:0 auto;padding:40px 22px 100px}
 h1,h2,h3{font-family:"Familjen Grotesk","Source Sans 3",sans-serif;font-weight:700;line-height:1.1;text-wrap:balance;margin:0}
 h1{font-size:clamp(36px,6vw,54px);letter-spacing:-.01em}
 h2{font-size:26px}
-h3{font-size:18px}
 p{margin:0;max-width:66ch}
 .lede{font-size:20px;color:var(--ink-2);max-width:62ch}
 .eyebrow{font-family:"JetBrains Mono",monospace;font-size:12px;text-transform:uppercase;letter-spacing:.14em;color:var(--teal)}
@@ -32,7 +31,7 @@ header{display:flex;flex-direction:column;gap:14px;padding-bottom:26px;border-bo
 .meta{display:flex;flex-wrap:wrap;gap:18px;font-family:"JetBrains Mono",monospace;font-size:13px;color:var(--ink-2)}
 section{padding:34px 0;border-bottom:1px solid var(--line);display:flex;flex-direction:column;gap:16px}
 section:last-of-type{border-bottom:0}
-.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px}
+.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:14px}
 .tile{background:var(--sheet);border:1px solid var(--line);border-radius:10px;padding:16px 18px;display:flex;flex-direction:column;gap:4px}
 .tile .n{font-family:"Familjen Grotesk",sans-serif;font-weight:700;font-size:38px;line-height:1;font-variant-numeric:tabular-nums}
 .tile .l{font-size:14px;color:var(--ink-2)}
@@ -54,10 +53,11 @@ th{font-family:"JetBrains Mono",monospace;font-weight:400;font-size:11.5px;text-
 .tbl{overflow-x:auto;border:1px solid var(--line);border-radius:8px}
 td.ok{color:var(--s3);font-weight:600}
 td.bad{color:var(--s2);font-weight:600}
+tr.us td{background:var(--teal-soft)}
 .callout{border-left:4px solid var(--amber);background:var(--amber-soft);padding:12px 16px;border-radius:0 8px 8px 0;font-size:15.5px}
 .note{border-left:4px solid var(--teal);background:var(--teal-soft);padding:12px 16px;border-radius:0 8px 8px 0;font-size:15.5px}
 ul{margin:0;padding-left:22px;max-width:70ch}
-li{margin:4px 0}
+li{margin:5px 0}
 code{font-family:"JetBrains Mono",monospace;font-size:.88em;background:var(--code);padding:1px 5px;border-radius:4px}
 details summary{cursor:pointer;color:var(--teal);font-size:15px}
 </style>
@@ -66,186 +66,185 @@ details summary{cursor:pointer;color:var(--teal);font-size:15px}
 <header>
   <span class="eyebrow">chiffon · benchmark results · 2026-09-02</span>
   <h1>One Sample Deep</h1>
-  <p class="lede">A compiler and a scheduler run a goal against an app we own with one model sample, at any depth and any width. The loops we compare against pay a sample per dependency level. Every number here is recomputed from raw ledgers by <code>bench verify</code>.</p>
-  <div class="meta"><span>model: grok-4.6 via opencodex</span><span>planner effort: low · loops: medium</span><span>25 ms per write</span><span>arms D ours · B2 parallel MCP · C WebMCP · B sequential MCP · E script ceiling</span></div>
+  <p class="lede">A compiler turns a goal into a dependency graph and a scheduler runs it with one model call, at any depth and any width. The agent loops we compare against pay a call per dependency level. Two models, one app we own, every number recomputed from raw ledgers by <code>bench verify</code>.</p>
+  <div class="meta"><span>models: grok-4.6 · gpt-5.6-luna</span><span>via a local gateway</span><span>25 ms per write</span><span>arms: D ours · B2 parallel MCP · C WebMCP · E hand-written script</span></div>
 </header>
 
 <section>
   <div class="tiles">
-    <div class="tile"><span class="n">1</span><span class="l">samples per task for ours, every task without a question, depth 3 to 6, width 1 to 300</span></div>
-    <div class="tile"><span class="n">4–14</span><span class="l">samples for the parallel MCP loop, rising with depth and width</span></div>
-    <div class="tile"><span class="n">0</span><span class="l">double-sends, every arm, every task, from the app's own effect log</span></div>
-    <div class="tile"><span class="n">0</span><span class="l">verify problems across 330 result files in seven run directories</span></div>
+    <div class="tile"><span class="n">1</span><span class="l">model call per task for ours, at depth 3 to 6 and width 1 to 300</span></div>
+    <div class="tile"><span class="n">110<span style="font-size:22px">/110</span></span><span class="l">runs correct in the final pass, eleven tasks, five runs each</span></div>
+    <div class="tile"><span class="n">0</span><span class="l">double-sends, every arm, every task, counted by the app itself</span></div>
+    <div class="tile"><span class="n">0</span><span class="l">verify problems: every headline recomputed from raw rows</span></div>
   </div>
 </section>
 
 <section>
   <span class="eyebrow">the structural claim</span>
-  <h2>Samples against depth</h2>
-  <p>Tasks are ordered by depth, then width. A loop stops to think once per dependency level; a compiled plan thinks once and the scheduler climbs the rest. Medians over the runs in each cell.</p>
+  <h2>Model calls do not grow with the work</h2>
+  <p>Same app, same tasks, same harness, same commit. Only the arm changes. A loop stops to think once per dependency level and again per batch; a compiled plan thinks once and the scheduler climbs the rest.</p>
   <div class="fig" id="fig-samples">
-    <div class="legend"><span><i style="background:var(--s1)"></i>D ours</span><span><i style="background:var(--s2)"></i>B2 parallel MCP</span><span><i style="background:var(--s3)"></i>C WebMCP</span><span><i style="background:var(--s4)"></i>B sequential MCP (T1–T6)</span></div>
-    <svg viewBox="0 0 900 360" role="img" aria-label="Median model samples per task for four arms, tasks ordered by depth"></svg>
+    <div class="legend"><span><i style="background:var(--s1)"></i>D ours</span><span><i style="background:var(--s2)"></i>B2 parallel MCP</span><span><i style="background:var(--s3)"></i>C WebMCP</span></div>
+    <svg viewBox="0 0 900 330" role="img" aria-label="Median model calls per task for three arms on grok-4.6"></svg>
     <div class="tip"></div>
-    <p class="cap">Arm E, the hand-written script, is 0 samples on every task and is omitted. T4 B is 60: the turn cap, never finished. The y axis is square-root scaled so 1 and 60 both fit; ticks are labelled.</p>
+    <p class="cap">grok-4.6, medians. Square-root scale so 1 and 40 both fit. C on the 300-row task hit the 40-turn cap without finishing.</p>
   </div>
+  <div class="tbl"><table id="head"><thead><tr><th>task</th><th>depth</th><th>arm</th><th>model</th><th>correct</th><th>model calls</th><th>thinking</th><th>executing</th><th>max parallel</th></tr></thead><tbody></tbody></table></div>
+  <p class="cap">Ours ran five times per cell on grok and three on luna; the loops ran three. Thinking is the union of model-call spans, executing is first effect to last.</p>
+</section>
+
+<section>
+  <span class="eyebrow">the replication</span>
+  <h2>It is not one model's habit</h2>
+  <p>If only one model were tested, the obvious objection is that the result is a quirk of its habits. Swapping the model and changing nothing else leaves the shape intact: ours takes one call on both, the loop takes four to fourteen on both.</p>
+  <div class="fig" id="fig-models">
+    <div class="legend"><span><i style="background:var(--s1)"></i>D ours</span><span><i style="background:var(--s2)"></i>B2 parallel MCP</span></div>
+    <svg viewBox="0 0 900 260" role="img" aria-label="Model calls for ours and the parallel MCP loop on two different models"></svg>
+    <div class="tip"></div>
+    <p class="cap">Model calls, medians. The pair of bars per task is the same task on two different models.</p>
+  </div>
+</section>
+
+<section>
+  <span class="eyebrow">every task</span>
+  <h2>Ours, across the whole suite</h2>
+  <div class="tbl"><table id="ours"><thead><tr><th>task</th><th>what it tests</th><th>correct</th><th>model calls</th><th>thinking</th><th>executing</th><th>max parallel</th><th>hand-written script</th></tr></thead><tbody></tbody></table></div>
+  <p class="cap">grok-4.6, five runs per task. The last column is arm E, a hand-written parallel program with no model at all: the speed of light for this app. Our execution time matches it to within tens of milliseconds everywhere.</p>
 </section>
 
 <section>
   <span class="eyebrow">the clock</span>
-  <h2>Where our time goes</h2>
-  <p>Ours spends almost all of its wall time in the single planner sample. The kitchen itself runs in tens of milliseconds, or about a second when it is waiting on a payment. On T11 the planner spent 111 seconds emitting three hundred names.</p>
+  <h2>The thinking is the cost, not the doing</h2>
+  <p>Execution runs in tens of milliseconds, or under a second when it is waiting on a webhook. The single planning call is nearly all of the wall time, which is exactly why a plan cache matters: a repeat goal costs zero calls.</p>
   <div class="fig" id="fig-clock">
-    <div class="legend"><span><i style="background:var(--s1l)"></i>planner, ms</span><span><i style="background:var(--s1b)"></i>kitchen, ms</span></div>
-    <svg viewBox="0 0 900 380" role="img" aria-label="Plan time and run time per task for arm D, medians"></svg>
+    <div class="legend"><span><i style="background:var(--s1l)"></i>thinking</span><span><i style="background:var(--s1b)"></i>executing</span></div>
+    <svg viewBox="0 0 900 400" role="img" aria-label="Thinking time and execution time per task for ours"></svg>
     <div class="tip"></div>
-    <p class="cap">Arm D only, medians. T11 is clipped at the axis and labelled with its real value.</p>
   </div>
-</section>
-
-<section>
-  <span class="eyebrow">correctness and width</span>
-  <h2>Every cell</h2>
-  <div class="tbl"><table id="cells"><thead><tr><th>task</th><th>depth</th><th>arm</th><th>correct</th><th>samples</th><th>plan ms</th><th>run ms</th><th>max parallel</th><th>run dir</th></tr></thead><tbody></tbody></table></div>
-  <p class="cap">Correctness is the oracle's snapshot against the task's expected end state. Max parallel is a sweep over microsecond ledger spans. Ours is capped by its API pool of 16; B2 went 50 wide on T11.</p>
 </section>
 
 <section>
   <span class="eyebrow">what to believe</span>
   <h2>Reading it honestly</h2>
   <ul>
-    <li><b>Samples are the difference that holds.</b> One for ours on every task without a question. Four to six for B2 at depths three to six, fourteen at three hundred rows. B, one call per turn, is a sample per action.</li>
-    <li><b>Correctness is close once the harness is fair.</b> B2 is 5/5 on the wait task and mostly right six deep. Our misses are the planner's: one empty intent on T3, one empty fork answer on T6, one payment-event timeout on T10, all scored as failures.</li>
-    <li><b>Width is not ours to claim.</b> Parallel tool calls parallelise fine. What they cannot do is stop paying a thought per level.</li>
-    <li><b>Wall time is the planner's.</b> Cheaper or cached planning is where the clock moves; the intent cache makes a repeat goal zero samples.</li>
+    <li><b>The difference that holds is calls, not width.</b> Parallel tool calls parallelise fine: the loop went 50 wide on the 300-row task. What it cannot do is stop thinking between levels.</li>
+    <li><b>Correctness is close when the harness is fair.</b> The loop is right on almost everything at depth 3 to 6. It falls over on scale: on 300 rows it needs fourteen calls and three minutes, and the browser-driven variant never finished.</li>
+    <li><b>The guarantees are structural, not prompted.</b> Idempotency keys, spend gates, event waits and the join order are inserted by the compiler, so no amount of model drift can skip them. Zero double-sends across every arm and task is the visible consequence.</li>
+    <li><b>Five runs is a smoke signal, not a proof.</b> Two models, twelve tasks, five runs per cell. Enough to see a shape; not enough to publish a confidence interval.</li>
   </ul>
-  <div class="callout"><b>A retraction.</b> The first campaign showed both loops at 0/5 on the wait task, and the README said the wait "separates the arms completely". That was a bug in our target app: a send arriving after the payment webhook overwrote "paid" with "sent", and only the slow arms ever sent late. Fixed, pinned by a test, and every loop cell on a wait task was rerun. The corrected cells are the ones on this page.</div>
-  <div class="note"><b>Arm A</b>, the pixel loop, is smoke-only: 40 clicks per task, about 760k tokens, nothing finished, no coaching parity. Its screenshots are in the repo. It is the straw the design exists to avoid, and it is reported as the straw.</div>
-  <details><summary>Provenance</summary>
-    <p style="margin-top:8px">Repo <code>/Volumes/goldcoders/chiffon</code>, 38 commits, each through <code>make gate</code>. Cells come from <code>results/campaign-2a</code> (T1–T6, four arms, 5 runs), <code>campaign-2b-ours</code> (T8–T11, ours and ceiling, 5 runs), <code>campaign-2c-wait</code> and <code>campaign-2c-deep</code> (loop arms on wait tasks after the fix, 5 and 2 runs), <code>campaign-2b-loops</code> (T11 loops, 2 runs), <code>campaign-2d-ratelimit</code> (T12, four arms, 3 runs), and <code>campaign-1</code> for arm B. Every directory verifies clean. Reproduce with <code>make bench-ocx ARMS=D,E,B2,C PLANNER=model RUNS=5</code>.</p>
+  <div class="callout"><b>Four things this benchmark caught us doing wrong.</b> A stale binary that made a smoke test measure old code. A silent fallback to a hand-written plan when the planner failed, scoring a model failure as a success. An app bug that erased payments only for the slower arms, which made the loops look worse than they were and forced a retraction of an earlier claim. And a quantifier whose meaning depended on position, so "one report over ten invoices" compiled into ten reports. Each one is fixed, pinned by a test, and disclosed here rather than quietly rerun.</div>
+  <div class="note"><b>The pixel arm is not in this table.</b> A screenshot-and-click loop was built and run: 40 clicks per task, about 760k tokens, nothing finished, and no prompt-tuning parity with the other arms. It is the straw the whole design exists to avoid, and it is reported as the straw rather than as a scalp.</div>
+  <details><summary>Provenance and how to reproduce</summary>
+    <p style="margin-top:8px">Rust workspace, roughly fifty commits, every one green through <code>make gate</code>: rustfmt, clippy with warnings denied, and the full test suite including in-process end-to-end runs. The target app is ours, with five doors and an oracle that counts effects independently of any arm's claim. Cells come from <code>results/campaign-5-final</code> (ours and the script, eleven tasks, five runs), <code>campaign-5-loops</code> (the loops, same commit, three runs) and <code>campaign-4-luna</code> (the second model). Reproduce with <code>make bench-ocx ARMS=D,E,B2,C PLANNER=model RUNS=5</code>, then <code>make verify</code>.</p>
   </details>
 </section>
 </div>
 
 <script>
-const CELLS = [
-{"task":"T1","arm":"B","depth":3,"runs":5,"correct":5,"samples":4,"plan":10453,"run":6055,"par":1,"src":"campaign-1"},
-{"task":"T1","arm":"B2","depth":3,"runs":5,"correct":5,"samples":4,"plan":6563,"run":3486,"par":1,"src":"campaign-2a"},
-{"task":"T1","arm":"C","depth":3,"runs":5,"correct":5,"samples":4,"plan":7567,"run":3888,"par":1,"src":"campaign-2a"},
-{"task":"T1","arm":"D","depth":3,"runs":5,"correct":5,"samples":1,"plan":2457,"run":64,"par":1,"src":"campaign-2a"},
-{"task":"T1","arm":"E","depth":3,"runs":5,"correct":5,"samples":0,"plan":0,"run":59,"par":1,"src":"campaign-2a"},
-{"task":"T2","arm":"B","depth":3,"runs":5,"correct":5,"samples":22,"plan":48767,"run":44818,"par":1,"src":"campaign-1"},
-{"task":"T2","arm":"B2","depth":3,"runs":5,"correct":5,"samples":4,"plan":14220,"run":8093,"par":11,"src":"campaign-2a"},
-{"task":"T2","arm":"C","depth":3,"runs":5,"correct":5,"samples":6,"plan":24328,"run":18520,"par":10,"src":"campaign-2a"},
-{"task":"T2","arm":"D","depth":3,"runs":5,"correct":5,"samples":1,"plan":6247,"run":67,"par":10,"src":"campaign-2a"},
-{"task":"T2","arm":"E","depth":3,"runs":5,"correct":5,"samples":0,"plan":0,"run":60,"par":10,"src":"campaign-2a"},
-{"task":"T3","arm":"B","depth":4,"runs":5,"correct":5,"samples":11,"plan":21981,"run":18005,"par":1,"src":"campaign-1"},
-{"task":"T3","arm":"B2","depth":4,"runs":5,"correct":4,"samples":5,"plan":9830,"run":6333,"par":3,"src":"campaign-2a"},
-{"task":"T3","arm":"C","depth":4,"runs":5,"correct":4,"samples":5,"plan":19334,"run":14360,"par":3,"src":"campaign-2a"},
-{"task":"T3","arm":"D","depth":4,"runs":5,"correct":4,"samples":1,"plan":4927,"run":83,"par":3,"src":"campaign-2a"},
-{"task":"T3","arm":"E","depth":4,"runs":5,"correct":5,"samples":0,"plan":0,"run":83,"par":3,"src":"campaign-2a"},
-{"task":"T4","arm":"B","depth":5,"runs":5,"correct":0,"samples":60,"plan":77651,"run":75030,"par":1,"src":"campaign-1 (void: app bug)"},
-{"task":"T4","arm":"B2","depth":5,"runs":5,"correct":5,"samples":5,"plan":9446,"run":5499,"par":1,"src":"campaign-2c-wait"},
-{"task":"T4","arm":"C","depth":5,"runs":5,"correct":2,"samples":4,"plan":10346,"run":5861,"par":1,"src":"campaign-2c-wait"},
-{"task":"T4","arm":"D","depth":5,"runs":5,"correct":5,"samples":1,"plan":3503,"run":658,"par":1,"src":"campaign-2a"},
-{"task":"T4","arm":"E","depth":5,"runs":5,"correct":5,"samples":0,"plan":0,"run":694,"par":1,"src":"campaign-2a"},
-{"task":"T5","arm":"B","depth":3,"runs":5,"correct":5,"samples":24,"plan":44654,"run":40501,"par":1,"src":"campaign-1"},
-{"task":"T5","arm":"B2","depth":3,"runs":5,"correct":5,"samples":5,"plan":17583,"run":11474,"par":10,"src":"campaign-2a"},
-{"task":"T5","arm":"C","depth":3,"runs":5,"correct":5,"samples":7,"plan":34125,"run":25231,"par":10,"src":"campaign-2a"},
-{"task":"T5","arm":"D","depth":3,"runs":5,"correct":5,"samples":1,"plan":6709,"run":99,"par":10,"src":"campaign-2a"},
-{"task":"T5","arm":"E","depth":3,"runs":5,"correct":5,"samples":0,"plan":0,"run":102,"par":10,"src":"campaign-2a"},
-{"task":"T6","arm":"B","depth":3,"runs":5,"correct":5,"samples":2,"plan":5695,"run":1,"par":1,"src":"campaign-1"},
-{"task":"T6","arm":"B2","depth":3,"runs":5,"correct":5,"samples":2,"plan":5851,"run":10,"par":1,"src":"campaign-2a"},
-{"task":"T6","arm":"C","depth":3,"runs":5,"correct":5,"samples":2,"plan":5156,"run":6,"par":1,"src":"campaign-2a"},
-{"task":"T6","arm":"D","depth":3,"runs":5,"correct":4,"samples":2,"plan":6294,"run":2531,"par":1,"src":"campaign-2a"},
-{"task":"T6","arm":"E","depth":3,"runs":5,"correct":5,"samples":0,"plan":0,"run":2,"par":1,"src":"campaign-2a"},
-{"task":"T8","arm":"B2","depth":6,"runs":2,"correct":1,"samples":5.5,"plan":10811.5,"run":7307.5,"par":3,"src":"campaign-2c-deep"},
-{"task":"T8","arm":"C","depth":6,"runs":2,"correct":2,"samples":6,"plan":11923.5,"run":7672,"par":3,"src":"campaign-2c-deep"},
-{"task":"T8","arm":"D","depth":6,"runs":5,"correct":5,"samples":1,"plan":5910,"run":688,"par":3,"src":"campaign-2b-ours"},
-{"task":"T8","arm":"E","depth":6,"runs":5,"correct":5,"samples":0,"plan":0,"run":722,"par":3,"src":"campaign-2b-ours"},
-{"task":"T9","arm":"B2","depth":6,"runs":2,"correct":2,"samples":6,"plan":29848.5,"run":23599.5,"par":10.5,"src":"campaign-2c-deep"},
-{"task":"T9","arm":"C","depth":6,"runs":2,"correct":2,"samples":10,"plan":32963,"run":27089,"par":10,"src":"campaign-2c-deep"},
-{"task":"T9","arm":"D","depth":6,"runs":5,"correct":5,"samples":1,"plan":11152,"run":710,"par":10,"src":"campaign-2b-ours"},
-{"task":"T9","arm":"E","depth":6,"runs":5,"correct":5,"samples":0,"plan":0,"run":727,"par":10,"src":"campaign-2b-ours"},
-{"task":"T10","arm":"B2","depth":6,"runs":2,"correct":2,"samples":6,"plan":28160,"run":19903.5,"par":20,"src":"campaign-2c-deep"},
-{"task":"T10","arm":"C","depth":6,"runs":2,"correct":2,"samples":11.5,"plan":42717,"run":37612.5,"par":10,"src":"campaign-2c-deep"},
-{"task":"T10","arm":"D","depth":6,"runs":5,"correct":4,"samples":1,"plan":13451,"run":699,"par":11,"src":"campaign-2b-ours"},
-{"task":"T10","arm":"E","depth":6,"runs":5,"correct":5,"samples":0,"plan":0,"run":751,"par":10,"src":"campaign-2b-ours"},
-{"task":"T11","arm":"B2","depth":3,"runs":2,"correct":2,"samples":14,"plan":197691,"run":192328,"par":50,"src":"campaign-2b-loops"},
-{"task":"T11","arm":"C","depth":3,"runs":2,"correct":0,"samples":30,"plan":274985,"run":216472,"par":50,"src":"campaign-2b-loops"},
-{"task":"T11","arm":"D","depth":3,"runs":5,"correct":5,"samples":1,"plan":111532,"run":1179,"par":16,"src":"campaign-2b-ours"},
-{"task":"T11","arm":"E","depth":3,"runs":5,"correct":5,"samples":0,"plan":0,"run":291,"par":300,"src":"campaign-2b-ours"},
-{"task":"T12","arm":"B2","depth":3,"runs":3,"correct":3,"samples":5,"plan":23350,"run":14260,"par":8,"src":"campaign-2d-ratelimit"},
-{"task":"T12","arm":"C","depth":3,"runs":3,"correct":3,"samples":7,"plan":34100,"run":27694,"par":8,"src":"campaign-2d-ratelimit"},
-{"task":"T12","arm":"D","depth":3,"runs":3,"correct":3,"samples":1,"plan":6433,"run":2058,"par":10,"src":"campaign-2d-ratelimit"},
-{"task":"T12","arm":"E","depth":3,"runs":3,"correct":3,"samples":0,"plan":0,"run":2059,"par":10,"src":"campaign-2d-ratelimit"}
-];
-const TITLES = {T1:"one invoice",T2:"ten invoices",T3:"three + report",T4:"wait for payment",T5:"ten, 30% failures",T6:"two Acmes",T8:"3 chains, 6 deep",T9:"10 chains, 6 deep",T10:"10 chains + 11 reports",T11:"300 from one want",T12:"ten under a rate limit"};
-const SHORT = {T1:"one",T2:"ten",T3:"3 + report",T4:"wait",T5:"ten, 30% fail",T6:"two Acmes",T8:"3 × 6 deep",T9:"10 × 6 deep",T10:"10 × 6 + reports",T11:"300 rows",T12:"ten, 8 writes/s"};
-const ORDER = ["T1","T2","T5","T12","T6","T3","T4","T8","T9","T10","T11"];
-const ARMS = {D:{c:"var(--s1)",l:"D ours"},B2:{c:"var(--s2)",l:"B2 parallel MCP"},C:{c:"var(--s3)",l:"C WebMCP"},B:{c:"var(--s4)",l:"B sequential MCP"}};
-const NS = "http://www.w3.org/2000/svg";
-function el(n,a,t){const e=document.createElementNS(NS,n);for(const k in a)e.setAttribute(k,a[k]);if(t!=null)e.textContent=t;return e;}
-function tipFor(fig){const t=fig.querySelector('.tip');return{show(x,y,html){t.innerHTML=html;const r=fig.getBoundingClientRect();t.style.left=(x-r.left)+'px';t.style.top=(y-r.top)+'px';t.classList.add('on');},hide(){t.classList.remove('on');}};}
+const HEAD=[{"model":"grok-4.6","task":"T2","arm":"D","runs":5,"correct":5,"samples":1,"plan":3461,"run":57,"par":10},{"model":"grok-4.6","task":"T2","arm":"B2","runs":3,"correct":3,"samples":4,"plan":15579,"run":9348,"par":10},{"model":"grok-4.6","task":"T2","arm":"C","runs":3,"correct":3,"samples":7,"plan":31924,"run":24932,"par":10},{"model":"gpt-5.6-luna","task":"T2","arm":"D","runs":3,"correct":3,"samples":1,"plan":2441,"run":56,"par":10},{"model":"gpt-5.6-luna","task":"T2","arm":"B2","runs":3,"correct":3,"samples":4,"plan":12582,"run":8239,"par":10},{"model":"grok-4.6","task":"T4","arm":"D","runs":5,"correct":5,"samples":1,"plan":3407,"run":664,"par":1},{"model":"grok-4.6","task":"T4","arm":"B2","runs":3,"correct":3,"samples":5,"plan":11040,"run":6448,"par":1},{"model":"grok-4.6","task":"T4","arm":"C","runs":3,"correct":3,"samples":5,"plan":11216,"run":7209,"par":1},{"model":"gpt-5.6-luna","task":"T4","arm":"D","runs":3,"correct":3,"samples":1,"plan":3987,"run":672,"par":1},{"model":"gpt-5.6-luna","task":"T4","arm":"B2","runs":3,"correct":3,"samples":5,"plan":7835,"run":5072,"par":1},{"model":"grok-4.6","task":"T9","arm":"D","runs":5,"correct":5,"samples":1,"plan":3888,"run":693,"par":10},{"model":"grok-4.6","task":"T9","arm":"B2","runs":3,"correct":3,"samples":6,"plan":21063,"run":14880,"par":10},{"model":"grok-4.6","task":"T9","arm":"C","runs":3,"correct":3,"samples":9,"plan":40344,"run":34214,"par":10},{"model":"gpt-5.6-luna","task":"T9","arm":"D","runs":3,"correct":3,"samples":2,"plan":11113,"run":687,"par":10},{"model":"gpt-5.6-luna","task":"T9","arm":"B2","runs":3,"correct":2,"samples":6,"plan":22343,"run":17306,"par":11},{"model":"grok-4.6","task":"T11","arm":"D","runs":5,"correct":5,"samples":1,"plan":3189,"run":289,"par":64},{"model":"grok-4.6","task":"T11","arm":"B2","runs":3,"correct":3,"samples":14,"plan":201637,"run":196161,"par":50},{"model":"grok-4.6","task":"T11","arm":"C","runs":3,"correct":0,"samples":40,"plan":200657,"run":201776,"par":50},{"model":"gpt-5.6-luna","task":"T11","arm":"D","runs":3,"correct":3,"samples":1,"plan":3071,"run":300,"par":64},{"model":"gpt-5.6-luna","task":"T11","arm":"B2","runs":3,"correct":3,"samples":14,"plan":222847,"run":216143,"par":50}];
+const OURS=[{"task":"T1","runs":5,"correct":5,"samples":1,"plan":2300,"run":55,"par":1,"e_run":56},{"task":"T2","runs":5,"correct":5,"samples":1,"plan":3461,"run":57,"par":10,"e_run":58},{"task":"T3","runs":5,"correct":5,"samples":1,"plan":8526,"run":84,"par":3,"e_run":84},{"task":"T4","runs":5,"correct":5,"samples":1,"plan":3407,"run":664,"par":1,"e_run":696},{"task":"T5","runs":5,"correct":5,"samples":1,"plan":3625,"run":99,"par":10,"e_run":112},{"task":"T6","runs":5,"correct":5,"samples":1,"plan":4033,"run":56,"par":1,"e_run":1},{"task":"T8","runs":5,"correct":5,"samples":2,"plan":14481,"run":682,"par":3,"e_run":754},{"task":"T9","runs":5,"correct":5,"samples":1,"plan":3888,"run":693,"par":10,"e_run":733},{"task":"T10","runs":5,"correct":5,"samples":1,"plan":4450,"run":693,"par":11,"e_run":770},{"task":"T11","runs":5,"correct":5,"samples":1,"plan":3189,"run":289,"par":64,"e_run":210},{"task":"T12","runs":5,"correct":5,"samples":1,"plan":3074,"run":2080,"par":10,"e_run":2085}];
+const TITLE={T1:"one invoice",T2:"ten invoices",T3:"three invoices and a report",T4:"send the receipt once payment lands",T5:"ten invoices, a third of sends fail",T6:"two customers share a name",T8:"three chains, six levels deep",T9:"ten chains, six levels deep",T10:"ten chains and eleven reports",T11:"three hundred invoices from one want",T12:"ten invoices under a write limit"};
+const SHORT={T2:"ten invoices",T4:"wait for payment",T9:"ten chains, 6 deep",T11:"300 from one want"};
+const TESTS={T1:"a plan with nothing to parallelise",T2:"fan-out over disjoint writes",T3:"a join: the report waits for every send",T4:"waiting is an edge, not a poll",T5:"retries reuse the key, so nothing sends twice",T6:"an ambiguity the plan declares how to resolve",T8:"a six-level chain per lane",T9:"ten six-level chains at once",T10:"a report per lane and one over all of them",T11:"one want expands to three hundred rows",T12:"the server says when to retry, and it is obeyed"};
+const DEPTH={T1:3,T2:3,T3:4,T4:5,T5:3,T6:3,T8:6,T9:6,T10:6,T11:3,T12:3};
+const ARM={D:{c:"var(--s1)",l:"D ours"},B2:{c:"var(--s2)",l:"B2 parallel MCP"},C:{c:"var(--s3)",l:"C WebMCP"}};
+const NS="http://www.w3.org/2000/svg";
+const el=(n,a,t)=>{const e=document.createElementNS(NS,n);for(const k in a)e.setAttribute(k,a[k]);if(t!=null)e.textContent=t;return e;};
+const tipFor=f=>{const t=f.querySelector('.tip');return{show(x,y,h){t.innerHTML=h;const r=f.getBoundingClientRect();t.style.left=(x-r.left)+'px';t.style.top=(y-r.top)+'px';t.classList.add('on');},hide(){t.classList.remove('on');}};};
+const ms=v=>v>=10000?(v/1000).toFixed(0)+' s':v>=1000?(v/1000).toFixed(1)+' s':v+' ms';
 
 (function samples(){
-  const fig=document.getElementById('fig-samples'), svg=fig.querySelector('svg'), tip=tipFor(fig);
-  const W=900,H=360,L=56,R=20,T=18,B=64, iw=W-L-R, ih=H-T-B;
-  const ymax=60, sy=v=>T+ih-(Math.sqrt(v)/Math.sqrt(ymax))*ih;
-  const step=iw/ORDER.length, sx=(i,k)=>L+step*(i+0.5)+(k-1.5)*10;
-  [1,2,4,8,16,30,60].forEach(v=>{svg.appendChild(el('line',{x1:L,x2:W-R,y1:sy(v),y2:sy(v),class:'grid'}));svg.appendChild(el('text',{x:L-8,y:sy(v)+4,'text-anchor':'end',class:'svgt'},String(v)));});
-  svg.appendChild(el('line',{x1:L,x2:W-R,y1:sy(0)+0.5,y2:sy(0)+0.5,class:'axis'}));
-  svg.appendChild(el('text',{x:L-8,y:sy(0)+4,'text-anchor':'end',class:'svgt'},'0'));
-  svg.appendChild(el('text',{x:L,y:T-4,class:'svgt'},'samples (median), √ scale'));
-  let lastDepth=null;
-  ORDER.forEach((t,i)=>{
-    const d=CELLS.find(c=>c.task===t).depth;
-    svg.appendChild(el('text',{x:L+step*(i+0.5),y:H-B+18,'text-anchor':'middle',class:'svgl'},t));
-    svg.appendChild(el('text',{x:L+step*(i+0.5),y:H-B+34,'text-anchor':'middle',class:'svgt'},SHORT[t]));
-    if(d!==lastDepth){svg.appendChild(el('text',{x:L+step*i+4,y:H-B+52,class:'svgt'},'depth '+d));if(i>0)svg.appendChild(el('line',{x1:L+step*i,x2:L+step*i,y1:T,y2:H-B+40,class:'axis','stroke-dasharray':'3 4'}));lastDepth=d;}
-    Object.keys(ARMS).forEach((arm,k)=>{
-      const c=CELLS.find(x=>x.task===t&&x.arm===arm); if(!c) return;
-      const x=sx(i,k), y=sy(c.samples);
-      const stem=el('line',{x1:x,x2:x,y1:sy(0),y2:y,stroke:ARMS[arm].c,'stroke-width':2,'stroke-linecap':'round',opacity:.55}); svg.appendChild(stem);
-      const dot=el('circle',{cx:x,cy:y,r:5,fill:ARMS[arm].c,stroke:'var(--sheet)','stroke-width':2}); svg.appendChild(dot);
-      if(arm==='D'||c.samples>=10) svg.appendChild(el('text',{x:x,y:y-9,'text-anchor':'middle',class:'svgl'},String(c.samples)));
-      const hit=el('rect',{x:x-6,y:T,width:12,height:ih,fill:'transparent'});
-      hit.addEventListener('mousemove',e=>tip.show(e.clientX,e.clientY,`<b>${t} · ${ARMS[arm].l}</b><br>${c.samples} samples · ${c.correct}/${c.runs} correct · ${c.par} wide`));
-      hit.addEventListener('mouseleave',tip.hide); svg.appendChild(hit);
+  const fig=document.getElementById('fig-samples'),svg=fig.querySelector('svg'),tip=tipFor(fig);
+  const tasks=["T2","T4","T9","T11"],arms=["D","B2","C"];
+  const W=900,H=330,L=56,R=20,T=22,B=70,iw=W-L-R,ih=H-T-B;
+  const ymax=40,sy=v=>T+ih-(Math.sqrt(v)/Math.sqrt(ymax))*ih;
+  const step=iw/tasks.length,bw=Math.min(46,step/(arms.length+1.4));
+  [1,2,4,8,16,40].forEach(v=>{svg.appendChild(el('line',{x1:L,x2:W-R,y1:sy(v),y2:sy(v),class:'grid'}));svg.appendChild(el('text',{x:L-8,y:sy(v)+4,'text-anchor':'end',class:'svgt'},String(v)));});
+  svg.appendChild(el('line',{x1:L,x2:W-R,y1:sy(0)+.5,y2:sy(0)+.5,class:'axis'}));
+  svg.appendChild(el('text',{x:L,y:T-6,class:'svgt'},'model calls (median), square-root scale'));
+  tasks.forEach((t,i)=>{
+    const cx=L+step*(i+.5);
+    svg.appendChild(el('text',{x:cx,y:H-B+20,'text-anchor':'middle',class:'svgl'},t));
+    svg.appendChild(el('text',{x:cx,y:H-B+36,'text-anchor':'middle',class:'svgt'},SHORT[t]));
+    svg.appendChild(el('text',{x:cx,y:H-B+52,'text-anchor':'middle',class:'svgt'},'depth '+DEPTH[t]));
+    arms.forEach((a,k)=>{
+      const c=HEAD.find(x=>x.task===t&&x.arm===a&&x.model==='grok-4.6');if(!c)return;
+      const x=cx+(k-(arms.length-1)/2)*(bw+4)-bw/2,y=sy(c.samples),h=sy(0)-y;
+      svg.appendChild(el('rect',{x:x,y:y,width:bw,height:Math.max(h,2),rx:4,fill:ARM[a].c}));
+      svg.appendChild(el('text',{x:x+bw/2,y:y-6,'text-anchor':'middle',class:'svgl'},String(c.samples)));
+      const hit=el('rect',{x:x-2,y:T,width:bw+4,height:ih,fill:'transparent'});
+      hit.addEventListener('mousemove',e=>tip.show(e.clientX,e.clientY,`<b>${t} · ${ARM[a].l}</b><br>${c.samples} model calls · ${c.correct}/${c.runs} correct<br>${ms(c.plan)} thinking · ${ms(c.run)} executing · ${c.par} wide`));
+      hit.addEventListener('mouseleave',tip.hide);svg.appendChild(hit);
     });
   });
 })();
 
-(function clock(){
-  const fig=document.getElementById('fig-clock'), svg=fig.querySelector('svg'), tip=tipFor(fig);
-  const rows=ORDER.map(t=>CELLS.find(c=>c.task===t&&c.arm==='D'));
-  const W=900,H=380,L=150,R=90,T=18,B=30, iw=W-L-R, ih=H-T-B, bh=ih/rows.length;
-  const xmax=16000, sx=v=>L+Math.min(v,xmax)/xmax*iw;
-  [0,4000,8000,12000,16000].forEach(v=>{svg.appendChild(el('line',{x1:sx(v),x2:sx(v),y1:T,y2:H-B,class:'grid'}));svg.appendChild(el('text',{x:sx(v),y:H-B+16,'text-anchor':'middle',class:'svgt'},(v/1000)+' s'));});
-  svg.appendChild(el('line',{x1:sx(0)+0.5,x2:sx(0)+0.5,y1:T,y2:H-B,class:'axis'}));
-  rows.forEach((c,i)=>{
-    const y=T+bh*i+bh*0.22, h=bh*0.56;
-    svg.appendChild(el('text',{x:L-10,y:y+h/2+4,'text-anchor':'end',class:'svgl'},c.task));
-    svg.appendChild(el('text',{x:L-40,y:y+h/2+4,'text-anchor':'end',class:'svgt'},TITLES[c.task]));
-    const pw=sx(c.plan)-sx(0), rw=Math.max(2,sx(c.run)-sx(0));
-    const plan=el('rect',{x:sx(0),y:y,width:pw,height:h,fill:'var(--s1l)',rx:0}); svg.appendChild(plan);
-    const run=el('rect',{x:sx(0)+pw+2,y:y,width:Math.min(rw,W-R-sx(0)-pw-2),height:h,fill:'var(--s1b)',rx:2}); svg.appendChild(run);
-    const label=c.plan>xmax?`${(c.plan/1000).toFixed(0)} s planner ▸`:`${(c.plan/1000).toFixed(1)} s + ${c.run} ms`;
-    svg.appendChild(el('text',{x:Math.min(sx(0)+pw+rw+8,W-R+4),y:y+h/2+4,class:'svgl'},label));
-    const hit=el('rect',{x:L,y:T+bh*i,width:iw,height:bh,fill:'transparent'});
-    hit.addEventListener('mousemove',e=>tip.show(e.clientX,e.clientY,`<b>${c.task} · D ours</b><br>planner ${c.plan} ms · kitchen ${c.run} ms · ${c.samples} sample`));
-    hit.addEventListener('mouseleave',tip.hide); svg.appendChild(hit);
+(function models(){
+  const fig=document.getElementById('fig-models'),svg=fig.querySelector('svg'),tip=tipFor(fig);
+  const tasks=["T2","T4","T9","T11"],models=["grok-4.6","gpt-5.6-luna"];
+  const W=900,H=260,L=56,R=20,T=22,B=64,iw=W-L-R,ih=H-T-B;
+  const ymax=16,sy=v=>T+ih-(Math.sqrt(v)/Math.sqrt(ymax))*ih;
+  const step=iw/tasks.length,bw=14;
+  [1,2,4,8,14].forEach(v=>{svg.appendChild(el('line',{x1:L,x2:W-R,y1:sy(v),y2:sy(v),class:'grid'}));svg.appendChild(el('text',{x:L-8,y:sy(v)+4,'text-anchor':'end',class:'svgt'},String(v)));});
+  svg.appendChild(el('line',{x1:L,x2:W-R,y1:sy(0)+.5,y2:sy(0)+.5,class:'axis'}));
+  svg.appendChild(el('text',{x:L,y:T-6,class:'svgt'},'model calls (median)'));
+  tasks.forEach((t,i)=>{
+    const cx=L+step*(i+.5);
+    svg.appendChild(el('text',{x:cx,y:H-B+20,'text-anchor':'middle',class:'svgl'},t));
+    svg.appendChild(el('text',{x:cx,y:H-B+36,'text-anchor':'middle',class:'svgt'},SHORT[t]));
+    let slot=0;
+    models.forEach(m=>{
+      ["D","B2"].forEach(a=>{
+        const c=HEAD.find(x=>x.task===t&&x.arm===a&&x.model===m);if(!c)return;
+        const x=cx+(slot-1.5)*(bw+6)-bw/2,y=sy(c.samples);slot++;
+        svg.appendChild(el('rect',{x:x,y:y,width:bw,height:Math.max(sy(0)-y,2),rx:3,fill:ARM[a].c,opacity:m==='grok-4.6'?1:.62}));
+        svg.appendChild(el('text',{x:x+bw/2,y:y-5,'text-anchor':'middle',class:'svgl'},String(c.samples)));
+        const hit=el('rect',{x:x-3,y:T,width:bw+6,height:ih,fill:'transparent'});
+        hit.addEventListener('mousemove',e=>tip.show(e.clientX,e.clientY,`<b>${t} · ${ARM[a].l}</b><br>${m}<br>${c.samples} model calls · ${c.correct}/${c.runs} correct`));
+        hit.addEventListener('mouseleave',tip.hide);svg.appendChild(hit);
+      });
+    });
+    svg.appendChild(el('text',{x:cx-(bw+6),y:H-B+52,'text-anchor':'middle',class:'svgt'},'grok'));
+    svg.appendChild(el('text',{x:cx+(bw+6),y:H-B+52,'text-anchor':'middle',class:'svgt'},'luna'));
   });
 })();
 
-(function table(){
-  const tb=document.querySelector('#cells tbody');
-  ORDER.forEach(t=>{["D","E","B2","C","B"].forEach(arm=>{
-    const c=CELLS.find(x=>x.task===t&&x.arm===arm); if(!c) return;
+(function clock(){
+  const fig=document.getElementById('fig-clock'),svg=fig.querySelector('svg'),tip=tipFor(fig);
+  const W=900,H=400,L=210,R=100,T=18,B=30,iw=W-L-R,ih=H-T-B,bh=ih/OURS.length;
+  const xmax=16000,sx=v=>L+Math.min(v,xmax)/xmax*iw;
+  [0,4000,8000,12000,16000].forEach(v=>{svg.appendChild(el('line',{x1:sx(v),x2:sx(v),y1:T,y2:H-B,class:'grid'}));svg.appendChild(el('text',{x:sx(v),y:H-B+16,'text-anchor':'middle',class:'svgt'},(v/1000)+' s'));});
+  svg.appendChild(el('line',{x1:sx(0)+.5,x2:sx(0)+.5,y1:T,y2:H-B,class:'axis'}));
+  OURS.forEach((c,i)=>{
+    const y=T+bh*i+bh*.22,h=bh*.56;
+    svg.appendChild(el('text',{x:L-10,y:y+h/2+4,'text-anchor':'end',class:'svgl'},c.task));
+    svg.appendChild(el('text',{x:L-40,y:y+h/2+4,'text-anchor':'end',class:'svgt'},SHORT[c.task]||TITLE[c.task]));
+    const pw=sx(c.plan)-sx(0),rw=Math.max(3,sx(c.run)-sx(0));
+    svg.appendChild(el('rect',{x:sx(0),y:y,width:pw,height:h,fill:'var(--s1l)'}));
+    svg.appendChild(el('rect',{x:sx(0)+pw+2,y:y,width:Math.min(rw,W-R-sx(0)-pw-2),height:h,rx:2,fill:'var(--s1b)'}));
+    svg.appendChild(el('text',{x:Math.min(sx(0)+pw+rw+10,W-R+6),y:y+h/2+4,class:'svgl'},`${ms(c.plan)} + ${ms(c.run)}`));
+    const hit=el('rect',{x:L,y:T+bh*i,width:iw,height:bh,fill:'transparent'});
+    hit.addEventListener('mousemove',e=>tip.show(e.clientX,e.clientY,`<b>${c.task} · ${TITLE[c.task]}</b><br>${ms(c.plan)} thinking · ${ms(c.run)} executing<br>${c.samples} model call${c.samples>1?'s':''} · ${c.par} wide`));
+    hit.addEventListener('mouseleave',tip.hide);svg.appendChild(hit);
+  });
+})();
+
+(function tables(){
+  const hb=document.querySelector('#head tbody');
+  ["T2","T4","T9","T11"].forEach(t=>{
+    [["D","grok-4.6"],["B2","grok-4.6"],["C","grok-4.6"],["D","gpt-5.6-luna"],["B2","gpt-5.6-luna"]].forEach(([a,m])=>{
+      const c=HEAD.find(x=>x.task===t&&x.arm===a&&x.model===m);if(!c)return;
+      const tr=document.createElement('tr');if(a==='D')tr.className='us';
+      const ok=c.correct===c.runs?'ok':(c.correct===0?'bad':'');
+      tr.innerHTML=`<td>${t} <span style="color:var(--ink-3)">${SHORT[t]}</span></td><td>${DEPTH[t]}</td><td><b>${ARM[a].l}</b></td><td style="color:var(--ink-3)">${m}</td><td class="${ok}">${c.correct}/${c.runs}</td><td><b>${c.samples}</b></td><td>${ms(c.plan)}</td><td>${ms(c.run)}</td><td>${c.par}</td>`;
+      hb.appendChild(tr);
+    });
+  });
+  const ob=document.querySelector('#ours tbody');
+  OURS.forEach(c=>{
     const tr=document.createElement('tr');
-    const ok=c.correct===c.runs?'ok':(c.correct===0?'bad':'');
-    tr.innerHTML=`<td>${t} <span style="color:var(--ink-3)">${TITLES[t]}</span></td><td>${c.depth}</td><td><b>${arm}</b></td><td class="${ok}">${c.correct}/${c.runs}</td><td>${c.samples}</td><td>${c.plan}</td><td>${c.run}</td><td>${c.par}</td><td style="color:var(--ink-3)">${c.src}</td>`;
-    tb.appendChild(tr);
-  });});
+    tr.innerHTML=`<td>${c.task} <span style="color:var(--ink-3)">${TITLE[c.task]}</span></td><td style="color:var(--ink-2)">${TESTS[c.task]}</td><td class="ok">${c.correct}/${c.runs}</td><td><b>${c.samples}</b></td><td>${ms(c.plan)}</td><td>${ms(c.run)}</td><td>${c.par}</td><td style="color:var(--ink-3)">${ms(c.e_run)}</td>`;
+    ob.appendChild(tr);
+  });
 })();
 </script>

@@ -5,11 +5,11 @@ use std::sync::{Arc, Mutex};
 use app::domain::World as AppWorld;
 use app::{router, AppState};
 use async_trait::async_trait;
-use rwmcp::planner::expand_selectors;
-use rwmcp::planner::{plan_with_lint, Sampler};
 use bench::tasks::Task;
 use rwmcp::intent::Intent;
 use rwmcp::ledger::{Ledger, Sample, SampleKind};
+use rwmcp::planner::expand_selectors;
+use rwmcp::planner::{plan_with_lint, Sampler};
 use rwmcp::{compile, world_from, CompileOptions};
 use serde_json::{json, Value};
 use tokio::sync::broadcast;
@@ -70,7 +70,10 @@ async fn a_selector_from_the_planner_passes_lint_in_one_sample() {
     let world = world_from(&base).await.unwrap();
     let task = Task::load(std::path::Path::new(concat!(env!("CARGO_MANIFEST_DIR"), "/../../tasks/T11.toml"))).unwrap();
     let mut ledger = Ledger::new();
-    let intent = plan_with_lint(&task.goal, &task.constraints, &world, "", &Selector, &mut ledger, &CompileOptions::default(), Some(&base)).await.unwrap();
+    let intent =
+        plan_with_lint(&rwmcp::planner::Ask::with(&task.goal, &task.constraints), &world, "", &Selector, &mut ledger, &CompileOptions::default(), Some(&base))
+            .await
+            .unwrap();
     assert_eq!(ledger.sample_count(), 1, "the selector is expanded before lint, so no re-ask");
     assert!(intent.wants[0].contains("customer(name='Customer 300')"));
     let plan = compile(&intent, &Arc::new(world), &CompileOptions::default()).unwrap();

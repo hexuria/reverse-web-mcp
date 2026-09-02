@@ -1,4 +1,4 @@
-//! The planner: one model call turns a goal into an intent graph. Never actions.
+//! The planner: one model call turns a ask.goal into an intent graph. Never actions.
 //!
 //! This is the only part of the engine that talks to a model, and it is kept behind the
 //! `Sampler` trait so the lint loop and the fork answer are testable without a network.
@@ -8,13 +8,12 @@
 
 use std::time::Duration;
 
-use async_trait::async_trait;
 use crate::intent::{lint, Constraints, Intent, IntentFork, LintError};
 use crate::ledger::{now_us, Ledger, Sample, SampleKind};
 use crate::world::World;
 use crate::CompileOptions;
+use async_trait::async_trait;
 use serde_json::{json, Value};
-
 
 #[derive(Clone)]
 pub struct ModelClient {
@@ -148,6 +147,22 @@ pub fn usage(resp: &Value) -> (u64, u64) {
     (read("input_tokens") + read("cache_read_input_tokens") + read("cache_creation_input_tokens"), read("output_tokens"))
 }
 
+/// What the planner is being asked for: the sentence, and the limits on how it may be met.
+#[derive(Clone, Debug, Default)]
+pub struct Ask {
+    pub goal: String,
+    pub constraints: Constraints,
+}
+
+impl Ask {
+    pub fn new(goal: impl Into<String>) -> Ask {
+        Ask { goal: goal.into(), constraints: Constraints::default() }
+    }
+
+    pub fn with(goal: impl Into<String>, constraints: &Constraints) -> Ask {
+        Ask { goal: goal.into(), constraints: constraints.clone() }
+    }
+}
 
 /// Anything that can answer one Messages-shaped request and record it as a sample.
 #[async_trait]
@@ -173,7 +188,7 @@ pub async fn world_facts(base: &str) -> anyhow::Result<String> {
 fn intent_tool() -> Value {
     json!({
         "name": "emit_intent",
-        "description": "Emit the intent graph for the goal.",
+        "description": "Emit the intent graph for the ask.goal.",
         "input_schema": {
             "type": "object",
             "properties": {
@@ -187,7 +202,7 @@ fn intent_tool() -> Value {
     })
 }
 
-fn intent_from(resp: &Value, goal: &str, constraints: &Constraints) -> anyhow::Result<Intent> {
+fn intent_from(resp: &Value, ask: &Ask) -> anyhow::Result<Intent> {
     let content = resp.get("content").cloned().unwrap_or(json!([]));
     let call = content.as_array().and_then(|a| a.iter().find(|b| b["type"] == "tool_use" && b["name"] == "emit_intent")).cloned();
     let input = match call {
@@ -218,7 +233,7 @@ fn intent_from(resp: &Value, goal: &str, constraints: &Constraints) -> anyhow::R
                 .collect()
         })
         .unwrap_or_default();
-    Ok(Intent { goal: goal.to_string(), wants, constraints: constraints.clone(), forks })
+    Ok(Intent { goal: ask.goal.clone(), wants, constraints: ask.constraints.clone(), forks })
 }
 
 /// Plan, lint, and if the intent is wrong hand the errors back exactly once.
@@ -226,8 +241,7 @@ fn intent_from(resp: &Value, goal: &str, constraints: &Constraints) -> anyhow::R
 /// Plan, expand selectors by reading the app, lint, and hand the errors back up to twice. Every
 /// attempt is a counted sample; the expansion is a read.
 pub async fn plan_with_lint(
-    goal: &str,
-    constraints: &Constraints,
+    ask: &Ask,
     world: &World,
     facts: &str,
     sampler: &dyn Sampler,
@@ -235,7 +249,7 @@ pub async fn plan_with_lint(
     opts: &CompileOptions,
     base: Option<&str>,
 ) -> anyhow::Result<Intent> {
-    let mut intent = plan_intent(goal, constraints, world, facts, sampler, ledger).await?;
+    let mut intent = plan_intent(ask, world, facts, sampler, ledger).await?;
     for _ in 0..2 {
         if let Some(b) = base {
             intent = expand_selectors(&intent, b).await?;
@@ -245,7 +259,7 @@ pub async fn plan_with_lint(
             return Ok(intent);
         }
         ledger.notes.push(json!({"lint": errs.iter().map(|e| e.to_string()).collect::<Vec<_>>(), "wants": intent.wants}));
-        intent = replan(goal, constraints, world, facts, &intent, &errs, sampler, ledger).await?;
+        intent = replan(ask, world, facts, &intent, &errs, sampler, ledger).await?;
     }
     if let Some(b) = base {
         intent = expand_selectors(&intent, b).await?;
@@ -259,8 +273,7 @@ pub async fn plan_with_lint(
 }
 
 async fn replan(
-    goal: &str,
-    constraints: &Constraints,
+    ask: &Ask,
     world: &World,
     facts: &str,
     prior: &Intent,
@@ -273,7 +286,7 @@ async fn replan(
         "World model:\n{}\nWorld facts (read just now):\n{}\nGoal: {}\n\nYour previous intent was:\n{}\n\nIt was rejected:\n{}\n\nEmit a corrected intent graph with emit_intent.",
         world.summary(),
         facts,
-        goal,
+        ask.goal,
         prior.wants.iter().map(|w| format!("  {w}")).collect::<Vec<_>>().join("\n"),
         listed
     );
@@ -284,7 +297,7 @@ async fn replan(
         "messages": [{"role": "user", "content": user}],
     });
     let resp = sampler.sample(ledger, SampleKind::Lint, body).await?;
-    intent_or_empty(&resp, goal, constraints, ledger)
+    intent_or_empty(&resp, ask, ledger)
 }
 
 const PLANNER_SYSTEM: &str = "You are the planner for an execution engine. You never emit actions. You emit an intent graph: \
@@ -309,7 +322,7 @@ Rules:\n\
 - each(...) fans a want out, one per element. all(X) collects into one: \
   report(invoices=[all(invoice(customer=each(customer())))]) is ONE report over every invoice, while \
   report(invoices=[invoice(customer=each(customer()))]) is ONE REPORT PER invoice. Choose deliberately.\n\
-- If a name in the goal matches more than one entity in the facts, still refer to it by name and declare \
+- If a name in the ask.goal matches more than one entity in the facts, still refer to it by name and declare \
   a fork: {when: 'result.count != 1', ask: '...', default: 'lowest_id'}. With a default the engine resolves it \
   itself; without one it stops and asks you. Do not ask now and do not leave wants out.\n\n\
 Example goal: Invoice Acme and Globex, send both, then one report over both.\n\
@@ -334,13 +347,13 @@ Example wants:\n\
   invoice(customer=customer(name='Acme')).receipt_sent=true\n\n\
 Reply with the emit_intent tool.";
 
-/// One sample: goal + world summary + facts → Intent. The only model call on the happy path.
-pub async fn plan_intent(goal: &str, constraints: &Constraints, world: &World, facts: &str, sampler: &dyn Sampler, ledger: &mut Ledger) -> anyhow::Result<Intent> {
+/// One sample: ask.goal + world summary + facts → Intent. The only model call on the happy path.
+pub async fn plan_intent(ask: &Ask, world: &World, facts: &str, sampler: &dyn Sampler, ledger: &mut Ledger) -> anyhow::Result<Intent> {
     let user = format!(
         "World model:\n{}\nWorld facts (read just now):\n{}\nGoal: {}\n\nEmit the intent graph now with emit_intent.",
         world.summary(),
         facts,
-        goal
+        ask.goal
     );
     let body = json!({
         "max_tokens": 4096,
@@ -349,17 +362,17 @@ pub async fn plan_intent(goal: &str, constraints: &Constraints, world: &World, f
         "messages": [{"role": "user", "content": user}],
     });
     let resp = sampler.sample(ledger, SampleKind::Plan, body).await?;
-    intent_or_empty(&resp, goal, constraints, ledger)
+    intent_or_empty(&resp, ask, ledger)
 }
 
 /// An unparseable reply is an empty intent, which lint rejects and the loop re-asks. The raw
 /// reply is kept as a note.
-fn intent_or_empty(resp: &Value, goal: &str, constraints: &Constraints, ledger: &mut Ledger) -> anyhow::Result<Intent> {
-    match intent_from(resp, goal, constraints) {
+fn intent_or_empty(resp: &Value, ask: &Ask, ledger: &mut Ledger) -> anyhow::Result<Intent> {
+    match intent_from(resp, ask) {
         Ok(i) => Ok(i),
         Err(e) => {
             ledger.notes.push(json!({"unparseable": e.to_string(), "content": resp.get("content").cloned().unwrap_or(Value::Null)}));
-            Ok(Intent { goal: goal.to_string(), constraints: constraints.clone(), ..Default::default() })
+            Ok(Intent { goal: ask.goal.clone(), constraints: ask.constraints.clone(), ..Default::default() })
         }
     }
 }
@@ -373,8 +386,7 @@ pub struct ForkQuestion {
 /// The planner answers a fork: it rewrites only the wants about the ambiguous entity, naming
 /// the chosen one by id, and leaves every other want byte-identical so their keys survive.
 pub async fn answer_fork(
-    goal: &str,
-    constraints: &Constraints,
+    ask: &Ask,
     world: &World,
     facts: &str,
     prior: &Intent,
@@ -382,15 +394,15 @@ pub async fn answer_fork(
     sampler: &dyn Sampler,
     ledger: &mut Ledger,
 ) -> anyhow::Result<Intent> {
-    let (ask, evidence) = (&fork.ask, &fork.evidence);
+    let (question, evidence) = (&fork.ask, &fork.evidence);
     let user = format!(
         "World model:\n{}\nWorld facts (read just now):\n{}\nGoal: {}\n\nThe plan compiled from your intent stopped with a question:\n  {}\nEvidence:\n{}\n\nYour intent was:\n{}\n\nAnswer by emitting the intent again with emit_intent. Rules: identify the chosen entity by id, e.g. customer(id=11), \
 in every want that referred to the ambiguous one; keep every other want exactly as it was, character for character; \
-if the goal gives no basis to choose, choose the lowest id and say nothing else.",
+if the ask.goal gives no basis to choose, choose the lowest id and say nothing else.",
         world.summary(),
         facts,
-        goal,
-        ask,
+        ask.goal,
+        question,
         serde_json::to_string_pretty(evidence).unwrap_or_default(),
         prior.wants.iter().map(|w| format!("  {w}")).collect::<Vec<_>>().join("\n")
     );
@@ -401,7 +413,7 @@ if the goal gives no basis to choose, choose the lowest id and say nothing else.
         "messages": [{"role": "user", "content": user}],
     });
     let resp = sampler.sample(ledger, SampleKind::ForkAnswer, body.clone()).await?;
-    let answered = intent_from(&resp, goal, constraints)?;
+    let answered = intent_from(&resp, ask)?;
     let errs = lint(&answered, world, &CompileOptions::default());
     if errs.is_empty() {
         return Ok(answered);
@@ -413,7 +425,7 @@ if the goal gives no basis to choose, choose the lowest id and say nothing else.
     let prior = body2["messages"][0]["content"].as_str().unwrap_or("").to_string();
     body2["messages"] = json!([{"role": "user", "content": format!("{prior}\n\nYour previous answer was rejected:\n{listed}\n\nAnswer again with emit_intent, keeping every unaffected want unchanged.")}]);
     let resp = sampler.sample(ledger, SampleKind::ForkAnswer, body2).await?;
-    let answered = intent_from(&resp, goal, constraints)?;
+    let answered = intent_from(&resp, ask)?;
     let errs = lint(&answered, world, &CompileOptions::default());
     if !errs.is_empty() {
         ledger.notes.push(json!({"fork_answer_rejected": errs.iter().map(|e| e.to_string()).collect::<Vec<_>>(), "wants": answered.wants}));
@@ -422,8 +434,8 @@ if the goal gives no basis to choose, choose the lowest id and say nothing else.
     Ok(answered)
 }
 
-/// A cache of planner output keyed by what the planner saw: goal, world facts, and the surfaces
-/// available. A hit means a repeat goal costs zero samples. The plan itself is recompiled, which
+/// A cache of planner output keyed by what the planner saw: ask.goal, world facts, and the surfaces
+/// available. A hit means a repeat ask.goal costs zero samples. The plan itself is recompiled, which
 /// is cheap, and content-addressed keys make the recompiled plan safe to run again.
 pub struct IntentCache {
     dir: std::path::PathBuf,
@@ -465,8 +477,7 @@ impl IntentCache {
 #[allow(clippy::too_many_arguments)]
 pub async fn plan_cached(
     cache: &IntentCache,
-    goal: &str,
-    constraints: &Constraints,
+    ask: &Ask,
     world: &World,
     facts: &str,
     sampler: &dyn Sampler,
@@ -474,11 +485,11 @@ pub async fn plan_cached(
     opts: &CompileOptions,
     base: Option<&str>,
 ) -> anyhow::Result<(Intent, bool)> {
-    if let Some(i) = cache.get(goal, facts, &opts.surfaces) {
+    if let Some(i) = cache.get(&ask.goal, facts, &opts.surfaces) {
         return Ok((i, true));
     }
-    let i = plan_with_lint(goal, constraints, world, facts, sampler, ledger, opts, base).await?;
-    cache.put(goal, facts, &opts.surfaces, &i)?;
+    let i = plan_with_lint(ask, world, facts, sampler, ledger, opts, base).await?;
+    cache.put(&ask.goal, facts, &opts.surfaces, &i)?;
     Ok((i, false))
 }
 

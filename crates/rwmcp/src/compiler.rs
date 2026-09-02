@@ -15,7 +15,8 @@ use crate::plan::{Arg, Gate, GateKind, Node, Plan};
 use crate::pred::{Pred, Val};
 use crate::world::{Op, OpKind, World};
 
-#[derive(Debug, Error)]
+#[derive(Debug, Clone, PartialEq, Error, serde::Serialize)]
+#[serde(tag = "code", content = "detail", rename_all = "snake_case")]
 pub enum CompileError {
     #[error("cannot parse want '{0}': {1}")]
     Parse(String, #[source] crate::pred::ParseError),

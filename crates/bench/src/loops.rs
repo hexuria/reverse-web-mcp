@@ -13,7 +13,7 @@ use rwmcp::ledger::{Ledger, Receipt, Recorder, SampleKind, Status};
 use rwmcp::plan::Plan;
 use serde_json::{json, Value};
 
-use rwmcp::planner::{usage, Sampler};
+use rwmcp::planner::Sampler;
 
 use crate::arms::ArmContext;
 use crate::tasks::Task;

@@ -48,7 +48,8 @@ use crate::pred::{ParseError, Pred, Val};
 use crate::world::World;
 
 /// Why an intent cannot be trusted yet. Returned to the planner once, verbatim.
-#[derive(Debug, Clone, thiserror::Error, PartialEq)]
+#[derive(Debug, Clone, thiserror::Error, PartialEq, Serialize)]
+#[serde(tag = "code", rename_all = "snake_case")]
 pub enum LintError {
     #[error("want '{want}' does not parse: {source}")]
     Unparseable { want: String, source: ParseError },
@@ -60,14 +61,56 @@ pub enum LintError {
     UnknownField { want: String, entity: String, field: String },
     #[error("want '{want}' asks for an entity that already exists and is found, never made; refer to it inside another predicate")]
     WantsAnEntityThatAlreadyExists { want: String },
-    #[error("intent cannot be compiled: {reason}")]
-    Unsatisfiable { reason: String },
+    #[error("intent cannot be compiled: {source}")]
+    Unsatisfiable {
+        #[source]
+        source: CompileError,
+    },
     #[error("intent has no wants; every goal needs at least one fact that must become true")]
     Empty,
     #[error("want '{want}' has a selector this engine cannot expand: {selector}")]
     UnexpandedSelector { want: String, selector: String },
     #[error("want '{want}' matches nothing, so it asks for no work")]
     MatchesNothing { want: String },
+}
+
+impl LintError {
+    /// A stable machine-readable name, so a caller can branch without matching on prose.
+    pub fn code(&self) -> &'static str {
+        match self {
+            LintError::Unparseable { .. } => "unparseable",
+            LintError::VariableInWant { .. } => "variable_in_want",
+            LintError::UnknownEntity { .. } => "unknown_entity",
+            LintError::UnknownField { .. } => "unknown_field",
+            LintError::WantsAnEntityThatAlreadyExists { .. } => "wants_an_entity_that_already_exists",
+            LintError::Unsatisfiable { .. } => "unsatisfiable",
+            LintError::Empty => "empty",
+            LintError::UnexpandedSelector { .. } => "unexpanded_selector",
+            LintError::MatchesNothing { .. } => "matches_nothing",
+        }
+    }
+
+    /// The want this is about, when it is about one.
+    pub fn want(&self) -> Option<&str> {
+        match self {
+            LintError::Unparseable { want, .. }
+            | LintError::VariableInWant { want }
+            | LintError::UnknownEntity { want, .. }
+            | LintError::UnknownField { want, .. }
+            | LintError::WantsAnEntityThatAlreadyExists { want }
+            | LintError::UnexpandedSelector { want, .. }
+            | LintError::MatchesNothing { want } => Some(want),
+            _ => None,
+        }
+    }
+
+    /// Byte offset into that want, when the error knows one. Enough to point a caret.
+    pub fn at(&self) -> Option<usize> {
+        match self {
+            LintError::Unparseable { source, .. } => source.at(),
+            _ => None,
+        }
+    }
 }
 
 fn has_var(v: &Val) -> bool {
@@ -157,12 +200,8 @@ pub fn lint(intent: &Intent, world: &World, opts: &CompileOptions) -> Vec<LintEr
         }
     }
     if errs.is_empty() {
-        if let Err(e) = compile(intent, world, opts) {
-            let reason = match e {
-                CompileError::Parse(w, e) => format!("{w}: {e}"),
-                other => other.to_string(),
-            };
-            errs.push(LintError::Unsatisfiable { reason });
+        if let Err(source) = compile(intent, world, opts) {
+            errs.push(LintError::Unsatisfiable { source });
         }
     }
     errs
@@ -192,27 +231,30 @@ mod tests {
 
     #[test]
     fn the_table() {
-        let cases: Vec<(&str, Expect)> = vec![
-            ("invoice(customer=customer(name='Acme')).exists", |_| false),
-            ("invoice(customer=customer(name='Acme')).status='sent'", |_| false),
-            ("invoice(", |e| matches!(e, LintError::Unparseable { .. })),
-            ("invoice(customer=customer(name=$name)).exists", |e| matches!(e, LintError::VariableInWant { .. })),
-            ("widget(name='x').exists", |e| matches!(e, LintError::UnknownEntity { entity, .. } if entity == "widget")),
-            ("invoice(customer=customer(name='Acme')).colour='red'", |e| matches!(e, LintError::UnknownField { field, .. } if field == "colour")),
-            ("customer(name='Acme').exists", |e| matches!(e, LintError::WantsAnEntityThatAlreadyExists { .. })),
-            ("invoice(customer=customer(name='Acme')).approved=true", |e| matches!(e, LintError::Unsatisfiable { .. })),
-            ("invoice(customer=each(customer())).exists", |e| matches!(e, LintError::UnexpandedSelector { .. })),
-            ("invoice(customer=each(customer(name_prefix='C'))).exists", |e| matches!(e, LintError::UnexpandedSelector { .. })),
-            ("invoice(customer=each([])).exists", |e| matches!(e, LintError::MatchesNothing { .. })),
-            ("invoice(customer=customer(name=each(['A','B'])),amount_cents=each([1])).exists", |e| matches!(e, LintError::Unparseable { .. })),
+        // `None` means the want must lint clean; `Some(f)` names the error it must raise.
+        let cases: Vec<(&str, Option<Expect>)> = vec![
+            ("invoice(customer=customer(name='Acme')).exists", None),
+            ("invoice(customer=customer(name='Acme')).status='sent'", None),
+            ("invoice(", Some(|e| matches!(e, LintError::Unparseable { .. }))),
+            ("invoice(customer=customer(name=$name)).exists", Some(|e| matches!(e, LintError::VariableInWant { .. }))),
+            ("widget(name='x').exists", Some(|e| matches!(e, LintError::UnknownEntity { entity, .. } if entity == "widget"))),
+            ("invoice(customer=customer(name='Acme')).colour='red'", Some(|e| matches!(e, LintError::UnknownField { field, .. } if field == "colour"))),
+            ("customer(name='Acme').exists", Some(|e| matches!(e, LintError::WantsAnEntityThatAlreadyExists { .. }))),
+            ("invoice(customer=customer(name='Acme')).approved=true", Some(|e| matches!(e, LintError::Unsatisfiable { .. }))),
+            ("invoice(customer=each(customer())).exists", Some(|e| matches!(e, LintError::UnexpandedSelector { .. }))),
+            ("invoice(customer=each(customer(name_prefix='C'))).exists", Some(|e| matches!(e, LintError::UnexpandedSelector { .. }))),
+            ("invoice(customer=each([])).exists", Some(|e| matches!(e, LintError::MatchesNothing { .. }))),
+            ("invoice(customer=customer(name=each(['A','B'])),amount_cents=each([1])).exists", Some(|e| matches!(e, LintError::Unparseable { .. }))),
         ];
         for (want, expected) in cases {
             let errs = lint_one(want);
-            if errs.is_empty() {
-                assert!(!expected(&LintError::Unsatisfiable { reason: String::new() }), "{want}: expected an error, got none");
-                continue;
+            match expected {
+                None => assert!(errs.is_empty(), "{want}: expected no error, got {errs:?}"),
+                Some(f) => {
+                    assert!(!errs.is_empty(), "{want}: expected an error, got none");
+                    assert!(errs.iter().any(f), "{want}: got {errs:?}");
+                }
             }
-            assert!(errs.iter().any(expected), "{want}: got {errs:?}");
         }
     }
 }

@@ -14,7 +14,8 @@ use std::fmt;
 
 use thiserror::Error;
 
-#[derive(Debug, Clone, PartialEq, Error)]
+#[derive(Debug, Clone, PartialEq, Error, serde::Serialize)]
+#[serde(tag = "code", content = "detail", rename_all = "snake_case")]
 pub enum ParseError {
     #[error("expected {what} at byte {at}")]
     Expected { what: String, at: usize },
@@ -56,6 +57,16 @@ pub struct Pred {
     /// Empty for a bare entity reference.
     pub field: String,
     pub value: Val,
+}
+
+impl ParseError {
+    /// Where in the want the parser gave up, when it knows.
+    pub fn at(&self) -> Option<usize> {
+        match self {
+            ParseError::Expected { at, .. } | ParseError::Unexpected { at, .. } | ParseError::Trailing { at, .. } => Some(*at),
+            _ => None,
+        }
+    }
 }
 
 impl Pred {

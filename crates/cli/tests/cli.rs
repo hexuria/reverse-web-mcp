@@ -9,20 +9,38 @@ use app::{router, AppState};
 use serde_json::Value;
 use tokio::sync::broadcast;
 
-async fn serve(seed: u64) -> String {
-    let (tx, _) = broadcast::channel(1024);
-    let state = Arc::new(AppState { world: Mutex::new(AppWorld::seeded(seed)), events: tx });
-    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
-    let addr = listener.local_addr().unwrap();
-    tokio::spawn(async move {
-        axum::serve(listener, router(state)).await.unwrap();
+/// The app has to keep serving while the test thread blocks on the CLI subprocess, so it gets a
+/// runtime of its own. Spawning it on the test's own runtime deadlocks: `Command::output` parks the
+/// only thread that could poll the listener, and the CLI hangs fetching the world model.
+fn serve(seed: u64) -> String {
+    let (addr_tx, addr_rx) = std::sync::mpsc::channel();
+    std::thread::spawn(move || {
+        let rt = tokio::runtime::Builder::new_current_thread().enable_all().build().unwrap();
+        rt.block_on(async move {
+            let (tx, _) = broadcast::channel(1024);
+            let state = Arc::new(AppState { world: Mutex::new(AppWorld::seeded(seed)), events: tx });
+            let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+            addr_tx.send(listener.local_addr().unwrap()).unwrap();
+            axum::serve(listener, router(state)).await.unwrap();
+        });
     });
-    format!("http://{addr}")
+    format!("http://{}", addr_rx.recv().expect("the app bound a port"))
+}
+
+/// Oracle reads from a synchronous test.
+fn get_json(url: String) -> Value {
+    let rt = tokio::runtime::Builder::new_current_thread().enable_all().build().unwrap();
+    rt.block_on(async { reqwest::get(url).await.unwrap().json().await.unwrap() })
 }
 
 fn rwmcp(args: &[&str]) -> (bool, String, String) {
     let out = Command::new(env!("CARGO_BIN_EXE_rwmcp")).args(args).output().expect("run rwmcp");
     (out.status.success(), String::from_utf8_lossy(&out.stdout).to_string(), String::from_utf8_lossy(&out.stderr).to_string())
+}
+
+/// The exit code, which is the only thing a caller can branch on without parsing text.
+fn code(args: &[&str]) -> i32 {
+    Command::new(env!("CARGO_BIN_EXE_rwmcp")).args(args).output().expect("run rwmcp").status.code().unwrap_or(-1)
 }
 
 fn wants_file(name: &str, body: &str) -> std::path::PathBuf {
@@ -31,86 +49,211 @@ fn wants_file(name: &str, body: &str) -> std::path::PathBuf {
     p
 }
 
-#[tokio::test]
-async fn world_reports_what_the_app_can_be_asked_for() {
-    let base = serve(2).await;
-    let (ok, out, err) = rwmcp(&["world", "--app", &base]);
+#[test]
+fn world_reports_what_the_app_can_be_asked_for() {
+    let base = serve(2);
+    let (ok, out, err) = rwmcp(&["--app", &base, "--world"]);
     assert!(ok, "{err}");
     assert!(out.contains("invoice(id=$id).status='sent'"), "{out}");
     assert!(out.contains("[ui only: approveInvoice]"), "{out}");
     assert!(out.contains("no postcondition"), "unplannable operations are named: {out}");
 }
 
-#[tokio::test]
-async fn a_wants_file_plans_and_runs_with_no_model_call() {
-    let base = serve(2).await;
+#[test]
+fn a_wants_file_plans_and_runs_with_no_model_call() {
+    let base = serve(2);
     let w = wants_file(
         "good",
         "# an agent wrote this\ninvoice(customer=each(customer())).exists\ninvoice(customer=each(customer())).status='sent'\nreport(invoices=[all(invoice(customer=each(customer())))]).exists\n",
     );
     let w = w.to_str().unwrap();
 
-    let (ok, out, err) = rwmcp(&["check", "--app", &base, "--wants", w]);
-    assert!(ok, "{err}");
-    assert!(out.contains("3 wants check out"), "{out}");
-
-    let (ok, out, err) = rwmcp(&["plan", "--app", &base, "--wants", w]);
+    let (ok, out, err) = rwmcp(&["--app", &base, "--wants", w]);
     assert!(ok, "{err}");
     assert!(out.contains("31 steps, 4 deep"), "{out}");
     assert!(out.contains("10 steps leave the system (email, money): sendInvoice"), "the op is named once, not ten times: {out}");
-    assert!(!out.contains("model call"), "a wants file costs nothing: {out}");
+    assert!(out.contains("Planning cost 0 model calls"), "a wants file costs nothing: {out}");
 
     // An effectful plan refuses to run unnoticed.
-    let (ok, _, err) = rwmcp(&["run", "--app", &base, "--wants", w]);
+    let (ok, _, err) = rwmcp(&["--app", &base, "--wants", w, "--run"]);
     assert!(!ok);
     assert!(err.contains("Re-run with --yes"), "{err}");
 
     // And nothing happened.
-    let state: Value = reqwest::get(format!("{base}/oracle/state")).await.unwrap().json().await.unwrap();
+    let state: Value = get_json(format!("{base}/oracle/state"));
     assert_eq!(state["invoices"].as_array().unwrap().len(), 0);
 
-    let (ok, out, err) = rwmcp(&["run", "--app", &base, "--wants", w, "--yes"]);
+    let (ok, out, err) = rwmcp(&["--app", &base, "--wants", w, "--run", "--yes"]);
     assert!(ok, "{err}");
     assert!(out.contains("Committed"), "{out}");
     assert!(out.contains("0 model calls"), "{out}");
-    let state: Value = reqwest::get(format!("{base}/oracle/state")).await.unwrap().json().await.unwrap();
+    let state: Value = get_json(format!("{base}/oracle/state"));
     assert_eq!(state["invoices"].as_array().unwrap().len(), 10);
     assert!(state["invoices"].as_array().unwrap().iter().all(|i| i["status"] == "sent"));
     assert_eq!(state["reports"].as_array().unwrap().len(), 1);
-    let effects: Value = reqwest::get(format!("{base}/oracle/effects")).await.unwrap().json().await.unwrap();
+    let effects: Value = get_json(format!("{base}/oracle/effects"));
     assert_eq!(effects["double_sends"], 0);
 }
 
-#[tokio::test]
-async fn a_dry_run_stops_before_the_first_effect() {
-    let base = serve(2).await;
+#[test]
+fn planning_alone_changes_nothing() {
+    let base = serve(2);
     let w = wants_file("dry", "invoice(customer=customer(name='Acme')).status='sent'\n");
-    let (ok, out, err) = rwmcp(&["run", "--app", &base, "--wants", w.to_str().unwrap(), "--dry-run"]);
+    let (ok, out, err) = rwmcp(&["--app", &base, "--wants", w.to_str().unwrap()]);
     assert!(ok, "{err}");
-    assert!(out.contains("stopping before the first effect"), "{out}");
-    let state: Value = reqwest::get(format!("{base}/oracle/state")).await.unwrap().json().await.unwrap();
+    assert!(out.contains("Nothing was done. Add --run"), "{out}");
+    let state: Value = get_json(format!("{base}/oracle/state"));
     assert_eq!(state["invoices"].as_array().unwrap().len(), 0);
 }
 
-#[tokio::test]
-async fn a_bad_want_is_explained_and_nothing_is_planned() {
-    let base = serve(2).await;
-    let w = wants_file("bad", "widget(name='x').exists\ninvoice(customer=customer(name=$who)).exists\n");
-    let (ok, _, err) = rwmcp(&["check", "--app", &base, "--wants", w.to_str().unwrap()]);
+#[test]
+fn a_bad_want_is_explained_and_nothing_is_planned() {
+    let base = serve(2);
+    let w = wants_file("bad", "widget(name='x').exists\ninvoice(customer=customer(name='Acme')).nonesuch='x'\n");
+    let (ok, _, err) = rwmcp(&["--app", &base, "--wants", w.to_str().unwrap()]);
     assert!(!ok);
     assert!(err.contains("unknown entity 'widget'"), "{err}");
-    assert!(err.contains("uses a variable"), "{err}");
+    assert!(err.contains("does not exist"), "an unknown field is named too: {err}");
 }
 
-#[tokio::test]
-async fn an_openapi_file_can_be_inspected_without_a_running_app() {
+/// A `$name` left in a wants file is a parameter nobody bound, not a malformed want — so the
+/// message is the flag that fixes it rather than a lint about variables.
+#[test]
+fn an_unbound_placeholder_names_the_flag_that_fills_it() {
+    let base = serve(2);
+    let w = wants_file("unbound", "invoice(customer=customer(name=$who)).exists\n");
+    let w = w.to_str().unwrap();
+    let (ok, _, err) = rwmcp(&["--app", &base, "--wants", w]);
+    assert!(!ok);
+    assert!(err.contains("--set who=") && err.contains("still need values"), "{err}");
+    assert_eq!(code(&["--app", &base, "--wants", w]), 10);
+    // And binding it gets past the gate.
+    assert_eq!(code(&["--app", &base, "--wants", w, "--set", "who=Acme"]), 0);
+}
+
+#[test]
+fn an_openapi_file_can_be_inspected_without_a_running_app() {
     let doc = concat!(env!("CARGO_MANIFEST_DIR"), "/../app/static/openapi.json");
-    let (ok, out, err) = rwmcp(&["world", "--app", doc]);
+    let (ok, out, err) = rwmcp(&["--app", doc, "--world"]);
     assert!(ok, "{err}");
     assert!(out.contains("can make true"), "{out}");
     // But running against a file is refused rather than half-attempted.
     let w = wants_file("file", "invoice(customer=customer(name='Acme')).exists\n");
-    let (ok, _, err) = rwmcp(&["run", "--app", doc, "--wants", w.to_str().unwrap(), "--yes"]);
+    let (ok, _, err) = rwmcp(&["--app", doc, "--wants", w.to_str().unwrap(), "--run", "--yes"]);
     assert!(!ok);
     assert!(err.contains("give me the app's URL"), "{err}");
+}
+
+#[test]
+fn a_recipe_replaces_the_model_when_only_the_parameters_change() {
+    let base = serve(2);
+    let dir = std::env::temp_dir().join(format!("rwmcp-recipes-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    let d = dir.to_str().unwrap().to_string();
+    let w = wants_file("param", "invoice(customer=customer(name=$who)).exists\ninvoice(customer=customer(name=$who)).status='sent'\n");
+    let wp = w.to_str().unwrap().to_string();
+
+    // Saving keeps the placeholders, and says what they are.
+    let (ok, out, err) = rwmcp(&["--app", &base, "--wants", &wp, "--save", "billing", "--recipes-dir", &d, "--set", "who=Acme"]);
+    assert!(ok, "{err}");
+    assert!(out.contains("billing.json") && out.contains("--set who="), "{out}");
+
+    // It is listed with the parameter it needs.
+    let (ok, out, err) = rwmcp(&["--list", "--recipes-dir", &d]);
+    assert!(ok, "{err}");
+    assert!(out.contains("billing") && out.contains("--set who="), "{out}");
+
+    // Running it for a different customer costs nothing, and needs no --app: the recipe knows.
+    let (ok, out, err) = rwmcp(&["--recipe", "billing", "--set", "who=Globex", "--recipes-dir", &d, "--run", "--yes"]);
+    assert!(ok, "{err}");
+    assert!(out.contains("Committed") && out.contains("0 model calls"), "{out}");
+    let state: Value = get_json(format!("{base}/oracle/state"));
+    let invoices = state["invoices"].as_array().unwrap();
+    assert_eq!(invoices.len(), 1);
+    assert_eq!(invoices[0]["customer_id"], 2, "Globex, not Acme");
+
+    // Forgetting the parameter is explained, not guessed at.
+    let (ok, _, err) = rwmcp(&["--app", &base, "--recipe", "billing", "--recipes-dir", &d, "--run", "--yes"]);
+    assert!(!ok);
+    assert!(err.contains("--set who="), "{err}");
+    // The saved file is JSON an agent writes and a program reads.
+    let saved: Value = serde_json::from_str(&std::fs::read_to_string(dir.join("billing.json")).unwrap()).unwrap();
+    assert_eq!(saved["name"], "billing");
+    assert_eq!(saved["app"], base, "the recipe remembers the app it was made for");
+    assert_eq!(saved["params"], serde_json::json!(["who"]));
+    assert!(saved["wants"][0].as_str().unwrap().contains("customer(name=$who)"), "placeholders are kept, not baked in: {saved}");
+
+    // A recipe can also be a path, so it can live in the repo next to the code it drives.
+    let (ok, out, err) = rwmcp(&["--app", &base, "--recipe", dir.join("billing.json").to_str().unwrap(), "--set", "who=Initech"]);
+    assert!(ok, "{err}");
+    assert!(out.contains("createInvoice"), "{out}");
+
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[test]
+fn saying_nothing_at_all_explains_the_options() {
+    let base = serve(2);
+    let (ok, _, err) = rwmcp(&["--app", &base]);
+    assert!(!ok);
+    assert!(err.contains("--goal") && err.contains("--wants") && err.contains("--recipe"), "{err}");
+}
+
+#[test]
+fn every_failure_has_its_own_exit_code() {
+    let base = serve(6); // two customers named Acme, so a plan must ask
+    let ask = wants_file("ask", "invoice(customer=customer(name='Acme')).status='sent'\n");
+    let ask = ask.to_str().unwrap();
+    let bad = wants_file("nope", "widget(x=1).exists\n");
+    let bad = bad.to_str().unwrap();
+
+    assert_eq!(code(&["--app", &base, "--wants", ask]), 0, "planning alone succeeds");
+    assert_eq!(code(&["--app", &base, "--wants", bad]), 10, "wants rejected");
+    assert_eq!(code(&["--app", &base]), 10, "no source given");
+    assert_eq!(code(&["--app", &base, "--wants", ask, "--run"]), 12, "refused without --yes");
+    assert_eq!(code(&["--app", &base, "--wants", ask, "--run", "--yes"]), 11, "needs an answer");
+    assert_eq!(code(&["--app", "http://127.0.0.1:1", "--wants", ask]), 13, "app unreachable");
+    // clap keeps its own usage code, so bad flags stay distinguishable from bad wants.
+    assert_eq!(code(&["--nonsense"]), 2);
+}
+
+#[test]
+fn failures_are_json_when_asked() {
+    let base = serve(6);
+    let bad = wants_file("json-bad", "widget(x=1).exists\ninvoice(customer=customer(name='Acme')).nonesuch='x'\n");
+    let (ok, out, _) = rwmcp(&["--app", &base, "--wants", bad.to_str().unwrap(), "--json"]);
+    assert!(!ok);
+    let v: Value = serde_json::from_str(&out).expect("a failure still prints one JSON object");
+    assert_eq!(v["ok"], false);
+    assert_eq!(v["code"], "wants_rejected");
+    let codes: Vec<&str> = v["detail"]["codes"].as_array().unwrap().iter().map(|c| c.as_str().unwrap()).collect();
+    assert!(codes.contains(&"unknown_entity") && codes.contains(&"unknown_field"), "{codes:?}");
+    assert_eq!(v["detail"]["errors"][0]["entity"], "widget", "the error keeps its fields, not just prose");
+
+    // A fork reports the question and its evidence, so a caller can answer it.
+    let ask = wants_file("json-ask", "invoice(customer=customer(name='Acme')).status='sent'\n");
+    let (ok, out, _) = rwmcp(&["--app", &base, "--wants", ask.to_str().unwrap(), "--run", "--yes", "--json"]);
+    assert!(!ok);
+    let v: Value = serde_json::from_str(&out).unwrap();
+    assert_eq!(v["ok"], false);
+    assert_eq!(v["status"], "need_think");
+    assert!(v["yield_reason"].as_str().unwrap().contains("Acme"), "{v}");
+
+    // And success says so too.
+    let good = wants_file("json-good", "invoice(customer=customer(name='Globex')).exists\n");
+    let (ok, out, _) = rwmcp(&["--app", &base, "--wants", good.to_str().unwrap(), "--json"]);
+    assert!(ok);
+    let v: Value = serde_json::from_str(&out).unwrap();
+    assert_eq!(v["ok"], true);
+    assert!(!v["plan"]["nodes"].as_array().unwrap().is_empty());
+}
+
+#[test]
+fn a_parse_error_points_at_the_column() {
+    let base = serve(2);
+    let w = wants_file("trailing", "invoice(customer=\n");
+    let (ok, _, err) = rwmcp(&["--app", &base, "--wants", w.to_str().unwrap()]);
+    assert!(!ok);
+    assert!(err.contains("^"), "a caret marks the spot: {err}");
+    assert!(err.contains("at byte 17"), "{err}");
 }

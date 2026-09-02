@@ -3,9 +3,9 @@
 use std::sync::Mutex;
 
 use async_trait::async_trait;
-use rwmcp::planner::{plan_with_lint, Sampler};
 use bench::tasks::Task;
 use rwmcp::ledger::{Ledger, Sample, SampleKind};
+use rwmcp::planner::{plan_with_lint, Sampler};
 use rwmcp::{CompileOptions, World};
 use serde_json::{json, Value};
 
@@ -44,7 +44,17 @@ async fn a_bad_first_intent_costs_exactly_one_more_sample() {
         vec!["invoice(customer=customer(name='Acme')).exists", "invoice(customer=customer(name='Acme')).status='sent'"],
     ]));
     let mut ledger = Ledger::new();
-    let intent = plan_with_lint(&task().goal, &task().constraints, &world(), "  customers (1): Acme", &sampler, &mut ledger, &CompileOptions::default(), None).await.unwrap();
+    let intent = plan_with_lint(
+        &rwmcp::planner::Ask::with(&task().goal, &task().constraints),
+        &world(),
+        "  customers (1): Acme",
+        &sampler,
+        &mut ledger,
+        &CompileOptions::default(),
+        None,
+    )
+    .await
+    .unwrap();
     assert_eq!(intent.wants.len(), 2);
     assert_eq!(ledger.sample_count(), 2);
     assert_eq!(ledger.samples[0].kind, SampleKind::Plan);
@@ -55,7 +65,9 @@ async fn a_bad_first_intent_costs_exactly_one_more_sample() {
 async fn a_good_first_intent_costs_one_sample() {
     let sampler = Scripted(Mutex::new(vec![vec!["invoice(customer=customer(name='Acme')).status='sent'"]]));
     let mut ledger = Ledger::new();
-    plan_with_lint(&task().goal, &task().constraints, &world(), "", &sampler, &mut ledger, &CompileOptions::default(), None).await.unwrap();
+    plan_with_lint(&rwmcp::planner::Ask::with(&task().goal, &task().constraints), &world(), "", &sampler, &mut ledger, &CompileOptions::default(), None)
+        .await
+        .unwrap();
     assert_eq!(ledger.sample_count(), 1);
 }
 
@@ -64,7 +76,10 @@ async fn two_bad_intents_then_a_good_one_is_three_samples() {
     let sampler =
         Scripted(Mutex::new(vec![vec!["nonsense("], vec!["customer(name='Acme').exists"], vec!["invoice(customer=customer(name='Acme')).status='sent'"]]));
     let mut ledger = Ledger::new();
-    let intent = plan_with_lint(&task().goal, &task().constraints, &world(), "", &sampler, &mut ledger, &CompileOptions::default(), None).await.unwrap();
+    let intent =
+        plan_with_lint(&rwmcp::planner::Ask::with(&task().goal, &task().constraints), &world(), "", &sampler, &mut ledger, &CompileOptions::default(), None)
+            .await
+            .unwrap();
     assert_eq!(intent.wants.len(), 1);
     assert_eq!(ledger.sample_count(), 3);
     assert_eq!(ledger.notes.len(), 2, "both rejections are on record");
@@ -74,7 +89,10 @@ async fn two_bad_intents_then_a_good_one_is_three_samples() {
 async fn three_bad_intents_is_an_error_not_a_fourth_sample() {
     let sampler = Scripted(Mutex::new(vec![vec!["nonsense("], vec!["customer(name='Acme').exists"], vec![], vec!["should not be asked"]]));
     let mut ledger = Ledger::new();
-    let err = plan_with_lint(&task().goal, &task().constraints, &world(), "", &sampler, &mut ledger, &CompileOptions::default(), None).await.unwrap_err();
+    let err =
+        plan_with_lint(&rwmcp::planner::Ask::with(&task().goal, &task().constraints), &world(), "", &sampler, &mut ledger, &CompileOptions::default(), None)
+            .await
+            .unwrap_err();
     assert!(err.to_string().contains("two re-asks"), "{err}");
     assert_eq!(ledger.sample_count(), 3);
 }
@@ -97,11 +115,33 @@ async fn a_repeat_goal_costs_zero_samples() {
     let cache = IntentCache::new(&dir);
     let sampler = Scripted(Mutex::new(vec![vec!["invoice(customer=customer(name='Acme')).status='sent'"]]));
     let mut ledger = Ledger::new();
-    let (first, hit) = plan_cached(&cache, &task().goal, &task().constraints, &world(), "facts", &sampler, &mut ledger, &CompileOptions::default(), None).await.unwrap();
+    let (first, hit) = plan_cached(
+        &cache,
+        &rwmcp::planner::Ask::with(&task().goal, &task().constraints),
+        &world(),
+        "facts",
+        &sampler,
+        &mut ledger,
+        &CompileOptions::default(),
+        None,
+    )
+    .await
+    .unwrap();
     assert!(!hit);
     assert_eq!(ledger.sample_count(), 1);
     let mut ledger2 = Ledger::new();
-    let (second, hit) = plan_cached(&cache, &task().goal, &task().constraints, &world(), "facts", &sampler, &mut ledger2, &CompileOptions::default(), None).await.unwrap();
+    let (second, hit) = plan_cached(
+        &cache,
+        &rwmcp::planner::Ask::with(&task().goal, &task().constraints),
+        &world(),
+        "facts",
+        &sampler,
+        &mut ledger2,
+        &CompileOptions::default(),
+        None,
+    )
+    .await
+    .unwrap();
     assert!(hit);
     assert_eq!(ledger2.sample_count(), 0);
     assert_eq!(first.wants, second.wants);
@@ -124,7 +164,10 @@ async fn a_tool_call_rendered_as_text_is_still_an_intent() {
         }
     }
     let mut ledger = Ledger::new();
-    let intent = plan_with_lint(&task().goal, &task().constraints, &world(), "", &Garbled, &mut ledger, &CompileOptions::default(), None).await.unwrap();
+    let intent =
+        plan_with_lint(&rwmcp::planner::Ask::with(&task().goal, &task().constraints), &world(), "", &Garbled, &mut ledger, &CompileOptions::default(), None)
+            .await
+            .unwrap();
     assert_eq!(intent.wants.len(), 2);
     assert_eq!(ledger.sample_count(), 1);
 }
@@ -146,7 +189,17 @@ async fn an_unparseable_reply_is_re_asked_not_fatal() {
         }
     }
     let mut ledger = Ledger::new();
-    let intent = plan_with_lint(&task().goal, &task().constraints, &world(), "", &Junk(Mutex::new(0)), &mut ledger, &CompileOptions::default(), None).await.unwrap();
+    let intent = plan_with_lint(
+        &rwmcp::planner::Ask::with(&task().goal, &task().constraints),
+        &world(),
+        "",
+        &Junk(Mutex::new(0)),
+        &mut ledger,
+        &CompileOptions::default(),
+        None,
+    )
+    .await
+    .unwrap();
     assert_eq!(intent.wants.len(), 1);
     assert_eq!(ledger.sample_count(), 2);
     assert!(ledger.notes.iter().any(|n| n.get("unparseable").is_some()));

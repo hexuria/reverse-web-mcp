@@ -1,0 +1,352 @@
+{
+  "task": "T6",
+  "task_title": "invoice Acme when two customers are named Acme",
+  "arm": "D",
+  "run": 2,
+  "status": "committed",
+  "planner": "model-intent",
+  "samples": 1,
+  "tokens_in": 1417,
+  "tokens_out": 104,
+  "wall_ms": 4719,
+  "plan_ms": 4662,
+  "run_ms": 55,
+  "max_parallel": 1,
+  "max_parallel_by_surface": {
+    "api": 1
+  },
+  "nodes": 3,
+  "depth": 3,
+  "correct": true,
+  "checks": [
+    {
+      "name": "status",
+      "expected": "committed",
+      "actual": "committed",
+      "ok": true
+    },
+    {
+      "name": "invoices",
+      "expected": 1,
+      "actual": 1,
+      "ok": true
+    },
+    {
+      "name": "sent",
+      "expected": 1,
+      "actual": 1,
+      "ok": true
+    },
+    {
+      "name": "forks",
+      "expected": 1,
+      "actual": 1,
+      "ok": true
+    },
+    {
+      "name": "double_sends",
+      "expected": 0,
+      "actual": 0,
+      "ok": true
+    }
+  ],
+  "double_sends": 0,
+  "forks": 1,
+  "yield_reason": null,
+  "error": null,
+  "snapshot": {
+    "chaos": {
+      "latency_ms": 25,
+      "rate_limit_per_sec": 0,
+      "require_approval": false,
+      "send_fail_rate": 0.0,
+      "ui_modal": false
+    },
+    "customers": [
+      {
+        "email": "billing@acme.example",
+        "id": 1,
+        "name": "Acme"
+      },
+      {
+        "email": "billing@globex.example",
+        "id": 2,
+        "name": "Globex"
+      },
+      {
+        "email": "billing@initech.example",
+        "id": 3,
+        "name": "Initech"
+      },
+      {
+        "email": "billing@umbrella.example",
+        "id": 4,
+        "name": "Umbrella"
+      },
+      {
+        "email": "billing@hooli.example",
+        "id": 5,
+        "name": "Hooli"
+      },
+      {
+        "email": "billing@vandelay.example",
+        "id": 6,
+        "name": "Vandelay"
+      },
+      {
+        "email": "billing@stark.example",
+        "id": 7,
+        "name": "Stark"
+      },
+      {
+        "email": "billing@wayne.example",
+        "id": 8,
+        "name": "Wayne"
+      },
+      {
+        "email": "billing@wonka.example",
+        "id": 9,
+        "name": "Wonka"
+      },
+      {
+        "email": "billing@tyrell.example",
+        "id": 10,
+        "name": "Tyrell"
+      },
+      {
+        "email": "ap@acme-holdings.example",
+        "id": 11,
+        "name": "Acme"
+      }
+    ],
+    "invoices": [
+      {
+        "amount_cents": 10000,
+        "approved": false,
+        "customer_id": 1,
+        "id": 12,
+        "receipt_sent": false,
+        "status": "sent"
+      }
+    ],
+    "outbox": [
+      {
+        "id": 13,
+        "invoice_id": 12,
+        "key": "T6-r2/77c40e9faea35860",
+        "kind": "invoice",
+        "subject": "Invoice #12",
+        "to": "billing@acme.example"
+      }
+    ],
+    "payments": [],
+    "reports": [],
+    "seed": 6
+  },
+  "receipt": {
+    "depth": 3,
+    "effects": [
+      {
+        "attempts": 1,
+        "key": null,
+        "node": "A",
+        "observed": [
+          {
+            "email": "billing@acme.example",
+            "id": 1,
+            "name": "Acme"
+          },
+          {
+            "email": "ap@acme-holdings.example",
+            "id": 11,
+            "name": "Acme"
+          }
+        ],
+        "ok": true,
+        "op": "listCustomers"
+      },
+      {
+        "attempts": 1,
+        "key": "T6-r2/cac417d575b6be6d",
+        "node": "B",
+        "observed": {
+          "amount_cents": 10000,
+          "approved": false,
+          "customer_id": 1,
+          "id": 12,
+          "receipt_sent": false,
+          "status": "draft"
+        },
+        "ok": true,
+        "op": "createInvoice"
+      },
+      {
+        "attempts": 1,
+        "key": "T6-r2/77c40e9faea35860",
+        "node": "C",
+        "observed": {
+          "amount_cents": 10000,
+          "approved": false,
+          "customer_id": 1,
+          "id": 12,
+          "receipt_sent": false,
+          "status": "sent"
+        },
+        "ok": true,
+        "op": "sendInvoice"
+      }
+    ],
+    "error": null,
+    "evidence": null,
+    "forks_taken": 1,
+    "ledger": {
+      "ended_ms": 1788309921881,
+      "forks": [
+        {
+          "ask": "Multiple customers named Acme; which one should we invoice?",
+          "auto": "lowest_id",
+          "chosen": {
+            "email": "billing@acme.example",
+            "id": 1,
+            "name": "Acme"
+          },
+          "evidence": {
+            "count": 2,
+            "result": [
+              {
+                "email": "billing@acme.example",
+                "id": 1,
+                "name": "Acme"
+              },
+              {
+                "email": "ap@acme-holdings.example",
+                "id": 11,
+                "name": "Acme"
+              }
+            ],
+            "when": "result.count != 1"
+          },
+          "node": "A"
+        }
+      ],
+      "notes": [],
+      "rows": [
+        {
+          "attempt": 1,
+          "ended_us": 1788309921826985,
+          "error": null,
+          "key": null,
+          "node": "A",
+          "observed": [
+            {
+              "email": "billing@acme.example",
+              "id": 1,
+              "name": "Acme"
+            },
+            {
+              "email": "ap@acme-holdings.example",
+              "id": 11,
+              "name": "Acme"
+            }
+          ],
+          "ok": true,
+          "op": "listCustomers",
+          "started_us": 1788309921825588,
+          "surface": "api",
+          "write": false
+        },
+        {
+          "attempt": 1,
+          "ended_us": 1788309921854408,
+          "error": null,
+          "key": "T6-r2/cac417d575b6be6d",
+          "node": "B",
+          "observed": {
+            "amount_cents": 10000,
+            "approved": false,
+            "customer_id": 1,
+            "id": 12,
+            "receipt_sent": false,
+            "status": "draft"
+          },
+          "ok": true,
+          "op": "createInvoice",
+          "started_us": 1788309921827019,
+          "surface": "api",
+          "write": true
+        },
+        {
+          "attempt": 1,
+          "ended_us": 1788309921881031,
+          "error": null,
+          "key": "T6-r2/77c40e9faea35860",
+          "node": "C",
+          "observed": {
+            "amount_cents": 10000,
+            "approved": false,
+            "customer_id": 1,
+            "id": 12,
+            "receipt_sent": false,
+            "status": "sent"
+          },
+          "ok": true,
+          "op": "sendInvoice",
+          "started_us": 1788309921854455,
+          "surface": "api",
+          "write": true
+        }
+      ],
+      "samples": [
+        {
+          "effort": "low",
+          "ended_us": 1788309921825430,
+          "kind": "plan",
+          "model": "grok-4.6",
+          "seq": 1,
+          "started_us": 1788309917162598,
+          "tokens_in": 1417,
+          "tokens_out": 104
+        }
+      ],
+      "started_ms": 1788309917162
+    },
+    "max_parallel": 1,
+    "max_parallel_by_surface": {
+      "api": 1
+    },
+    "nodes": 3,
+    "plan": "plan T6-r2  (3 nodes, depth 3)\n  A    listCustomers    api      customer(name='Acme').resolved\n  B    createInvoice    api      invoice(customer=$A.id).exists  after A  key T6-r2/cac417d575b6be6d\n  C    sendInvoice      api      invoice(id=$B.id).status='sent'  after B  key T6-r2/77c40e9faea35860\n",
+    "plan_id": "T6-r2",
+    "plan_ms": 4662,
+    "run_ms": 55,
+    "samples": 1,
+    "status": "committed",
+    "tokens_in": 1417,
+    "tokens_out": 104,
+    "wall_ms": 4719,
+    "yield_reason": null
+  },
+  "intent": {
+    "constraints": {
+      "external_ok": true,
+      "spend_max_cents": null
+    },
+    "forks": [
+      {
+        "ask": "Multiple customers named Acme; which one should we invoice?",
+        "default": "lowest_id",
+        "when": "result.count != 1"
+      }
+    ],
+    "goal": "Create and send an invoice for Acme.",
+    "wants": [
+      "invoice(customer=customer(name='Acme')).exists",
+      "invoice(customer=customer(name='Acme')).status='sent'"
+    ]
+  },
+  "model": "grok-4.6",
+  "effort": "medium",
+  "base_url": "http://localhost:8080",
+  "latency_ms": 25,
+  "surfaces": "api"
+}

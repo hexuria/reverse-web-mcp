@@ -1,0 +1,19 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><title>chiffon bench</title><style>body{font:15px/1.5 system-ui,sans-serif;margin:0;padding:32px;background:#f3f5f2;color:#1a2321;max-width:1100px}h1{font-size:26px;margin:0 0 4px}h2{font-size:18px;margin:32px 0 8px}p{color:#4b5955;max-width:70ch}table{border-collapse:collapse;width:100%;background:#fff;font-variant-numeric:tabular-nums;font-size:14px}th,td{padding:7px 10px;border-bottom:1px solid #d5dcd7;text-align:left}th{font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:#4b5955;background:#e9eeea}td.ok{color:#2f7d4f;font-weight:600}td.bad{color:#b23a2e;font-weight:600}td.hot{background:#dceef0;font-weight:600}code{font-family:ui-monospace,monospace;background:#eef2ef;padding:1px 5px;border-radius:4px}details{margin-top:10px}pre{font-size:12px;background:#eef2ef;padding:10px;overflow-x:auto;border-radius:6px}</style></head><body><h1>chiffon bench</h1><p>run directory <code>results/campaign-3b-ours</code>. Every figure is recomputed from the stored ledgers and oracle snapshots. The decisive column is <b>max parallel</b>: the largest number of effects in flight at one instant.</p><h2>T3 · three invoices, email each, one report over all three</h2><table><thead><tr><th>arm</th><th>what</th><th>runs</th><th>correct</th><th>model samples</th><th>tokens</th><th>plan ms</th><th>run ms</th><th>wall ms (median)</th><th>wall p25–p75</th><th>max parallel</th><th>double-sends</th><th>forks</th></tr></thead><tbody><tr><td><b>D</b></td><td>ours: planned graph</td><td>5</td><td class="ok">5/5</td><td>1</td><td>1597</td><td>4960</td><td>86</td><td>5043</td><td>4906–11533</td><td class="hot">3</td><td class="">0</td><td>0</td></tr></tbody></table><details><summary>plan (arm D, run 1)</summary><pre>plan T3-r1  (10 nodes, depth 4)
+  A    listCustomers    api      customer(name='Acme').resolved
+  B    createInvoice    api      invoice(customer=$A.id).exists  after A  key T3-r1/cac417d575b6be6d
+  C    sendInvoice      api      invoice(id=$B.id).status='sent'  after B  key T3-r1/77c40e9faea35860
+  D    listCustomers    api      customer(name='Globex').resolved
+  E    createInvoice    api      invoice(customer=$D.id).exists  after D  key T3-r1/7a6db2d29bc0aee0
+  F    sendInvoice      api      invoice(id=$E.id).status='sent'  after E  key T3-r1/016b5803a0d96d9e
+  G    listCustomers    api      customer(name='Initech').resolved
+  H    createInvoice    api      invoice(customer=$G.id).exists  after G  key T3-r1/b057c3c06a17db36
+  I    sendInvoice      api      invoice(id=$H.id).status='sent'  after H  key T3-r1/ae9f82a5201f3d5a
+  J    createReport     api      report(invoices=[$B.id,$E.id,$H.id]).exists  after C,F,I  key T3-r1/937a8b8ae4991af4
+</pre></details><h2>T6 · invoice Acme when two customers are named Acme</h2><table><thead><tr><th>arm</th><th>what</th><th>runs</th><th>correct</th><th>model samples</th><th>tokens</th><th>plan ms</th><th>run ms</th><th>wall ms (median)</th><th>wall p25–p75</th><th>max parallel</th><th>double-sends</th><th>forks</th></tr></thead><tbody><tr><td><b>D</b></td><td>ours: planned graph</td><td>5</td><td class="ok">5/5</td><td>1</td><td>1497</td><td>3931</td><td>55</td><td>3990</td><td>3837–4392</td><td class="">1</td><td class="">0</td><td>5</td></tr></tbody></table><details><summary>plan (arm D, run 1)</summary><pre>plan T6-r1  (3 nodes, depth 3)
+  A    listCustomers    api      customer(name='Acme').resolved
+  B    createInvoice    api      invoice(customer=$A.id).exists  after A  key T6-r1/cac417d575b6be6d
+  C    sendInvoice      api      invoice(id=$B.id).status='sent'  after B  key T6-r1/77c40e9faea35860
+</pre></details><h2>samples against depth</h2><p>A loop pays a thought per dependency level. A plan pays one thought regardless. This is the column that separates the arms.</p><pre>task depth  D samples
+T6       3          1
+T3       4          1
+</pre></body></html>

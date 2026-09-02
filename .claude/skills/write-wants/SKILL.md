@@ -9,9 +9,14 @@ A **want** is one fact that must be true when the work is done. A list of wants 
 an `Intent`; the compiler turns that into the plan. You never write actions, an order, or a
 loop — those are derived.
 
-At runtime the planner emits these from `PLANNER_SYSTEM` in `crates/bench/src/planner.rs`. This
+At runtime the planner emits these from `PLANNER_SYSTEM` in `crates/rwmcp/src/planner.rs`. This
 skill is the same job done by hand, so keep the two in agreement: if you change the rules here,
 change them there.
+
+What you write is a **`.wants` file**: one want per line, `#` for a comment, blank lines ignored.
+That is what `rwmcp --wants` reads, and `-` reads the same thing from stdin. Saving one with
+`--save NAME` turns it into a recipe: the same wants with `$placeholders` where the values change,
+which then runs with `--set name=value` and costs no model calls ever again.
 
 ## The shape
 
@@ -36,8 +41,9 @@ entity(arg=value, ...).exists
    customers. Refer to it inside another predicate instead.
 4. **Identify things by what you know, never by an id you invented.** `invoice(customer=customer(name='Acme'))`, not `invoice(id=7)`.
 5. **Do not imply order.** Order comes from the footprints. Listing the report first must
-   produce the same plan as listing it last — if it does not, that is a compiler bug worth
-   reporting, not something to work around by reordering.
+   produce the same plan as listing it last — `rwmcp --wants w.wants --order-check` proves it. If
+   it does not, that is a compiler bug worth reporting, not something to work around by
+   reordering.
 6. **No variables.** `$name` in a want is rejected (`VariableInWant`). Wants are concrete.
 7. **Still want a fact that depends on the outside world.** `invoice(...).receipt_sent=true`
    even though a payment must land first; the engine inserts the wait. A fork is for ambiguity,
@@ -71,33 +77,48 @@ means zero wants, which compiles to an empty plan.
 
 ## Forks
 
-When a name may match zero or several rows, keep the want as it is and declare a fork:
+A fork is what happens when a name matches zero or several rows. You do not write one into a
+`.wants` file: the world model declares it per operation, and the ambiguity is discovered while
+running. Keep the want as it is.
 
-```toml
-[[forks]]
-when = "result.count != 1"
-ask = "Two customers are named Acme. Which one?"
-default = "lowest_id"     # omit to stop and ask instead of resolving
+When one fires, the run stops with exit code **11** and the evidence attached — the rows it could
+not choose between. Resolve it in one of two ways:
+
+```
+rwmcp --app URL --wants w.wants --run --yes --answer "customer(name='Acme')=>customer(id=11)"
+rwmcp --app URL --wants w.wants --run --yes --answer-with-model
 ```
 
-Only `result.count != 1` and `result.count == 0` are understood. With a `default`, the scheduler
-resolves it alone; without one, the run ends `need_think` with the evidence attached.
+`--answer OLD=>NEW` rewrites that text in every want and costs nothing; `--answer-with-model`
+spends one call letting the model choose. Either way only the ambiguous want changes, so every
+other want keeps its text, keeps its content-addressed key, and is not done twice.
+
+When embedding the engine, a fork declared in the world model can carry `default = "lowest_id"`,
+in which case the scheduler resolves it alone. Only `result.count != 1` and `result.count == 0`
+are understood.
 
 ## Check before you ship
 
-Run `lint(&intent, &world, &opts)` — it parses every want, checks entities and fields, rejects
-variables and unexpanded selectors, and then tries a full compile. An empty error list means the
-intent is compilable, not that it is *right*.
+Three commands, no Rust:
 
-For right, read the plan:
-
-```rust
-println!("{}", plan.render());
+```
+rwmcp --app URL --wants w.wants                 lint, compile, print the plan, change nothing
+rwmcp --app URL --wants w.wants --order-check   compile forwards and backwards, prove they match
+rwmcp --app URL --validate                      check the world model itself
 ```
 
-Confirm three things: the node count matches the number of effects you expect; every join waits
-for every branch it should; and nothing waits on something it does not need. Then compile the
-same wants **in a different order** and diff — the plans must be identical.
+The first parses every want, checks entities and fields, rejects variables and unexpanded
+selectors, tries a full compile, and prints the plan. It exits **0** when the plan is good and
+**10** when the wants are not, with `--json` giving `{"ok":false,"code":"wants_rejected",...}` and
+a `code` on every error.
+
+A clean lint means the intent is *compilable*, not that it is *right*. For right, read the plan it
+printed and confirm three things: the node count matches the number of effects you expect; every
+join waits for every branch it should; and nothing waits on something it does not need.
+
+`--order-check` is the fourth thing, and the one nobody does by hand: it compiles the wants, then
+compiles them reversed, and diffs the two graphs. A plan that changes is a plan that depends on
+the order you happened to type in.
 
 ## Worked example
 
@@ -126,4 +147,9 @@ wide, no edge between lanes. Written with `each` and `all` it is three wants and
 | `WantsAnEntityThatAlreadyExists` | you wanted a found entity; nest it instead |
 | `UnexpandedSelector` | `each(customer(...))` never got expanded against the app |
 | `Unsatisfiable` | nothing in the world model has a matching `post` — wrong field, wrong entity, or the annotation is missing |
+| `MatchesNothing` | a selector expanded to nothing, so the want asks for no work |
 | `Empty` | no wants at all |
+
+Every one of these has a stable `code` in `--json` output (`unparseable`, `variable_in_want`,
+`unknown_entity`, `unknown_field`, `wants_an_entity_that_already_exists`, `unsatisfiable`, `empty`,
+`unexpanded_selector`, `matches_nothing`), so branch on that rather than on the prose.

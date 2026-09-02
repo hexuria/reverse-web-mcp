@@ -45,9 +45,65 @@ invoice(customer=each(customer())).status='sent'
 report(invoices=[all(invoice(customer=each(customer())))]).exists
 ```
 
+`--wants -` reads the same thing from stdin, so an agent needs no temp file.
+
 Nothing is executed unless you pass `--run`, and a plan with steps that leave the system —
 email, money — refuses to run until you also pass `--yes`. The plan is printed first, in full,
-every time.
+every time, with each outgoing step named by who it is for:
+
+```
+10 steps leave the system (email, money):
+  sendInvoice ← 'Acme', 10000
+  sendInvoice ← 'Globex', 10000
+  …
+```
+
+### Checking things before you run them
+
+Three commands, none of which needs Rust and two of which need no app running:
+
+```sh
+rwmcp --app URL --validate                     # is the world model coherent?
+rwmcp --app URL --wants w.wants --order-check  # does the plan depend on want order?
+rwmcp --app openapi.json --init                # what blocks does my OpenAPI doc still need?
+```
+
+`--validate` is the review the `annotate-world-model` skill describes: entities and fields that do
+not exist, `before` pointing nowhere, an operation no surface can call, a footprint selector that
+silently widens to `entity:*`, and two operations writing the same thing with no declared order.
+`--order-check` compiles the wants, compiles them reversed, and diffs the two graphs.
+
+### When it stops to ask
+
+A name that matches two rows is a fork: the run stops, exit code **11**, with the rows attached.
+
+```sh
+rwmcp --app URL --wants w.wants --run --yes --answer "customer(name='Acme')=>customer(id=11)"
+rwmcp --app URL --wants w.wants --run --yes --answer-with-model    # one model call
+```
+
+Only the ambiguous want changes, so everything already done keeps its key and is not done twice.
+`--receipt-out FILE` saves a run and `--resume FILE` picks it back up in another process, skipping
+whatever committed.
+
+### Exit codes
+
+An agent branches on the number, never on the prose. `--json` prints exactly one object on every
+path, `{"ok":true,…}` or `{"ok":false,"code":"…","message":"…"}`.
+
+| code | meaning |
+|---|---|
+| 0 | done |
+| 2 | bad usage (clap) |
+| 10 | the wants, the recipe or the world model did not hold up |
+| 11 | it stopped to ask; answer with `--answer` or `--answer-with-model` |
+| 12 | steps leave the system and `--yes` was not given |
+| 13 | the app or its world model could not be reached |
+| 14 | the planner failed |
+| 15 | a step failed while running |
+
+`RWMCP_APP`, `RWMCP_SURFACES`, `RWMCP_RECIPES_DIR`, `RWMCP_BASE_URL` and `RWMCP_MODEL` fill their
+flags, so the app need be named once per shell rather than once per command.
 
 ### A plan that worked is a recipe
 
@@ -65,14 +121,22 @@ A recipe is a small JSON file — written by `--save`, or by an agent, or by you
 ```json
 {
   "name": "billing",
+  "app": "http://localhost:8000",
   "goal": "invoice every customer and send it",
   "params": ["who"],
   "wants": [
     "invoice(customer=customer(name=$who)).exists",
     "invoice(customer=customer(name=$who)).status='sent'"
-  ]
+  ],
+  "world_fingerprint": "9f1c…",
+  "created_at": "2026-09-02T14:20:11Z",
+  "rwmcp_version": "0.1.0"
 }
 ```
+
+The fingerprint is a hash of the app's world model when the recipe was saved. Re-annotate the app
+and the recipe stops rather than running wants that may no longer mean what they meant; `--force`
+proceeds anyway.
 
 `--recipe billing` looks for `billing.json` in the recipes directory (`~/.rwmcp/recipes` by
 default, or `--recipes-dir`). `--recipe ./ops/billing.json` takes a path instead, so recipes can
@@ -81,6 +145,24 @@ which `--set` is missing rather than guessing.
 
 This is the intended steady state: the model is paid once, at design time, and the thing that
 runs in production is a compiled plan with arguments.
+
+## Embedding it
+
+The CLI is a shell over the library, and the library is one object.
+
+```rust
+use rwmcp::{Intent, Session};
+
+let app = Session::connect("http://localhost:8000").await?;
+let intent = Intent { goal: "invoice Acme".into(), wants: vec!["invoice(customer=customer(name='Acme')).status='sent'".into()], ..Default::default() };
+let plan = app.plan(&intent)?;              // lint, then compile
+let receipt = app.run(&plan).await?;        // run, then receipt
+```
+
+`plan()` returns `PlanError::Wants(Vec<LintError>)` or `PlanError::Compile(CompileError)`, so the
+errors an embedder gets are the ones the CLI prints. `Session::offline(world)` plans against a
+world model with nothing behind it. `plan_id` scopes the idempotency keys: two sessions under the
+same id share their committed work, which is what makes a crashed run safe to start again.
 
 ## Guides
 
@@ -155,8 +237,8 @@ machine check. Claude Code loads them from `.claude/skills/`; any other agent re
 
 | skill | the job | the check that ends it |
 |---|---|---|
-| `annotate-world-model` | write the `x-reverse-webmcp` blocks for an app | call each operation against a reset app and diff the state; every row that changed must appear in `writes` |
-| `write-wants` | turn a goal into wants and forks | `lint`, read `plan.render()`, then compile the same wants in a different order and diff the two plans |
+| `annotate-world-model` | write the `x-reverse-webmcp` blocks for an app | `rwmcp --validate` for coherence, then call each operation against a reset app and diff the state; every row that changed must appear in `writes` |
+| `write-wants` | turn a goal into wants and forks | `rwmcp --wants w.wants` to lint and read the plan, then `--order-check` to prove it does not depend on want order |
 
 The principle in both: the agent drafts, the machine verifies. A drafted footprint is a guess,
 and a wrong `writes` list is the worst failure this design has — it deletes an edge, the plan

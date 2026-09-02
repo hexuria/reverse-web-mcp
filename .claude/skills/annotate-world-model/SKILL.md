@@ -95,29 +95,55 @@ This is the part to be slow about.
   parallelism. A too-narrow token costs correctness. Prefer a slow correct plan.
 - **A parameter that is not in `params` cannot be a selector.** `resource()` falls back to
   `entity:*` for an unbound variable, which is safe but usually means you meant a different name.
+  `rwmcp --app URL --validate` reports this one as `unbound_footprint_param`; it is otherwise
+  invisible, since the plan is correct and merely slow.
 - **`new` is per-node.** `entity:new` becomes `entity:@NodeId`, which never conflicts with
   another node's `new`. That is what lets ten creates run at once.
 
-## Step 4 — prove it against the running app
+## Step 4 — prove it
 
-Never ship a draft. Do all three:
+Never ship a draft. Do all four. The first and the last need no app running.
 
-**a. Does it compile at all?** Write one want per operation you annotated and compile. An
-`Unsatisfiable` error means `post` does not unify with the want; `NoSurface` means the door is
+**a. Is the model coherent?**
+
+```
+rwmcp --app URL-or-openapi.json --validate
+```
+
+It reads the document and reports what cannot be right: an entity or field that does not exist, a
+`before` pointing at no operation, an operation no surface can call, a footprint selector naming a
+`$param` the operation does not have, and two operations that write the same thing with no
+declared order between them. Exit **0** when there is nothing fatal, **10** when there is;
+`--json` gives `errors` and `warnings` with a stable `code` on each. Anything under `errors` must
+be fixed before going further.
+
+**b. Does it compile at all?** Write one want per operation you annotated and plan it:
+
+```
+rwmcp --app URL --wants w.wants
+```
+
+An `Unsatisfiable` error means `post` does not unify with the want; `NoSurface` means the door is
 missing from `surfaces`; `Unbound` means a `post` variable has no matching parameter.
 
-**b. Does the footprint match reality?** For each write operation: reset the app to a seed, read
-the state, call the operation once, read the state again, and diff. Every entity row that
-changed must appear in `writes`. In this repo the app does the bookkeeping for you —
-`GET /oracle/effects` returns each call's own footprint string (`"invoice:12,outbox:13"`), so
-the diff is a direct comparison. Against a real app, diff the database or its write-ahead log.
-Anything that changed and is not in `writes` is a bug you just found.
+**c. Does the footprint match reality?** This is the one no command can do for you, and the one
+that matters most. For each write operation: reset the app to a seed, read the state, call the
+operation once, read the state again, and diff. Every entity row that changed must appear in
+`writes`. In this repo the app does the bookkeeping for you — `GET /oracle/effects` returns each
+call's own footprint string (`"invoice:12,outbox:13"`), so the diff is a direct comparison.
+Against a real app, diff the database or its write-ahead log. Anything that changed and is not in
+`writes` is a bug you just found.
 
-**c. Does the order come out right?** Compile a multi-step goal and read `plan.render()`. Then
-compile the **same wants in a different order** and diff the two plans. They must be identical.
+**d. Does the order come out right?**
+
+```
+rwmcp --app URL --wants w.wants --order-check
+```
+
+It compiles the wants, compiles them reversed, and diffs the two graphs. They must be identical.
 If they are not, an edge is coming from want order instead of from data, and the annotation (or
-the compiler) is wrong. Check specifically that a join waits for every branch, and that a step
-which must precede another actually does.
+the compiler) is wrong. Then read the plan from **b** and check specifically that a join waits for
+every branch, and that a step which must precede another actually does.
 
 ## Common mistakes
 
@@ -129,8 +155,22 @@ which must precede another actually does.
 | a want compiles to one node when it should be many | an `each(...)` that never expanded; check the selector |
 | `operation X has no available surface` | the door is not in `surfaces`, or the run did not allow it |
 | a fork never fires | `when` is not one of the two understood conditions |
+| a plan that used to be right goes wrong after re-annotating | keys are scoped to the world model; a saved recipe says so and stops, `--force` overrides |
+
+## Starting from nothing
+
+If the document has no `x-reverse-webmcp` blocks at all:
+
+```
+rwmcp --app openapi.json --init
+```
+
+prints the skeleton block each operation still needs, with its real parameter names listed, plus
+the `x-reverse-webmcp-entities` block for the document root. Fill them in, then go to Step 4.
 
 ## What to report back
 
-State plainly which operations were verified against a running app and which are drafts. An
+State plainly which operations were verified against a running app and which are drafts. `rwmcp
+--validate` passing is necessary and not sufficient: it proves the model is coherent, never that
+a footprint is true. Only step **4c** does that, and only for the operations you actually ran. An
 unverified footprint is a claim, not a fact, and the whole design rests on that distinction.

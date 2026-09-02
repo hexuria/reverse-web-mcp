@@ -1,6 +1,7 @@
 //! The CLI is the whole product surface for someone who will never open a Rust file, so the
 //! paths that need no model are tested end to end against a live app.
 
+use std::collections::BTreeMap;
 use std::process::Command;
 use std::sync::{Arc, Mutex};
 
@@ -382,4 +383,78 @@ fn init_offers_a_block_for_every_unannotated_operation() {
     let v: Value = serde_json::from_str(&out).unwrap();
     assert_eq!(v["annotated"], 9);
     assert!(v["todo"].as_object().unwrap().is_empty());
+}
+
+/// Serve a fixture OpenAPI document and one collection, so an app that is not ours can be
+/// planned against. Everything selector-related used to be hardcoded to a `customer` entity
+/// fetched from `/api/customers`; this app has neither.
+fn serve_second_app() -> String {
+    use axum::routing::get;
+    let (addr_tx, addr_rx) = std::sync::mpsc::channel();
+    std::thread::spawn(move || {
+        let rt = tokio::runtime::Builder::new_current_thread().enable_all().build().unwrap();
+        rt.block_on(async move {
+            let doc: Value = serde_json::from_str(include_str!("fixtures/second-app-openapi.json")).unwrap();
+            let projects = serde_json::json!([
+                {"id": 1, "name": "Apollo", "stage": "live"},
+                {"id": 2, "name": "Borealis", "stage": "live"},
+                {"id": 3, "name": "Cassini", "stage": "draft"},
+            ]);
+            let app = axum::Router::new().route("/openapi.json", get(move || async move { axum::Json(doc) })).route(
+                "/api/projects",
+                get(move |q: axum::extract::Query<BTreeMap<String, String>>| async move {
+                    let rows = projects.as_array().unwrap().clone();
+                    let kept: Vec<Value> = rows.into_iter().filter(|r| q.iter().all(|(k, v)| r.get(k).and_then(|x| x.as_str()) == Some(v))).collect();
+                    axum::Json(Value::Array(kept))
+                }),
+            );
+            let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+            addr_tx.send(listener.local_addr().unwrap()).unwrap();
+            axum::serve(listener, app).await.unwrap();
+        });
+    });
+    format!("http://{}", addr_rx.recv().expect("the second app bound a port"))
+}
+
+/// The generality claim, tested rather than asserted: a selector over an entity this codebase has
+/// never heard of, resolved through the operation the world model names.
+#[test]
+fn selectors_work_on_an_app_that_is_not_ours() {
+    let base = serve_second_app();
+    let w = wants_file("second", "task(project=each(project())).exists\n");
+    let (ok, out, err) = rwmcp(&["--app", &base, "--wants", w.to_str().unwrap(), "--json"]);
+    assert!(ok, "{err}");
+    let v: Value = serde_json::from_str(&out).unwrap();
+
+    // each(project()) became one want per project, named by the field the resolver looks up by.
+    let wants = v["intent"]["wants"].as_array().unwrap();
+    let text = wants[0].as_str().unwrap();
+    assert!(text.contains("project(name='Apollo')") && text.contains("project(name='Cassini')"), "{text}");
+
+    // Three projects, each needing a resolve and a create.
+    let ops: Vec<&str> = v["plan"]["nodes"].as_array().unwrap().iter().map(|n| n["op"].as_str().unwrap()).collect();
+    assert_eq!(ops.iter().filter(|o| **o == "createTask").count(), 3);
+    assert_eq!(ops.iter().filter(|o| **o == "listProjects").count(), 3);
+
+    // And a filter the resolver accepts is passed through to it, not applied afterwards.
+    let w = wants_file("second-filter", "task(project=each(project(stage='draft'))).exists\n");
+    let (ok, out, err) = rwmcp(&["--app", &base, "--wants", w.to_str().unwrap(), "--json"]);
+    assert!(ok, "{err}");
+    let v: Value = serde_json::from_str(&out).unwrap();
+    let text = v["intent"]["wants"][0].as_str().unwrap();
+    assert!(text.contains("Cassini") && !text.contains("Apollo"), "only the draft project: {text}");
+}
+
+/// A surface the app never mentions is a typo. Saying so at the flag beats failing much later
+/// with "no surface can do this", which points at the operation instead.
+#[test]
+fn an_unknown_surface_is_named_at_the_flag() {
+    let base = serve(2);
+    let w = wants_file("surf", "invoice(customer=customer(name='Acme')).exists\n");
+    let w = w.to_str().unwrap();
+    let (ok, _, err) = rwmcp(&["--app", &base, "--wants", w, "--surfaces", "api,voice"]);
+    assert!(!ok);
+    assert!(err.contains("'voice'") && err.contains("It offers:"), "{err}");
+    assert_eq!(code(&["--app", &base, "--wants", w, "--surfaces", "api,voice"]), 10);
+    assert_eq!(code(&["--app", &base, "--wants", w, "--surfaces", "api,a11y"]), 0, "real surfaces still pass");
 }

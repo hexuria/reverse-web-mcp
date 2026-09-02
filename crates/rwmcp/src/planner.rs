@@ -178,11 +178,40 @@ impl Sampler for ModelClient {
 }
 
 /// What exists right now, read from the app. A read, not a sample.
-pub async fn world_facts(base: &str) -> anyhow::Result<String> {
-    let customers: Value = reqwest::get(format!("{}/api/customers", base.trim_end_matches('/'))).await?.json().await?;
-    let names: Vec<String> =
-        customers.as_array().map(|a| a.iter().filter_map(|c| c.get("name").and_then(|n| n.as_str()).map(|s| s.to_string())).collect()).unwrap_or_default();
-    Ok(format!("  customers ({}): {}", names.len(), summarise_names(&names)))
+pub async fn world_facts(world: &World, base: &str) -> anyhow::Result<String> {
+    let client = reqwest::Client::new();
+    let mut out: Vec<String> = Vec::new();
+    for e in &world.entities {
+        let Some((op, field)) = resolver(world, &e.name) else { continue };
+        let Ok(resp) = client.get(format!("{}{}", base.trim_end_matches('/'), op.path)).send().await else { continue };
+        let Ok(rows) = resp.json::<Value>().await else { continue };
+        let names: Vec<String> =
+            rows.as_array().map(|a| a.iter().filter_map(|r| r.get(field)).filter_map(|v| v.as_str().map(str::to_string)).collect()).unwrap_or_default();
+        out.push(format!("  {}s ({}): {}", e.name, names.len(), summarise_names(&names)));
+    }
+    Ok(out.join("\n"))
+}
+
+/// The operation that finds an existing `entity` by one of its fields, and the field it looks it
+/// up by: `post` is `entity(field=$var).resolved` and it produces that entity. An app declares one
+/// per entity it wants selectors to work on. Nothing below this line knows an entity is called
+/// "customer", which is what makes selectors work against somebody else's app.
+pub fn resolver<'a>(world: &'a World, entity: &str) -> Option<(&'a crate::world::Op, &'a str)> {
+    let op =
+        world.ops.iter().find(|o| o.produces.as_deref() == Some(entity) && o.post.as_ref().is_some_and(|p| p.entity == entity && p.field == "resolved"))?;
+    let field = op.post.as_ref()?.args.iter().find(|(_, v)| matches!(v, crate::pred::Val::Var(..))).map(|(k, _)| k.as_str())?;
+    Some((op, field))
+}
+
+/// A selector argument the resolver can be called with, as a query string value.
+fn literal(v: &crate::pred::Val) -> Option<String> {
+    use crate::pred::Val;
+    match v {
+        Val::Str(s) => Some(s.clone()),
+        Val::Num(n) => Some(n.to_string()),
+        Val::Bool(b) => Some(b.to_string()),
+        _ => None,
+    }
 }
 
 fn intent_tool() -> Value {
@@ -274,7 +303,7 @@ pub async fn plan_with_lint(ask: &Ask, ctx: &Ctx<'_>, sampler: &dyn Sampler, led
     let mut intent = plan_intent(ask, world, facts, sampler, ledger).await?;
     for _ in 0..2 {
         if let Some(b) = ctx.base {
-            intent = expand_selectors(&intent, b).await?;
+            intent = expand_selectors(&intent, world, b).await?;
         }
         let errs = lint(&intent, world, ctx.opts);
         if errs.is_empty() {
@@ -284,7 +313,7 @@ pub async fn plan_with_lint(ask: &Ask, ctx: &Ctx<'_>, sampler: &dyn Sampler, led
         intent = replan(ask, world, facts, &intent, &errs, sampler, ledger).await?;
     }
     if let Some(b) = ctx.base {
-        intent = expand_selectors(&intent, b).await?;
+        intent = expand_selectors(&intent, world, b).await?;
     }
     let errs = lint(&intent, world, ctx.opts);
     if errs.is_empty() {
@@ -522,7 +551,7 @@ pub fn summarise_names(names: &[String]) -> String {
 
 /// Replace `each(customer(name_prefix='X'))` with the matching names, read from the app.
 /// A read before compiling, not a sample; keys come out identical to the written-out form.
-pub async fn expand_selectors(intent: &Intent, base: &str) -> anyhow::Result<Intent> {
+pub async fn expand_selectors(intent: &Intent, world: &World, base: &str) -> anyhow::Result<Intent> {
     use crate::pred::Pred;
     let client = reqwest::Client::new();
     let mut out = intent.clone();
@@ -530,7 +559,7 @@ pub async fn expand_selectors(intent: &Intent, base: &str) -> anyhow::Result<Int
         let Ok(mut pred) = Pred::parse(w) else { continue };
         let mut changed = false;
         for (_, v) in pred.args.iter_mut() {
-            if let Some(nv) = expand_val(v, &client, base).await? {
+            if let Some(nv) = expand_val(v, &client, world, base).await? {
                 *v = nv;
                 changed = true;
             }
@@ -543,62 +572,64 @@ pub async fn expand_selectors(intent: &Intent, base: &str) -> anyhow::Result<Int
 }
 
 #[async_recursion::async_recursion]
-async fn expand_val(v: &crate::pred::Val, client: &reqwest::Client, base: &str) -> anyhow::Result<Option<crate::pred::Val>> {
+async fn expand_val(v: &crate::pred::Val, client: &reqwest::Client, world: &World, base: &str) -> anyhow::Result<Option<crate::pred::Val>> {
     use crate::pred::{Pred, Val};
     match v {
+        // `each(E())` selects every E; `each(E(field='x'))` selects the ones the resolver returns
+        // for that filter. Which operation to call, and which field names a row, come from the
+        // world model — so this works on any annotated entity, not just the one we happened to
+        // build the benchmark around.
         Val::Each(items) if items.len() == 1 => {
-            // each(customer(name_prefix='X')) selects by prefix; each(customer()) selects every one.
-            if let Val::Entity(p) = &items[0] {
-                if p.entity == "customer" {
-                    let prefix = match p.arg("name_prefix") {
-                        Some(Val::Str(x)) => Some(x.clone()),
-                        _ => None,
-                    };
-                    if prefix.is_some() || p.args.is_empty() {
-                        let mut req = client.get(format!("{}/api/customers", base.trim_end_matches('/')));
-                        if let Some(x) = &prefix {
-                            req = req.query(&[("name_prefix", x)]);
-                        }
-                        let rows: Value = req.send().await?.json().await?;
-                        let names: Vec<Val> = rows
-                            .as_array()
-                            .map(|a| {
-                                a.iter()
-                                    .filter_map(|c| c.get("name").and_then(|n| n.as_str()))
-                                    .map(|n| {
-                                        Val::Entity(Box::new(Pred {
-                                            entity: "customer".into(),
-                                            args: vec![("name".into(), Val::Str(n.to_string()))],
-                                            field: String::new(),
-                                            value: Val::Bool(true),
-                                        }))
-                                    })
-                                    .collect()
-                            })
-                            .unwrap_or_default();
-                        return Ok(Some(Val::Each(names)));
-                    }
+            let Val::Entity(p) = &items[0] else { return Ok(None) };
+            let Some((op, field)) = resolver(world, &p.entity) else { return Ok(None) };
+            let mut query: Vec<(String, String)> = Vec::new();
+            for (k, a) in &p.args {
+                // A filter the resolver cannot take is left alone: lint reports it as an
+                // unexpanded selector rather than quietly selecting the wrong rows.
+                if !op.params.iter().any(|q| q.name == *k) {
+                    return Ok(None);
+                }
+                match literal(a) {
+                    Some(s) => query.push((k.clone(), s)),
+                    None => return Ok(None),
                 }
             }
-            Ok(None)
+            let rows: Value = client.get(format!("{}{}", base.trim_end_matches('/'), op.path)).query(&query).send().await?.json().await?;
+            let picked: Vec<Val> = rows
+                .as_array()
+                .map(|a| {
+                    a.iter()
+                        .filter_map(|r| r.get(field).and_then(|n| n.as_str()))
+                        .map(|n| {
+                            Val::Entity(Box::new(Pred {
+                                entity: p.entity.clone(),
+                                args: vec![(field.to_string(), Val::Str(n.to_string()))],
+                                field: String::new(),
+                                value: Val::Bool(true),
+                            }))
+                        })
+                        .collect()
+                })
+                .unwrap_or_default();
+            Ok(Some(Val::Each(picked)))
         }
         Val::Entity(p) => {
             let mut p2 = (**p).clone();
             let mut changed = false;
             for (_, a) in p2.args.iter_mut() {
-                if let Some(nv) = expand_val(a, client, base).await? {
+                if let Some(nv) = expand_val(a, client, world, base).await? {
                     *a = nv;
                     changed = true;
                 }
             }
             Ok(if changed { Some(Val::Entity(Box::new(p2))) } else { None })
         }
-        Val::All(inner) => Ok(expand_val(inner, client, base).await?.map(|nv| Val::All(Box::new(nv)))),
+        Val::All(inner) => Ok(expand_val(inner, client, world, base).await?.map(|nv| Val::All(Box::new(nv)))),
         Val::List(xs) => {
             let mut ys = Vec::new();
             let mut changed = false;
             for x in xs {
-                match expand_val(x, client, base).await? {
+                match expand_val(x, client, world, base).await? {
                     Some(nv) => {
                         ys.push(nv);
                         changed = true;

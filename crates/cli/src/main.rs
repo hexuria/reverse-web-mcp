@@ -634,6 +634,7 @@ async fn show_world(cli: &Cli) -> Result<(), Fail> {
 
 async fn act(cli: &Cli) -> Result<(), Fail> {
     let world = cli.world().await.map_err(unreachable_fail)?;
+    check_surfaces(cli, &world)?;
     let bind = cli.bindings().map_err(|e| Fail::new(Exit::WantsRejected, "bad_set", format!("{e:#}")))?;
 
     // A resumed run brings its own ledger and plan id; everything else starts empty.
@@ -661,7 +662,7 @@ async fn act(cli: &Cli) -> Result<(), Fail> {
 
     let (goal, raw): (String, Vec<String>) = match (&cli.goal, &cli.wants, &cli.recipe) {
         (Some(goal), _, _) => {
-            let facts = if cli.offline() { String::new() } else { planner::world_facts(cli.app()).await.unwrap_or_default() };
+            let facts = if cli.offline() { String::new() } else { planner::world_facts(&world, cli.app()).await.unwrap_or_default() };
             let sampler = ModelClient::from_env(&cli.model, &cli.effort, false, cli.base_url.as_deref(), cli.api_key.as_deref())
                 .map_err(|e| Fail::new(Exit::PlannerFailed, "no_model", format!("{e:#}")))?;
             let mut ctx = planner::Ctx::new(&world, &opts).facts(&facts);
@@ -714,7 +715,7 @@ async fn act(cli: &Cli) -> Result<(), Fail> {
 
     let intent = Intent { goal: goal.clone(), wants, ..Default::default() };
     let intent = match cli.offline() {
-        false => planner::expand_selectors(&intent, cli.app()).await.unwrap_or(intent),
+        false => planner::expand_selectors(&intent, &world, cli.app()).await.unwrap_or(intent),
         true => intent,
     };
 
@@ -775,7 +776,7 @@ async fn answer_fork(cli: &Cli, intent: &Intent, world: &World, outcome: &Outcom
     if cli.answer_with_model {
         let sampler = ModelClient::from_env(&cli.model, &cli.effort, false, cli.base_url.as_deref(), cli.api_key.as_deref())
             .map_err(|e| Fail::new(Exit::PlannerFailed, "no_model", format!("{e:#}")))?;
-        let facts = planner::world_facts(cli.app()).await.unwrap_or_default();
+        let facts = planner::world_facts(world, cli.app()).await.unwrap_or_default();
         let fork = planner::ForkQuestion { ask: outcome.yield_reason.clone().unwrap_or_default(), evidence: outcome.evidence.clone().unwrap_or(Value::Null) };
         let ctx = planner::Ctx::new(world, opts).facts(&facts).at(cli.app());
         let answered = planner::answer_fork(&planner::Ask::new(&intent.goal), &ctx, intent, &fork, &sampler, ledger)
@@ -789,6 +790,26 @@ async fn answer_fork(cli: &Cli, intent: &Intent, world: &World, outcome: &Outcom
 fn load_state(p: &std::path::Path) -> anyhow::Result<RunState> {
     let text = std::fs::read_to_string(p).with_context(|| format!("reading run state {}", p.display()))?;
     serde_json::from_str(&text).with_context(|| format!("parsing run state {}", p.display()))
+}
+
+/// A surface this app never mentions is a typo, not a capability. Left alone it becomes an
+/// unavailable effector and surfaces much later as "no surface can do this", pointing at the
+/// operation rather than at the flag.
+fn check_surfaces(cli: &Cli, world: &World) -> Result<(), Fail> {
+    let known: std::collections::BTreeSet<&str> = world.ops.iter().flat_map(|o| o.surfaces.keys().map(|s| s.as_str())).collect();
+    let asked = cli.surface_list();
+    let unknown: Vec<&String> = asked.iter().filter(|s| !known.contains(s.as_str())).collect();
+    if unknown.is_empty() {
+        return Ok(());
+    }
+    let mut names: Vec<&str> = known.into_iter().collect();
+    names.sort_unstable();
+    let m = format!(
+        "--surfaces names {}, which this app does not offer. It offers: {}",
+        unknown.iter().map(|s| format!("'{s}'")).collect::<Vec<_>>().join(", "),
+        names.join(", ")
+    );
+    Err(Fail::new(Exit::WantsRejected, "unknown_surface", m).with(serde_json::json!({ "unknown": unknown, "available": names })))
 }
 
 /// The part a person reads before saying yes.

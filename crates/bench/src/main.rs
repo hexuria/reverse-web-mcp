@@ -179,7 +179,7 @@ async fn run(opts: RunOpts) -> anyhow::Result<()> {
                 let receipt = match arm.as_str() {
                     "D" => {
                         let req = if planner == "model" {
-                            let facts = planner::world_facts(&base).await?;
+                            let facts = planner::world_facts(&world, &base).await?;
                             Some((model_client.as_ref().unwrap().with_effort(&opts.planner_effort), facts))
                         } else {
                             None
@@ -197,15 +197,15 @@ async fn run(opts: RunOpts) -> anyhow::Result<()> {
                     }
                     "E" => arms::run_script(task, &ctx).await?,
                     "B" | "B2" => {
-                        let facts = planner::world_facts(&base).await?;
+                        let facts = planner::world_facts(&world, &base).await?;
                         loops::run_mcp_loop(task, &ctx, model_client.as_ref().unwrap(), &facts, arm == "B2").await?
                     }
                     "C" => {
-                        let facts = planner::world_facts(&base).await?;
+                        let facts = planner::world_facts(&world, &base).await?;
                         loops::run_webmcp_loop(task, &ctx, model_client.as_ref().unwrap(), &facts).await?
                     }
                     "A" => {
-                        let facts = planner::world_facts(&base).await?;
+                        let facts = planner::world_facts(&world, &base).await?;
                         loops::run_cua_loop(task, &ctx, model_client.as_ref().unwrap(), &facts).await?
                     }
                     other => {

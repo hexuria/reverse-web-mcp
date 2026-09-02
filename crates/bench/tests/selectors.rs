@@ -45,16 +45,16 @@ async fn a_prefix_selector_becomes_the_matching_names() {
         ],
         ..Default::default()
     };
-    let expanded = expand_selectors(&intent, &base).await.unwrap();
+    let world = Arc::new(world_from(&base).await.unwrap());
+    let expanded = expand_selectors(&intent, &world, &base).await.unwrap();
     assert!(expanded.wants[0].contains("customer(name='Customer 001')"));
     assert!(expanded.wants[0].contains("customer(name='Customer 300')"));
     assert!(!expanded.wants[0].contains("name_prefix"));
-    let world = Arc::new(world_from(&base).await.unwrap());
     let plan = compile(&expanded, &world, &CompileOptions::default()).unwrap();
     assert_eq!(plan.nodes.len(), 900);
     // Untouched wants pass through unchanged.
     let plain = Intent { goal: "g".into(), wants: vec!["invoice(customer=customer(name='Acme')).exists".into()], ..Default::default() };
-    assert_eq!(expand_selectors(&plain, &base).await.unwrap().wants, plain.wants);
+    assert_eq!(expand_selectors(&plain, &world, &base).await.unwrap().wants, plain.wants);
 }
 
 #[tokio::test]
@@ -102,7 +102,7 @@ async fn a_bare_each_customer_means_every_customer() {
     let world = world_from(&base).await.unwrap();
     // Unexpanded it is a lint error, never a quiet single lane.
     assert!(rwmcp::intent::lint(&intent, &world, &CompileOptions::default()).iter().any(|e| matches!(e, rwmcp::intent::LintError::UnexpandedSelector { .. })));
-    let expanded = expand_selectors(&intent, &base).await.unwrap();
+    let expanded = expand_selectors(&intent, &world, &base).await.unwrap();
     assert!(rwmcp::intent::lint(&expanded, &world, &CompileOptions::default()).is_empty());
     let plan = compile(&expanded, &Arc::new(world), &CompileOptions::default()).unwrap();
     assert_eq!(plan.nodes.len(), 30, "ten customers, three nodes each");
@@ -124,7 +124,7 @@ async fn a_selector_inside_all_is_expanded_too() {
         ..Default::default()
     };
     let world = world_from(&base).await.unwrap();
-    let expanded = expand_selectors(&intent, &base).await.unwrap();
+    let expanded = expand_selectors(&intent, &world, &base).await.unwrap();
     assert!(rwmcp::intent::lint(&expanded, &world, &CompileOptions::default()).is_empty(), "the selector inside all() was expanded");
     let plan = compile(&expanded, &Arc::new(world), &CompileOptions::default()).unwrap();
     assert_eq!(plan.nodes.iter().filter(|n| n.op == "createReport").count(), 1, "one report over all ten");

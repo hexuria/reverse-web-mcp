@@ -1,0 +1,116 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "second app",
+    "version": "1"
+  },
+  "x-reverse-webmcp-entities": {
+    "project": {
+      "id": "id",
+      "fields": [
+        "name",
+        "stage"
+      ]
+    },
+    "task": {
+      "id": "id",
+      "fields": [
+        "project_id",
+        "title",
+        "done"
+      ]
+    }
+  },
+  "paths": {
+    "/api/projects": {
+      "get": {
+        "operationId": "listProjects",
+        "parameters": [
+          {
+            "name": "name",
+            "in": "query"
+          },
+          {
+            "name": "stage",
+            "in": "query"
+          }
+        ],
+        "x-reverse-webmcp": {
+          "post": "project(name=$name).resolved",
+          "produces": "project",
+          "reads": [
+            "project:*"
+          ],
+          "writes": [],
+          "surfaces": {
+            "api": 1,
+            "webmcp": 2
+          }
+        }
+      }
+    },
+    "/api/tasks": {
+      "post": {
+        "operationId": "createTask",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "properties": {
+                  "project_id": {},
+                  "title": {}
+                }
+              }
+            }
+          }
+        },
+        "x-reverse-webmcp": {
+          "post": "task(project=$project_id).exists",
+          "produces": "task",
+          "requires": [
+            "project(id=$project_id).resolved"
+          ],
+          "reads": [
+            "project:$project_id"
+          ],
+          "writes": [
+            "task:new"
+          ],
+          "defaults": {
+            "title": "untitled"
+          },
+          "surfaces": {
+            "api": 1,
+            "webmcp": 2
+          }
+        }
+      }
+    },
+    "/api/tasks/{id}/finish": {
+      "post": {
+        "operationId": "finishTask",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "x-reverse-webmcp": {
+          "post": "task(id=$id).done=true",
+          "requires": [
+            "task(id=$id).exists"
+          ],
+          "reads": [
+            "task:$id"
+          ],
+          "writes": [
+            "task:$id"
+          ],
+          "surfaces": {
+            "api": 1
+          }
+        }
+      }
+    }
+  }
+}

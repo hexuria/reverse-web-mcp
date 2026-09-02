@@ -52,6 +52,7 @@ async fn run(base: &str, wants: Vec<String>) -> (rwmcp::Receipt, Value) {
         pools: Default::default(),
         policy: Default::default(),
         recorder: Recorder::new(world.clone()),
+        progress: None,
     };
     let mut ledger = Ledger::new();
     let outcome = sched.run(&plan, &mut ledger).await;
@@ -166,6 +167,7 @@ async fn a_lost_webhook_is_caught_by_the_state_check() {
         pools: Default::default(),
         policy,
         recorder: Recorder::new(world.clone()),
+        progress: None,
     };
     let mut ledger = Ledger::new();
     let outcome = sched.run(&plan, &mut ledger).await;

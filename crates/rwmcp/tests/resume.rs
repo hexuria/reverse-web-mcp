@@ -73,7 +73,8 @@ async fn the_report_fails_then_the_plan_resumes_without_a_double_send() {
     let mut effectors: HashMap<String, Arc<dyn Effector>> = HashMap::new();
     effectors.insert("api".into(), Arc::new(Breaker { inner: ApiEffector::new(&base, world.clone()), op: "createReport", broken: broken.clone() }));
     let bus = EventBus::connect(&base).await.unwrap();
-    let sched = Scheduler { effectors, bus: Some(bus), pools: Default::default(), policy: Default::default(), recorder: Recorder::new(world.clone()) };
+    let sched =
+        Scheduler { effectors, bus: Some(bus), pools: Default::default(), policy: Default::default(), recorder: Recorder::new(world.clone()), progress: None };
 
     let mut ledger = Ledger::new();
     let first = sched.run(&plan, &mut ledger).await;

@@ -72,7 +72,10 @@ fn a_wants_file_plans_and_runs_with_no_model_call() {
     let (ok, out, err) = rwmcp(&["--app", &base, "--wants", w]);
     assert!(ok, "{err}");
     assert!(out.contains("31 steps, 4 deep"), "{out}");
-    assert!(out.contains("10 steps leave the system (email, money): sendInvoice"), "the op is named once, not ten times: {out}");
+    // Ten emails are listed one per line, each named by who it is for; see
+    // the_approval_summary_says_who_each_external_step_is_for.
+    assert!(out.contains("10 steps leave the system (email, money):"), "{out}");
+    assert_eq!(out.matches("sendInvoice ←").count(), 10, "{out}");
     assert!(out.contains("Planning cost 0 model calls"), "a wants file costs nothing: {out}");
 
     // An effectful plan refuses to run unnoticed.
@@ -457,4 +460,85 @@ fn an_unknown_surface_is_named_at_the_flag() {
     assert!(err.contains("'voice'") && err.contains("It offers:"), "{err}");
     assert_eq!(code(&["--app", &base, "--wants", w, "--surfaces", "api,voice"]), 10);
     assert_eq!(code(&["--app", &base, "--wants", w, "--surfaces", "api,a11y"]), 0, "real surfaces still pass");
+}
+
+/// A recipe records the world model it was written against, so re-annotating an app is caught
+/// rather than discovered halfway through a run.
+#[test]
+fn a_recipe_notices_when_the_app_has_drifted() {
+    let base = serve(2);
+    let dir = std::env::temp_dir().join(format!("rwmcp-{}-recipes", std::process::id()));
+    let dir = dir.to_str().unwrap();
+    let w = wants_file("prov", "invoice(customer=customer(name=$who)).exists\n");
+    let (ok, _, err) = rwmcp(&["--app", &base, "--wants", w.to_str().unwrap(), "--save", "billing", "--recipes-dir", dir, "--set", "who=Acme"]);
+    assert!(ok, "{err}");
+
+    let saved: Value = serde_json::from_str(&std::fs::read_to_string(format!("{dir}/billing.json")).unwrap()).unwrap();
+    assert_eq!(saved["params"], serde_json::json!(["who"]));
+    assert!(saved["created_at"].as_str().unwrap().starts_with("20"), "{saved}");
+    assert!(!saved["rwmcp_version"].as_str().unwrap().is_empty());
+    let print = saved["world_fingerprint"].as_str().unwrap().to_string();
+    assert_eq!(print.len(), 32);
+
+    // Unchanged, it runs.
+    assert_eq!(code(&["--recipe", "billing", "--recipes-dir", dir, "--app", &base, "--set", "who=Acme"]), 0);
+
+    // Drifted, it stops and says so — and --force gets past it.
+    let mut drifted = saved.clone();
+    drifted["world_fingerprint"] = serde_json::json!("00000000000000000000000000000000");
+    std::fs::write(format!("{dir}/billing.json"), drifted.to_string()).unwrap();
+    let (ok, _, err) = rwmcp(&["--recipe", "billing", "--recipes-dir", dir, "--app", &base, "--set", "who=Acme"]);
+    assert!(!ok);
+    assert!(err.contains("re-annotated") && err.contains("--force"), "{err}");
+    assert_eq!(code(&["--recipe", "billing", "--recipes-dir", dir, "--app", &base, "--set", "who=Acme", "--force"]), 0);
+}
+
+/// The ergonomics an agent needs to drive this without a filesystem or a wrapper script.
+#[test]
+fn wants_come_from_stdin_and_the_app_from_the_environment() {
+    use std::io::Write;
+    let base = serve(2);
+    let plan_out = std::env::temp_dir().join(format!("rwmcp-{}-plan.json", std::process::id()));
+
+    let mut child = Command::new(env!("CARGO_BIN_EXE_rwmcp"))
+        .args(["--wants", "-", "--json", "--plan-out", plan_out.to_str().unwrap()])
+        .env("RWMCP_APP", &base)
+        .stdin(std::process::Stdio::piped())
+        .stdout(std::process::Stdio::piped())
+        .spawn()
+        .unwrap();
+    child.stdin.as_mut().unwrap().write_all(b"# from stdin\ninvoice(customer=customer(name='Acme')).exists\n").unwrap();
+    let out = child.wait_with_output().unwrap();
+    assert!(out.status.success(), "{}", String::from_utf8_lossy(&out.stderr));
+    let v: Value = serde_json::from_str(&String::from_utf8_lossy(&out.stdout)).unwrap();
+    assert_eq!(v["ok"], true);
+
+    // --plan-out wrote the same plan to disk.
+    let written: Value = serde_json::from_str(&std::fs::read_to_string(&plan_out).unwrap()).unwrap();
+    assert_eq!(written["nodes"].as_array().unwrap().len(), v["plan"]["nodes"].as_array().unwrap().len());
+}
+
+/// The limits are wired to the scheduler, not just accepted and ignored.
+#[test]
+fn max_parallel_actually_caps_the_run() {
+    let base = serve(2);
+    let w = wants_file("wide", "invoice(customer=each(customer())).exists\n");
+    let w = w.to_str().unwrap();
+    let (ok, out, err) = rwmcp(&["--app", &base, "--wants", w, "--run", "--yes", "--max-parallel", "2", "--json"]);
+    assert!(ok, "{err}");
+    let v: Value = serde_json::from_str(&out).unwrap();
+    assert!(v["max_parallel"].as_u64().unwrap() <= 2, "asked for 2 at once, ran {} at once", v["max_parallel"]);
+}
+
+/// A person approving ten emails has to be able to tell them apart.
+#[test]
+fn the_approval_summary_says_who_each_external_step_is_for() {
+    let base = serve(2);
+    let w = wants_file("approve", "invoice(customer=each(customer())).status='sent'\n");
+    let (ok, out, err) = rwmcp(&["--app", &base, "--wants", w.to_str().unwrap()]);
+    assert!(ok, "{err}");
+    assert!(out.contains("10 steps leave the system"), "{out}");
+    assert!(out.contains("sendInvoice ← 'Acme'"), "the customer, not a node id: {out}");
+    assert!(out.contains("'Globex'") && out.contains("'Tyrell'"), "{out}");
+    assert!(!out.contains("<D.id>"), "no internal node references: {out}");
 }

@@ -65,8 +65,14 @@ pub async fn run_ours(
     let mut intent = intent.unwrap_or_else(|| task.intent());
     let opts = CompileOptions { plan_id: format!("{}-{}", task.id, ctx.run_id), surfaces: ctx.surfaces.clone() };
     let effectors = effectors_for(ctx);
-    let sched =
-        Scheduler { effectors, bus: Some(ctx.bus.clone()), pools: Default::default(), policy: Default::default(), recorder: Recorder::new(ctx.world.clone()) };
+    let sched = Scheduler {
+        effectors,
+        bus: Some(ctx.bus.clone()),
+        pools: Default::default(),
+        policy: Default::default(),
+        recorder: Recorder::new(ctx.world.clone()),
+        progress: None,
+    };
 
     let mut plan = match compile(&intent, &ctx.world, &opts) {
         Ok(p) => p,

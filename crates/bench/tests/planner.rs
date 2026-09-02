@@ -131,8 +131,8 @@ async fn a_repeat_goal_costs_zero_samples() {
     assert_eq!(ledger2.sample_count(), 0);
     assert_eq!(first.wants, second.wants);
     // Different facts, different key: a changed world never hits.
-    assert!(cache.get(&task().goal, "other facts", &CompileOptions::default().surfaces).is_none());
-    assert!(cache.get(&task().goal, "facts", &["api".to_string(), "mcp".to_string()]).is_none());
+    assert!(cache.get(&task().goal, "other facts", &CompileOptions::default().surfaces, &w).is_none());
+    assert!(cache.get(&task().goal, "facts", &["api".to_string(), "mcp".to_string()], &w).is_none());
     let _ = std::fs::remove_dir_all(&dir);
 }
 

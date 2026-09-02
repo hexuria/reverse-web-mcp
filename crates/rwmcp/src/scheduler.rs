@@ -16,6 +16,9 @@ use crate::ledger::{now_ms, Ledger, Recorder, Status};
 use crate::plan::{Arg, Node, Plan};
 use crate::world::OpKind;
 
+/// `(node id, operation, worked, finished so far, total)`.
+pub type Progress = Arc<dyn Fn(&str, &str, bool, usize, usize) + Send + Sync>;
+
 #[derive(Clone, Debug)]
 pub struct Pools {
     pub per_surface: HashMap<String, usize>,
@@ -64,6 +67,9 @@ pub struct Scheduler {
     pub pools: Pools,
     pub policy: Policy,
     pub recorder: Recorder,
+    /// Called as each step finishes, with the node, the operation and whether it worked. A long
+    /// plan is otherwise silent until it ends, which reads as a hang.
+    pub progress: Option<Progress>,
 }
 
 #[derive(Clone, Debug)]
@@ -239,6 +245,10 @@ impl Scheduler {
                 Ok(x) => x,
                 Err(e) => ("?".into(), Err(Failure::Fatal(format!("task panicked: {e}")))),
             };
+            if let Some(p) = &self.progress {
+                let op = plan.node(&id).map(|n| n.op.as_str()).unwrap_or("?");
+                p(&id, op, result.is_ok(), state.completed() + 1, plan.nodes.len());
+            }
             match result {
                 Ok(v) => {
                     if let Some(rule) = v.get("__fork_default") {

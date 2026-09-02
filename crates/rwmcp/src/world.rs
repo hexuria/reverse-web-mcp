@@ -335,6 +335,56 @@ fn pred_vars(p: &Pred) -> Vec<String> {
 }
 
 impl World {
+    /// A stable hash of everything a plan depends on: which operations exist, what they promise,
+    /// what they touch and where they can be reached. Two apps with the same fingerprint compile
+    /// the same wants the same way.
+    ///
+    /// A recipe records this so re-running it against a drifted app is caught rather than
+    /// discovered halfway through, and the intent cache keys on it so re-annotating an app does
+    /// not silently reuse an intent planned against the old model.
+    pub fn fingerprint(&self) -> String {
+        use sha2::{Digest, Sha256};
+        let mut h = Sha256::new();
+        for e in &self.entities {
+            let mut fields = e.fields.clone();
+            fields.sort();
+            h.update(format!("entity {} {} {}\n", e.name, e.id, fields.join(",")).as_bytes());
+        }
+        let mut ops: Vec<&Op> = self.ops.iter().collect();
+        ops.sort_by(|a, b| a.name.cmp(&b.name));
+        for o in ops {
+            let p = |v: &Option<Pred>| v.as_ref().map(|x| x.to_string()).unwrap_or_default();
+            let list = |v: &[String]| {
+                let mut v = v.to_vec();
+                v.sort();
+                v.join(",")
+            };
+            let preds = |v: &[Pred]| {
+                let mut v: Vec<String> = v.iter().map(|x| x.to_string()).collect();
+                v.sort();
+                v.join(",")
+            };
+            let surfaces = o.surfaces.iter().map(|(k, c)| format!("{k}={c}")).collect::<Vec<_>>().join(",");
+            let line = format!(
+                "op {} {:?} {} {} post={} requires={} produces={} reads={} writes={} external={} before={} surfaces={}\n",
+                o.name,
+                o.kind,
+                o.method,
+                o.path,
+                p(&o.post),
+                preds(&o.requires),
+                o.produces.clone().unwrap_or_default(),
+                list(&o.reads),
+                list(&o.writes),
+                o.external,
+                list(&o.before),
+                surfaces
+            );
+            h.update(line.as_bytes());
+        }
+        hex::encode(&h.finalize()[..16])
+    }
+
     /// Read the model and report what cannot be right. Fatal findings mean a plan built on this
     /// model can be wrong; the rest are things that will merely work less well than they could.
     pub fn validate(&self) -> Vec<Finding> {

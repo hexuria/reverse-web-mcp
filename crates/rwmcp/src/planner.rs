@@ -490,7 +490,10 @@ impl IntentCache {
         IntentCache { dir: dir.into() }
     }
 
-    pub fn key(goal: &str, facts: &str, surfaces: &[String]) -> String {
+    /// What the planner actually saw: the ask, the live facts, the surfaces it was allowed, and
+    /// the world model itself. Without the last one, re-annotating an app returns an intent
+    /// planned against operations that no longer mean what they did.
+    pub fn key(goal: &str, facts: &str, surfaces: &[String], world: &World) -> String {
         use sha2::{Digest, Sha256};
         let mut h = Sha256::new();
         h.update(goal.trim().as_bytes());
@@ -498,6 +501,8 @@ impl IntentCache {
         h.update(facts.trim().as_bytes());
         h.update(b"\n");
         h.update(surfaces.join(",").as_bytes());
+        h.update(b"\n");
+        h.update(world.fingerprint().as_bytes());
         hex::encode(&h.finalize()[..16])
     }
 
@@ -505,14 +510,14 @@ impl IntentCache {
         self.dir.join(format!("{key}.json"))
     }
 
-    pub fn get(&self, goal: &str, facts: &str, surfaces: &[String]) -> Option<Intent> {
-        let text = std::fs::read_to_string(self.path(&Self::key(goal, facts, surfaces))).ok()?;
+    pub fn get(&self, goal: &str, facts: &str, surfaces: &[String], world: &World) -> Option<Intent> {
+        let text = std::fs::read_to_string(self.path(&Self::key(goal, facts, surfaces, world))).ok()?;
         serde_json::from_str(&text).ok()
     }
 
-    pub fn put(&self, goal: &str, facts: &str, surfaces: &[String], intent: &Intent) -> anyhow::Result<()> {
+    pub fn put(&self, goal: &str, facts: &str, surfaces: &[String], world: &World, intent: &Intent) -> anyhow::Result<()> {
         std::fs::create_dir_all(&self.dir)?;
-        std::fs::write(self.path(&Self::key(goal, facts, surfaces)), serde_json::to_string_pretty(intent)?)?;
+        std::fs::write(self.path(&Self::key(goal, facts, surfaces, world)), serde_json::to_string_pretty(intent)?)?;
         Ok(())
     }
 }
@@ -520,11 +525,11 @@ impl IntentCache {
 /// Plan through the cache: a hit is free, a miss is planned, linted and stored.
 pub async fn plan_cached(cache: &IntentCache, ask: &Ask, ctx: &Ctx<'_>, sampler: &dyn Sampler, ledger: &mut Ledger) -> anyhow::Result<(Intent, bool)> {
     let (facts, surfaces) = (ctx.facts, &ctx.opts.surfaces);
-    if let Some(i) = cache.get(&ask.goal, facts, surfaces) {
+    if let Some(i) = cache.get(&ask.goal, facts, surfaces, ctx.world) {
         return Ok((i, true));
     }
     let i = plan_with_lint(ask, ctx, sampler, ledger).await?;
-    cache.put(&ask.goal, facts, surfaces, &i)?;
+    cache.put(&ask.goal, facts, surfaces, ctx.world, &i)?;
     Ok((i, false))
 }
 

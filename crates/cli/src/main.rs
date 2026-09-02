@@ -36,7 +36,7 @@ struct Cli {
     /// What you want, in plain language. Costs one model call.
     #[arg(long, value_name = "TEXT")]
     goal: Option<String>,
-    /// A file of wants, one per line, `#` for comments. Costs nothing.
+    /// A file of wants, one per line, `#` for comments. `-` reads them from stdin. Costs nothing.
     #[arg(long, value_name = "FILE", conflicts_with = "goal")]
     wants: Option<PathBuf>,
     /// A saved recipe: a name in the recipes directory, or a path to a .json file. Costs nothing.
@@ -92,19 +92,19 @@ struct Cli {
     // ---- where ----
     /// The app's base URL, or a path to an OpenAPI file for offline checks. A recipe remembers
     /// the app it was saved against, so with --recipe this is optional and overrides it.
-    #[arg(long)]
+    #[arg(long, env = "RWMCP_APP")]
     app: Option<String>,
     /// Surfaces the plan may use: api, mcp, webmcp, a11y, pixels.
-    #[arg(long, default_value = "api")]
+    #[arg(long, default_value = "api", env = "RWMCP_SURFACES")]
     surfaces: String,
     /// Where recipes live.
-    #[arg(long, value_name = "DIR")]
+    #[arg(long, value_name = "DIR", env = "RWMCP_RECIPES_DIR")]
     recipes_dir: Option<PathBuf>,
     /// Messages-API base URL for the planner. Defaults to ANTHROPIC_BASE_URL, else Anthropic.
-    #[arg(long)]
+    #[arg(long, env = "RWMCP_BASE_URL")]
     base_url: Option<String>,
     /// Planner model.
-    #[arg(long, default_value = "claude-opus-5")]
+    #[arg(long, default_value = "claude-opus-5", env = "RWMCP_MODEL")]
     model: String,
     /// Planner effort: low, medium, high, xhigh, max.
     #[arg(long, default_value = "low")]
@@ -115,6 +115,26 @@ struct Cli {
     /// Machine-readable output.
     #[arg(long)]
     json: bool,
+    /// Write the compiled plan here as JSON, whether or not it is run.
+    #[arg(long, value_name = "FILE")]
+    plan_out: Option<PathBuf>,
+    /// Run a recipe even though the app's world model has changed since it was saved.
+    #[arg(long)]
+    force: bool,
+
+    // ---- limits ----
+    /// Most steps to run at once on any one surface. Default: 64 api, 16 mcp, 4 webmcp, 1 screen.
+    #[arg(long, value_name = "N")]
+    max_parallel: Option<usize>,
+    /// How long to wait for something the outside world must do. Default 30s.
+    #[arg(long, value_name = "SECONDS")]
+    wait_timeout: Option<u64>,
+    /// How long any one step may take. Default 20s.
+    #[arg(long, value_name = "SECONDS")]
+    node_timeout: Option<u64>,
+    /// While waiting on an event, read the world this often in case the event was lost. Default 3s.
+    #[arg(long, value_name = "SECONDS")]
+    check_every: Option<u64>,
 }
 
 /// What happened, as a number a caller can branch on. 1 is an unexpected internal error and 2 is
@@ -216,6 +236,19 @@ struct Recipe {
     params: Vec<String>,
     /// Wants, with `$placeholders` where the values change.
     wants: Vec<String>,
+
+    // ---- provenance: what this was made against, so drift is caught rather than discovered ----
+    /// A hash of the app's world model when the recipe was saved. If the app is re-annotated,
+    /// these wants may no longer mean what they meant, and running it says so.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    world_fingerprint: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    created_at: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    rwmcp_version: Option<String>,
+    /// The model that planned it, when one did.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    model: Option<String>,
 }
 
 impl Recipe {
@@ -299,6 +332,35 @@ impl Cli {
         CompileOptions { plan_id: format!("cli-{}", std::process::id()), surfaces: self.surface_list() }
     }
 
+    /// How many steps may run at once per surface. `--max-parallel` caps every surface at once;
+    /// a screen stays at one whatever is asked, because there is only one pair of hands.
+    fn pools(&self) -> rwmcp::Pools {
+        let mut p = rwmcp::Pools::default();
+        if let Some(n) = self.max_parallel.filter(|n| *n > 0) {
+            for (surface, slots) in p.per_surface.iter_mut() {
+                if surface != "a11y" && surface != "pixels" {
+                    *slots = (*slots).min(n);
+                }
+            }
+        }
+        p
+    }
+
+    fn policy(&self) -> rwmcp::Policy {
+        let mut p = rwmcp::Policy::default();
+        let secs = std::time::Duration::from_secs;
+        if let Some(n) = self.wait_timeout {
+            p.wait_timeout = secs(n);
+        }
+        if let Some(n) = self.node_timeout {
+            p.node_timeout = secs(n);
+        }
+        if let Some(n) = self.check_every.filter(|n| *n > 0) {
+            p.check_every = secs(n);
+        }
+        p
+    }
+
     /// The same options under a plan id from somewhere else, so a resumed run keeps its keys.
     fn opts_under(&self, plan_id: &str) -> CompileOptions {
         CompileOptions { plan_id: plan_id.to_string(), surfaces: self.surface_list() }
@@ -369,7 +431,15 @@ impl Cli {
 
 /// Wants from a file: one per line, `#` comments and blank lines ignored.
 fn read_wants(path: &std::path::Path) -> anyhow::Result<Vec<String>> {
-    let text = std::fs::read_to_string(path).with_context(|| format!("reading {}", path.display()))?;
+    // `-` is stdin, so an agent can pipe wants in without leaving a file behind.
+    let text = if path == std::path::Path::new("-") {
+        use std::io::Read;
+        let mut buf = String::new();
+        std::io::stdin().read_to_string(&mut buf).context("reading wants from stdin")?;
+        buf
+    } else {
+        std::fs::read_to_string(path).with_context(|| format!("reading {}", path.display()))?
+    };
     Ok(text.lines().map(|l| l.split('#').next().unwrap_or("").trim().to_string()).filter(|l| !l.is_empty()).collect())
 }
 
@@ -677,6 +747,18 @@ async fn act(cli: &Cli) -> Result<(), Fail> {
         (_, Some(path), _) => (format!("wants from {}", path.display()), read_wants(path).map_err(unreachable_fail)?),
         (_, _, Some(name)) => {
             let r = Recipe::load(&Recipe::path_for(&cli.recipes_dir(), name)).map_err(unreachable_fail)?;
+            // A recipe is only as good as the app it was written against.
+            if let Some(saved) = &r.world_fingerprint {
+                let now = world.fingerprint();
+                if *saved != now && !cli.force {
+                    let m = format!(
+                        "recipe '{name}' was saved against a different world model ({saved}, now {now}). \
+                         The app has been re-annotated since, so these wants may no longer mean what they meant. \
+                         Check them with --order-check, or re-run with --force."
+                    );
+                    return Err(Fail::new(Exit::WantsRejected, "world_drifted", m).with(serde_json::json!({"saved": saved, "current": now, "recipe": name})));
+                }
+            }
             (r.goal, r.wants)
         }
         (None, None, None) => {
@@ -692,7 +774,17 @@ async fn act(cli: &Cli) -> Result<(), Fail> {
     if let Some(name) = &cli.save {
         let dir = cli.recipes_dir();
         std::fs::create_dir_all(&dir).map_err(unreachable_fail)?;
-        let recipe = Recipe { name: name.clone(), app: cli.app().to_string(), goal: goal.clone(), params: placeholders(&raw), wants: raw.clone() };
+        let recipe = Recipe {
+            name: name.clone(),
+            app: cli.app().to_string(),
+            goal: goal.clone(),
+            params: placeholders(&raw),
+            wants: raw.clone(),
+            world_fingerprint: Some(world.fingerprint()),
+            created_at: Some(now_rfc3339()),
+            rwmcp_version: Some(env!("CARGO_PKG_VERSION").to_string()),
+            model: cli.goal.as_ref().map(|_| cli.model.clone()),
+        };
         let path = Recipe::path_for(&dir, name);
         std::fs::write(&path, serde_json::to_string_pretty(&recipe).map_err(unreachable_fail)?).map_err(unreachable_fail)?;
         println!(
@@ -738,6 +830,12 @@ async fn act(cli: &Cli) -> Result<(), Fail> {
 
     let plan =
         compile(&intent, &world, &opts).map_err(|e| Fail::new(Exit::WantsRejected, "compile_failed", e.to_string()).with(serde_json::json!({ "error": e })))?;
+    if let Some(path) = &cli.plan_out {
+        std::fs::write(path, serde_json::to_string_pretty(&plan).map_err(unreachable_fail)?).map_err(unreachable_fail)?;
+        if !cli.json {
+            println!("Wrote {}.", path.display());
+        }
+    }
     if cli.json && !cli.run {
         println!("{}", serde_json::to_string_pretty(&serde_json::json!({"ok": true, "intent": intent, "plan": plan})).unwrap_or_default());
         return Ok(());
@@ -787,6 +885,32 @@ async fn answer_fork(cli: &Cli, intent: &Intent, world: &World, outcome: &Outcom
     Ok(None)
 }
 
+/// Seconds since the epoch, as a date. No chrono for one line.
+fn now_rfc3339() -> String {
+    let secs = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_secs()).unwrap_or(0);
+    let (mut days, rem) = ((secs / 86_400) as i64, secs % 86_400);
+    let (mut y, mut m) = (1970i64, 1i64);
+    loop {
+        let leap = (y % 4 == 0 && y % 100 != 0) || y % 400 == 0;
+        let in_year = if leap { 366 } else { 365 };
+        if days < in_year {
+            break;
+        }
+        days -= in_year;
+        y += 1;
+    }
+    let leap = (y % 4 == 0 && y % 100 != 0) || y % 400 == 0;
+    let lens = [31, if leap { 29 } else { 28 }, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+    for l in lens {
+        if days < l {
+            break;
+        }
+        days -= l;
+        m += 1;
+    }
+    format!("{y:04}-{m:02}-{:02}T{:02}:{:02}:{:02}Z", days + 1, rem / 3600, (rem % 3600) / 60, rem % 60)
+}
+
 fn load_state(p: &std::path::Path) -> anyhow::Result<RunState> {
     let text = std::fs::read_to_string(p).with_context(|| format!("reading run state {}", p.display()))?;
     serde_json::from_str(&text).with_context(|| format!("parsing run state {}", p.display()))
@@ -814,15 +938,20 @@ fn check_surfaces(cli: &Cli, world: &World) -> Result<(), Fail> {
 
 /// The part a person reads before saying yes.
 fn describe(plan: &Plan, ledger: &Ledger) {
-    let external = plan.nodes.iter().filter(|n| n.external).count();
-    let mut kinds: Vec<&str> = plan.nodes.iter().filter(|n| n.external).map(|n| n.op.as_str()).collect();
-    kinds.sort_unstable();
-    kinds.dedup();
+    let external: Vec<&rwmcp::plan::Node> = plan.nodes.iter().filter(|n| n.external).collect();
     let waits = plan.nodes.iter().filter(|n| n.kind == rwmcp::world::OpKind::Event).count();
     let screens = plan.nodes.iter().filter(|n| n.surface == "a11y" || n.surface == "pixels").count();
     println!("{} step{}, {} deep.", plan.nodes.len(), plural(plan.nodes.len()), plan.depth());
-    if external > 0 {
-        println!("{external} step{} leave the system (email, money): {}", plural(external), kinds.join(", "));
+    if !external.is_empty() {
+        // Naming the operations is not enough to approve by: ten emails all say "sendInvoice".
+        // Show what each one is actually about.
+        println!("{} step{} leave the system (email, money):", external.len(), plural(external.len()));
+        for n in external.iter().take(20) {
+            println!("  {} {}", n.op, args_of(plan, n));
+        }
+        if external.len() > 20 {
+            println!("  … and {} more", external.len() - 20);
+        }
     }
     if waits > 0 {
         println!("{waits} step{} wait for something outside to happen.", plural(waits));
@@ -832,6 +961,62 @@ fn describe(plan: &Plan, ledger: &Ledger) {
     }
     let n = ledger.sample_count();
     println!("Planning cost {n} model call{}.", plural(n as usize));
+}
+
+/// What a step is actually about, for someone deciding whether to let it happen.
+///
+/// At plan time the id of an invoice that does not exist yet is a reference to the step that will
+/// make it, so printing the arguments gives `id=<D.id>`, which tells nobody anything. Following
+/// the references back to the literals they came from gives `name='Acme'` — which is the thing a
+/// person approving ten emails needs to see.
+fn args_of(plan: &Plan, n: &rwmcp::plan::Node) -> String {
+    use rwmcp::plan::Arg;
+    fn lit(v: &Value) -> String {
+        v.as_str().map(|s| format!("'{s}'")).unwrap_or_else(|| v.to_string())
+    }
+    fn inherited(plan: &Plan, a: &Arg, depth: usize, out: &mut Vec<String>) {
+        if depth > 8 {
+            return;
+        }
+        match a {
+            Arg::Lit(v) => {
+                let t = lit(v);
+                if !out.contains(&t) {
+                    out.push(t);
+                }
+            }
+            Arg::List(xs) => xs.iter().for_each(|x| inherited(plan, x, depth + 1, out)),
+            Arg::Ref { node, .. } => {
+                if let Some(src) = plan.node(node) {
+                    src.args.values().for_each(|v| inherited(plan, v, depth + 1, out));
+                }
+            }
+        }
+    }
+
+    // What this step says for itself.
+    let mut parts: Vec<String> = n
+        .args
+        .iter()
+        .filter_map(|(k, v)| match v {
+            Arg::Lit(x) => Some(format!("{k}={}", lit(x))),
+            _ => None,
+        })
+        .collect();
+
+    // And what it inherits from the steps it depends on. Names identify; numbers rarely do, so
+    // names come first and only a few are shown.
+    let mut from: Vec<String> = Vec::new();
+    for v in n.args.values() {
+        if matches!(v, Arg::Ref { .. } | Arg::List(_)) {
+            inherited(plan, v, 0, &mut from);
+        }
+    }
+    from.sort_by_key(|t| !t.starts_with('\''));
+    if !from.is_empty() {
+        parts.push(format!("← {}", from.iter().take(3).cloned().collect::<Vec<_>>().join(", ")));
+    }
+    parts.join("  ")
 }
 
 fn plural(n: usize) -> &'static str {
@@ -859,9 +1044,15 @@ async fn execute(cli: &Cli, intent: &Intent, plan: &Plan, mut ledger: Ledger, wo
     let sched = Scheduler {
         effectors: default_effectors(cli.app(), shared.clone(), &cli.surface_list()),
         bus: Some(EventBus::connect(cli.app()).await.map_err(unreachable_fail)?),
-        pools: Default::default(),
-        policy: Default::default(),
+        pools: cli.pools(),
+        policy: cli.policy(),
         recorder: Recorder::new(shared.clone()),
+        // A thirty-step plan is otherwise silent for its whole run, which reads as a hang.
+        progress: (!cli.json).then(|| {
+            Arc::new(|_id: &str, op: &str, ok: bool, n: usize, total: usize| {
+                println!("  [{n:>3}/{total}] {} {op}", if ok { "ok  " } else { "FAIL" });
+            }) as rwmcp::scheduler::Progress
+        }),
     };
     if !cli.json {
         println!("\nRunning.");
@@ -915,10 +1106,6 @@ async fn execute(cli: &Cli, intent: &Intent, plan: &Plan, mut ledger: Ledger, wo
             println!("{}", serde_json::to_string_pretty(&as_json()).unwrap_or_default());
         }
     } else {
-        println!();
-        for e in &receipt.effects {
-            println!("  {} {} {}", if e.ok { "ok  " } else { "FAIL" }, e.op, e.observed.get("id").map(|i| format!("#{i}")).unwrap_or_default());
-        }
         println!(
             "\n{:?} · {} model call{} · {} ms planning · {} ms running · {} at once",
             receipt.status,

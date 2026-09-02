@@ -287,6 +287,7 @@ looks *more* parallel, and two writes race with nothing in the output saying so.
 | the OpenAPI extension `x-zerohuman` (and `-entities`, `-events`, `-ui`) | `x-reverse-webmcp` (same suffixes) |
 | `crates/zerohuman`, package `zerohuman` | `crates/rwmcp`, package `rwmcp` |
 | the project name `chiffon` | `rwmcp` |
+| the `CHIFFON_CHROME` environment variable | `RWMCP_CHROME` |
 
 The extension key is the only breaking change, and it fails loudly: an old document derives an
 empty world model, every want becomes unsatisfiable, and a zero-node plan is

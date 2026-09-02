@@ -159,14 +159,13 @@ impl Lease {
     }
 }
 
-/// Where Chrome lives on this machine: `RWMCP_CHROME` (or the older `CHIFFON_CHROME`), else the
-/// usual places. `RWMCP_SKIP_BROWSER=1` reports no Chrome at all, so the tests that need one skip
+/// Where Chrome lives on this machine: `RWMCP_CHROME`, else the usual places. `RWMCP_SKIP_BROWSER=1` reports no Chrome at all, so the tests that need one skip
 /// themselves: that is how the fast CI job stays fast while the browser job runs them for real.
 pub fn find_chrome() -> Option<String> {
     if std::env::var_os("RWMCP_SKIP_BROWSER").is_some_and(|v| v != "0" && !v.is_empty()) {
         return None;
     }
-    std::env::var("RWMCP_CHROME").or_else(|_| std::env::var("CHIFFON_CHROME")).ok().or_else(|| {
+    std::env::var("RWMCP_CHROME").ok().or_else(|| {
         [
             "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
             "/Applications/Chromium.app/Contents/MacOS/Chromium",

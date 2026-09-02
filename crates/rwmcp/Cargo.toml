@@ -16,6 +16,8 @@ sha2.workspace = true
 hex.workspace = true
 tracing.workspace = true
 async-trait.workspace = true
+async-recursion = "1"
+anyhow.workspace = true
 
 [dev-dependencies]
 app = { path = "../app" }

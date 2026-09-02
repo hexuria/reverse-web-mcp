@@ -12,6 +12,7 @@ pub mod events;
 pub mod intent;
 pub mod ledger;
 pub mod plan;
+pub mod planner;
 pub mod pred;
 pub mod scheduler;
 pub mod world;

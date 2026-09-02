@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["crates/app", "crates/rwmcp", "crates/bench", "crates/driver"]
+members = ["crates/app", "crates/rwmcp", "crates/bench", "crates/cli", "crates/driver"]
 
 [workspace.package]
 version = "0.1.0"

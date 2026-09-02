@@ -1,15 +1,153 @@
-//! The planner: one sample turns a goal into an intent graph. Never actions.
+//! The planner: one model call turns a goal into an intent graph. Never actions.
 //!
-//! Behind the `Sampler` trait so the lint loop and the fork answer are testable with a stub.
+//! This is the only part of the engine that talks to a model, and it is kept behind the
+//! `Sampler` trait so the lint loop and the fork answer are testable without a network.
+//!
+//! Rust has no official Anthropic SDK, so `ModelClient` speaks raw HTTP to `POST /v1/messages`.
+//! Any server with that shape works, including a local gateway in front of another provider.
+
+use std::time::Duration;
 
 use async_trait::async_trait;
-use rwmcp::intent::{lint, Intent, IntentFork, LintError};
-use rwmcp::ledger::{Ledger, SampleKind};
-use rwmcp::{CompileOptions, World};
+use crate::intent::{lint, Constraints, Intent, IntentFork, LintError};
+use crate::ledger::{now_us, Ledger, Sample, SampleKind};
+use crate::world::World;
+use crate::CompileOptions;
 use serde_json::{json, Value};
 
-use crate::loops::ModelClient;
-use crate::tasks::Task;
+
+#[derive(Clone)]
+pub struct ModelClient {
+    pub base_url: String,
+    pub model: String,
+    pub effort: String,
+    pub fallbacks: bool,
+    auth: Auth,
+    client: reqwest::Client,
+}
+
+#[derive(Clone)]
+enum Auth {
+    ApiKey(String),
+    Bearer(String),
+}
+
+impl ModelClient {
+    /// Any server that speaks the Messages shape works: api.anthropic.com, or a local gateway
+    /// such as opencodex on http://localhost:8080 routing to other providers' models.
+    ///
+    /// Base URL: `--base-url`, else ANTHROPIC_BASE_URL, else api.anthropic.com.
+    /// Credentials: `--api-key`, else ANTHROPIC_API_KEY, else ANTHROPIC_AUTH_TOKEN, else the `ant`
+    /// CLI's active profile. A gateway that ignores keys gets a placeholder.
+    pub fn from_env(model: &str, effort: &str, fallbacks: bool, base_url: Option<&str>, api_key: Option<&str>) -> anyhow::Result<ModelClient> {
+        let base_url =
+            base_url.map(|s| s.to_string()).or_else(|| std::env::var("ANTHROPIC_BASE_URL").ok()).unwrap_or_else(|| "https://api.anthropic.com".into());
+        let is_anthropic = base_url.contains("api.anthropic.com");
+        let auth = if let Some(k) = api_key {
+            Auth::ApiKey(k.to_string())
+        } else if let Ok(k) = std::env::var("ANTHROPIC_API_KEY") {
+            Auth::ApiKey(k)
+        } else if let Ok(t) = std::env::var("ANTHROPIC_AUTH_TOKEN") {
+            Auth::Bearer(t)
+        } else if !is_anthropic {
+            Auth::ApiKey("local-gateway".into())
+        } else {
+            let out = std::process::Command::new("ant").args(["auth", "print-credentials", "--access-token"]).output();
+            match out {
+                Ok(o) if o.status.success() => Auth::Bearer(String::from_utf8_lossy(&o.stdout).trim().to_string()),
+                _ => anyhow::bail!("no credentials: set ANTHROPIC_API_KEY, or run `ant auth login`"),
+            }
+        };
+        Ok(ModelClient {
+            base_url: base_url.trim_end_matches('/').to_string(),
+            model: model.to_string(),
+            effort: effort.to_string(),
+            // Server-side refusal fallback is an Anthropic feature; a gateway just ignores it.
+            fallbacks: fallbacks && is_anthropic,
+            auth,
+            client: reqwest::Client::builder().timeout(Duration::from_secs(600)).build()?,
+        })
+    }
+
+    /// The same client at a different effort, for the planner.
+    pub fn with_effort(&self, effort: &str) -> ModelClient {
+        ModelClient { effort: effort.to_string(), ..self.clone() }
+    }
+
+    /// One Messages call recorded as a sample: its span and token usage land in the ledger.
+    pub async fn sample(&self, ledger: &mut Ledger, kind: SampleKind, body: Value) -> anyhow::Result<Value> {
+        let started = now_us();
+        let resp = self.messages(body).await?;
+        let (ti, to) = usage(&resp);
+        ledger.record_sample(Sample {
+            seq: 0,
+            kind,
+            started_us: started,
+            ended_us: now_us(),
+            tokens_in: ti,
+            tokens_out: to,
+            model: self.model.clone(),
+            effort: self.effort.clone(),
+        });
+        Ok(resp)
+    }
+
+    /// One Messages call. Returns the full response JSON. Retries 429/5xx a few times.
+    pub async fn messages(&self, body: Value) -> anyhow::Result<Value> {
+        let mut body = body;
+        body["model"] = json!(self.model);
+        body["thinking"] = json!({"type": "adaptive"});
+        body["output_config"] = json!({"effort": self.effort});
+        if self.fallbacks {
+            body["fallbacks"] = json!("default");
+        }
+        let mut attempt = 0;
+        loop {
+            attempt += 1;
+            let mut req =
+                self.client.post(format!("{}/v1/messages", self.base_url)).header("anthropic-version", "2023-06-01").header("content-type", "application/json");
+            let mut betas: Vec<&str> = Vec::new();
+            match &self.auth {
+                Auth::ApiKey(k) => req = req.header("x-api-key", k),
+                Auth::Bearer(t) => {
+                    req = req.header("authorization", format!("Bearer {t}"));
+                    betas.push("oauth-2025-04-20");
+                }
+            }
+            if self.fallbacks {
+                betas.push("server-side-fallback-2026-07-01");
+            }
+            if !betas.is_empty() {
+                req = req.header("anthropic-beta", betas.join(","));
+            }
+            let resp = req.json(&body).send().await?;
+            let status = resp.status().as_u16();
+            let resp_retry_after: Option<u64> = resp.headers().get("retry-after").and_then(|v| v.to_str().ok()).and_then(|v| v.parse().ok());
+            let text = resp.text().await?;
+            if status == 429 || status >= 500 {
+                if attempt < 6 {
+                    // Honour retry-after when the route says, capped so a long cooldown fails fast.
+                    let after = resp_retry_after.map(|s| s * 1000).unwrap_or(500 * (1 << attempt)).min(30_000);
+                    tokio::time::sleep(Duration::from_millis(after)).await;
+                    continue;
+                }
+                anyhow::bail!("model API {status}: {text}");
+            }
+            if status != 200 {
+                anyhow::bail!("model API {status}: {text}");
+            }
+            return Ok(serde_json::from_str(&text)?);
+        }
+    }
+}
+
+/// Input and output tokens from a Messages response, cache reads included.
+pub fn usage(resp: &Value) -> (u64, u64) {
+    let u = resp.get("usage").cloned().unwrap_or(json!({}));
+    let read = |k: &str| u.get(k).and_then(|v| v.as_u64()).unwrap_or(0);
+    (read("input_tokens") + read("cache_read_input_tokens") + read("cache_creation_input_tokens"), read("output_tokens"))
+}
+
 
 /// Anything that can answer one Messages-shaped request and record it as a sample.
 #[async_trait]
@@ -49,7 +187,7 @@ fn intent_tool() -> Value {
     })
 }
 
-fn intent_from(resp: &Value, task: &Task) -> anyhow::Result<Intent> {
+fn intent_from(resp: &Value, goal: &str, constraints: &Constraints) -> anyhow::Result<Intent> {
     let content = resp.get("content").cloned().unwrap_or(json!([]));
     let call = content.as_array().and_then(|a| a.iter().find(|b| b["type"] == "tool_use" && b["name"] == "emit_intent")).cloned();
     let input = match call {
@@ -80,7 +218,7 @@ fn intent_from(resp: &Value, task: &Task) -> anyhow::Result<Intent> {
                 .collect()
         })
         .unwrap_or_default();
-    Ok(Intent { goal: task.goal.clone(), wants, constraints: task.constraints.clone(), forks })
+    Ok(Intent { goal: goal.to_string(), wants, constraints: constraints.clone(), forks })
 }
 
 /// Plan, lint, and if the intent is wrong hand the errors back exactly once.
@@ -88,7 +226,8 @@ fn intent_from(resp: &Value, task: &Task) -> anyhow::Result<Intent> {
 /// Plan, expand selectors by reading the app, lint, and hand the errors back up to twice. Every
 /// attempt is a counted sample; the expansion is a read.
 pub async fn plan_with_lint(
-    task: &Task,
+    goal: &str,
+    constraints: &Constraints,
     world: &World,
     facts: &str,
     sampler: &dyn Sampler,
@@ -96,7 +235,7 @@ pub async fn plan_with_lint(
     opts: &CompileOptions,
     base: Option<&str>,
 ) -> anyhow::Result<Intent> {
-    let mut intent = plan_intent(task, world, facts, sampler, ledger).await?;
+    let mut intent = plan_intent(goal, constraints, world, facts, sampler, ledger).await?;
     for _ in 0..2 {
         if let Some(b) = base {
             intent = expand_selectors(&intent, b).await?;
@@ -106,7 +245,7 @@ pub async fn plan_with_lint(
             return Ok(intent);
         }
         ledger.notes.push(json!({"lint": errs.iter().map(|e| e.to_string()).collect::<Vec<_>>(), "wants": intent.wants}));
-        intent = replan(task, world, facts, &intent, &errs, sampler, ledger).await?;
+        intent = replan(goal, constraints, world, facts, &intent, &errs, sampler, ledger).await?;
     }
     if let Some(b) = base {
         intent = expand_selectors(&intent, b).await?;
@@ -120,7 +259,8 @@ pub async fn plan_with_lint(
 }
 
 async fn replan(
-    task: &Task,
+    goal: &str,
+    constraints: &Constraints,
     world: &World,
     facts: &str,
     prior: &Intent,
@@ -133,7 +273,7 @@ async fn replan(
         "World model:\n{}\nWorld facts (read just now):\n{}\nGoal: {}\n\nYour previous intent was:\n{}\n\nIt was rejected:\n{}\n\nEmit a corrected intent graph with emit_intent.",
         world.summary(),
         facts,
-        task.goal,
+        goal,
         prior.wants.iter().map(|w| format!("  {w}")).collect::<Vec<_>>().join("\n"),
         listed
     );
@@ -144,7 +284,7 @@ async fn replan(
         "messages": [{"role": "user", "content": user}],
     });
     let resp = sampler.sample(ledger, SampleKind::Lint, body).await?;
-    intent_or_empty(&resp, task, ledger)
+    intent_or_empty(&resp, goal, constraints, ledger)
 }
 
 const PLANNER_SYSTEM: &str = "You are the planner for an execution engine. You never emit actions. You emit an intent graph: \
@@ -195,12 +335,12 @@ Example wants:\n\
 Reply with the emit_intent tool.";
 
 /// One sample: goal + world summary + facts → Intent. The only model call on the happy path.
-pub async fn plan_intent(task: &Task, world: &World, facts: &str, sampler: &dyn Sampler, ledger: &mut Ledger) -> anyhow::Result<Intent> {
+pub async fn plan_intent(goal: &str, constraints: &Constraints, world: &World, facts: &str, sampler: &dyn Sampler, ledger: &mut Ledger) -> anyhow::Result<Intent> {
     let user = format!(
         "World model:\n{}\nWorld facts (read just now):\n{}\nGoal: {}\n\nEmit the intent graph now with emit_intent.",
         world.summary(),
         facts,
-        task.goal
+        goal
     );
     let body = json!({
         "max_tokens": 4096,
@@ -209,17 +349,17 @@ pub async fn plan_intent(task: &Task, world: &World, facts: &str, sampler: &dyn 
         "messages": [{"role": "user", "content": user}],
     });
     let resp = sampler.sample(ledger, SampleKind::Plan, body).await?;
-    intent_or_empty(&resp, task, ledger)
+    intent_or_empty(&resp, goal, constraints, ledger)
 }
 
 /// An unparseable reply is an empty intent, which lint rejects and the loop re-asks. The raw
 /// reply is kept as a note.
-fn intent_or_empty(resp: &Value, task: &Task, ledger: &mut Ledger) -> anyhow::Result<Intent> {
-    match intent_from(resp, task) {
+fn intent_or_empty(resp: &Value, goal: &str, constraints: &Constraints, ledger: &mut Ledger) -> anyhow::Result<Intent> {
+    match intent_from(resp, goal, constraints) {
         Ok(i) => Ok(i),
         Err(e) => {
             ledger.notes.push(json!({"unparseable": e.to_string(), "content": resp.get("content").cloned().unwrap_or(Value::Null)}));
-            Ok(Intent { goal: task.goal.clone(), constraints: task.constraints.clone(), ..Default::default() })
+            Ok(Intent { goal: goal.to_string(), constraints: constraints.clone(), ..Default::default() })
         }
     }
 }
@@ -233,7 +373,8 @@ pub struct ForkQuestion {
 /// The planner answers a fork: it rewrites only the wants about the ambiguous entity, naming
 /// the chosen one by id, and leaves every other want byte-identical so their keys survive.
 pub async fn answer_fork(
-    task: &Task,
+    goal: &str,
+    constraints: &Constraints,
     world: &World,
     facts: &str,
     prior: &Intent,
@@ -248,7 +389,7 @@ in every want that referred to the ambiguous one; keep every other want exactly 
 if the goal gives no basis to choose, choose the lowest id and say nothing else.",
         world.summary(),
         facts,
-        task.goal,
+        goal,
         ask,
         serde_json::to_string_pretty(evidence).unwrap_or_default(),
         prior.wants.iter().map(|w| format!("  {w}")).collect::<Vec<_>>().join("\n")
@@ -260,7 +401,7 @@ if the goal gives no basis to choose, choose the lowest id and say nothing else.
         "messages": [{"role": "user", "content": user}],
     });
     let resp = sampler.sample(ledger, SampleKind::ForkAnswer, body.clone()).await?;
-    let answered = intent_from(&resp, task)?;
+    let answered = intent_from(&resp, goal, constraints)?;
     let errs = lint(&answered, world, &CompileOptions::default());
     if errs.is_empty() {
         return Ok(answered);
@@ -272,7 +413,7 @@ if the goal gives no basis to choose, choose the lowest id and say nothing else.
     let prior = body2["messages"][0]["content"].as_str().unwrap_or("").to_string();
     body2["messages"] = json!([{"role": "user", "content": format!("{prior}\n\nYour previous answer was rejected:\n{listed}\n\nAnswer again with emit_intent, keeping every unaffected want unchanged.")}]);
     let resp = sampler.sample(ledger, SampleKind::ForkAnswer, body2).await?;
-    let answered = intent_from(&resp, task)?;
+    let answered = intent_from(&resp, goal, constraints)?;
     let errs = lint(&answered, world, &CompileOptions::default());
     if !errs.is_empty() {
         ledger.notes.push(json!({"fork_answer_rejected": errs.iter().map(|e| e.to_string()).collect::<Vec<_>>(), "wants": answered.wants}));
@@ -324,7 +465,8 @@ impl IntentCache {
 #[allow(clippy::too_many_arguments)]
 pub async fn plan_cached(
     cache: &IntentCache,
-    task: &Task,
+    goal: &str,
+    constraints: &Constraints,
     world: &World,
     facts: &str,
     sampler: &dyn Sampler,
@@ -332,11 +474,11 @@ pub async fn plan_cached(
     opts: &CompileOptions,
     base: Option<&str>,
 ) -> anyhow::Result<(Intent, bool)> {
-    if let Some(i) = cache.get(&task.goal, facts, &opts.surfaces) {
+    if let Some(i) = cache.get(goal, facts, &opts.surfaces) {
         return Ok((i, true));
     }
-    let i = plan_with_lint(task, world, facts, sampler, ledger, opts, base).await?;
-    cache.put(&task.goal, facts, &opts.surfaces, &i)?;
+    let i = plan_with_lint(goal, constraints, world, facts, sampler, ledger, opts, base).await?;
+    cache.put(goal, facts, &opts.surfaces, &i)?;
     Ok((i, false))
 }
 
@@ -364,7 +506,7 @@ pub fn summarise_names(names: &[String]) -> String {
 /// Replace `each(customer(name_prefix='X'))` with the matching names, read from the app.
 /// A read before compiling, not a sample; keys come out identical to the written-out form.
 pub async fn expand_selectors(intent: &Intent, base: &str) -> anyhow::Result<Intent> {
-    use rwmcp::pred::Pred;
+    use crate::pred::Pred;
     let client = reqwest::Client::new();
     let mut out = intent.clone();
     for w in out.wants.iter_mut() {
@@ -384,8 +526,8 @@ pub async fn expand_selectors(intent: &Intent, base: &str) -> anyhow::Result<Int
 }
 
 #[async_recursion::async_recursion]
-async fn expand_val(v: &rwmcp::pred::Val, client: &reqwest::Client, base: &str) -> anyhow::Result<Option<rwmcp::pred::Val>> {
-    use rwmcp::pred::{Pred, Val};
+async fn expand_val(v: &crate::pred::Val, client: &reqwest::Client, base: &str) -> anyhow::Result<Option<crate::pred::Val>> {
+    use crate::pred::{Pred, Val};
     match v {
         Val::Each(items) if items.len() == 1 => {
             // each(customer(name_prefix='X')) selects by prefix; each(customer()) selects every one.

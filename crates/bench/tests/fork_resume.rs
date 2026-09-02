@@ -7,7 +7,7 @@ use app::domain::World as AppWorld;
 use app::{router, AppState};
 use async_trait::async_trait;
 use bench::arms::{run_ours, ArmContext, Planner};
-use bench::planner::Sampler;
+use rwmcp::planner::Sampler;
 use bench::tasks::Task;
 use rwmcp::events::EventBus;
 use rwmcp::ledger::{Ledger, Sample, SampleKind};

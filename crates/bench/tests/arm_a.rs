@@ -8,7 +8,7 @@ use app::{router, AppState};
 use async_trait::async_trait;
 use bench::arms::ArmContext;
 use bench::loops::run_cua_loop;
-use bench::planner::Sampler;
+use rwmcp::planner::Sampler;
 use bench::tasks::Task;
 use driver::{find_chrome, BrowserPool};
 use rwmcp::events::EventBus;

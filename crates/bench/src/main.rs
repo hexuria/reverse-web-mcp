@@ -3,7 +3,8 @@
 //! `bench verify` recomputes every number in a run directory from the raw ledgers.
 
 use bench::config::RunOpts;
-use bench::{arms, loops, oracle, planner, report, tasks};
+use bench::{arms, loops, oracle, report, tasks};
+use rwmcp::planner;
 
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
@@ -142,7 +143,7 @@ async fn run(opts: RunOpts) -> anyhow::Result<()> {
         None
     };
     let model_client =
-        if needs_model { Some(loops::ModelClient::from_env(&model, &effort, fallbacks, base_url.as_deref(), api_key.as_deref())?) } else { None };
+        if needs_model { Some(planner::ModelClient::from_env(&model, &effort, fallbacks, base_url.as_deref(), api_key.as_deref())?) } else { None };
     println!(
         "app {base} · {} tasks · arms {} · {runs} runs each · latency {latency_ms} ms · planner {planner}{} · out {}",
         tasks.len(),

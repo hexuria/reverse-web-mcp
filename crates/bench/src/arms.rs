@@ -48,7 +48,7 @@ pub fn effectors_for(ctx: &ArmContext) -> HashMap<String, Arc<dyn rwmcp::effecto
 /// `ledger` already carries the planner's sample and tokens, if any.
 /// What arm D may do when the plan stops with a question.
 pub struct Planner<'a> {
-    pub sampler: &'a dyn crate::planner::Sampler,
+    pub sampler: &'a dyn rwmcp::planner::Sampler,
     pub facts: String,
 }
 
@@ -76,8 +76,8 @@ pub async fn run_ours(
 
     if outcome.status == Status::NeedThink {
         if let (Some(p), Some(evidence)) = (&planner, outcome.evidence.clone()) {
-            let fork = crate::planner::ForkQuestion { ask: outcome.yield_reason.clone().unwrap_or_default(), evidence };
-            match crate::planner::answer_fork(task, &ctx.world, &p.facts, &intent, &fork, p.sampler, &mut ledger).await {
+            let fork = rwmcp::planner::ForkQuestion { ask: outcome.yield_reason.clone().unwrap_or_default(), evidence };
+            match rwmcp::planner::answer_fork(&task.goal, &task.constraints, &ctx.world, &p.facts, &intent, &fork, p.sampler, &mut ledger).await {
                 Ok(answered) => {
                     intent = answered;
                     plan = match compile(&intent, &ctx.world, &opts) {
@@ -98,9 +98,9 @@ pub async fn run_ours(
 
 /// Everything arm D needs to plan with a model.
 pub struct PlanRequest<'a> {
-    pub sampler: &'a dyn crate::planner::Sampler,
+    pub sampler: &'a dyn rwmcp::planner::Sampler,
     pub facts: String,
-    pub cache: Option<&'a crate::planner::IntentCache>,
+    pub cache: Option<&'a rwmcp::planner::IntentCache>,
 }
 
 pub struct OursOutcome {
@@ -123,12 +123,12 @@ pub async fn run_ours_planned(task: &Task, ctx: &ArmContext, req: Option<PlanReq
     let mut cache_hit = false;
     let planned = match req.cache {
         Some(cache) => {
-            crate::planner::plan_cached(cache, task, &ctx.world, &req.facts, req.sampler, &mut ledger, &opts, Some(&ctx.base)).await.map(|(i, hit)| {
+            rwmcp::planner::plan_cached(cache, &task.goal, &task.constraints, &ctx.world, &req.facts, req.sampler, &mut ledger, &opts, Some(&ctx.base)).await.map(|(i, hit)| {
                 cache_hit = hit;
                 i
             })
         }
-        None => crate::planner::plan_with_lint(task, &ctx.world, &req.facts, req.sampler, &mut ledger, &opts, Some(&ctx.base)).await,
+        None => rwmcp::planner::plan_with_lint(&task.goal, &task.constraints, &ctx.world, &req.facts, req.sampler, &mut ledger, &opts, Some(&ctx.base)).await,
     };
     match planned {
         Ok(intent) => {

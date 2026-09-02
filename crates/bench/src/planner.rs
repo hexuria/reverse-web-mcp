@@ -163,8 +163,9 @@ Rules:\n\
 - If a fact depends on something the outside world does (a payment arriving), still want the final fact; \
   the engine waits for the event. Forks are only for genuine ambiguity, not for waiting or retrying.\n\
 - Use the real names from the world facts. Never use variables like $name.\n\
-- For many rows, never list names: write each(customer(name_prefix='...')) and the engine expands it \
-  from the world before compiling. each([...]) with explicit names is for a handful.\n\
+- For many rows, never list names: write each(customer(name_prefix='...')) for a prefix, or each(customer()) \
+  for every customer. The engine expands either from the world before compiling. each([...]) with explicit \
+  names is for a handful.\n\
 - If a name in the goal matches more than one entity in the facts, still refer to it by name and declare \
   a fork: {when: 'result.count != 1', ask: '...', default: 'lowest_id'}. With a default the engine resolves it \
   itself; without one it stops and asks you. Do not ask now and do not leave wants out.\n\n\
@@ -175,6 +176,10 @@ Example wants:\n\
   invoice(customer=customer(name='Globex')).exists\n\
   invoice(customer=customer(name='Globex')).status='sent'\n\
   report(invoices=[invoice(customer=customer(name='Acme')),invoice(customer=customer(name='Globex'))]).exists\n\
+Example goal: Invoice every customer and send each.\n\
+Example wants:\n\
+  invoice(customer=each(customer())).exists\n\
+  invoice(customer=each(customer())).status='sent'\n\
 Example goal: Invoice every customer whose name starts with 'Bulk ' and send each.\n\
 Example wants:\n\
   invoice(customer=each(customer(name_prefix='Bulk '))).exists\n\
@@ -380,11 +385,19 @@ async fn expand_val(v: &zerohuman::pred::Val, client: &reqwest::Client, base: &s
     use zerohuman::pred::{Pred, Val};
     match v {
         Val::Each(items) if items.len() == 1 => {
+            // each(customer(name_prefix='X')) selects by prefix; each(customer()) selects every one.
             if let Val::Entity(p) = &items[0] {
                 if p.entity == "customer" {
-                    if let Some(Val::Str(prefix)) = p.arg("name_prefix") {
-                        let rows: Value =
-                            client.get(format!("{}/api/customers", base.trim_end_matches('/'))).query(&[("name_prefix", prefix)]).send().await?.json().await?;
+                    let prefix = match p.arg("name_prefix") {
+                        Some(Val::Str(x)) => Some(x.clone()),
+                        _ => None,
+                    };
+                    if prefix.is_some() || p.args.is_empty() {
+                        let mut req = client.get(format!("{}/api/customers", base.trim_end_matches('/')));
+                        if let Some(x) = &prefix {
+                            req = req.query(&[("name_prefix", x)]);
+                        }
+                        let rows: Value = req.send().await?.json().await?;
                         let names: Vec<Val> = rows
                             .as_array()
                             .map(|a| {

@@ -20,10 +20,10 @@ customers = ["Acme"]
 send = true
 
 [expect]
-# With a declared default the fork resolves inside the run.
-status = "committed"
-invoices = 1
-sent = 1
+# An arm with no way to resolve the ambiguity stops and asks.
+status = "need_think"
+invoices = 0
+sent = 0
 forks = 1
 double_sends = 0
 

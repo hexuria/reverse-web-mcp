@@ -76,3 +76,29 @@ async fn a_selector_from_the_planner_passes_lint_in_one_sample() {
     let plan = compile(&intent, &Arc::new(world), &CompileOptions::default()).unwrap();
     assert_eq!(plan.nodes.len(), 900);
 }
+
+#[tokio::test]
+async fn a_bare_each_customer_means_every_customer() {
+    let (tx, _) = broadcast::channel(1024);
+    let state = Arc::new(AppState { world: Mutex::new(AppWorld::seeded(2)), events: tx });
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let addr = listener.local_addr().unwrap();
+    tokio::spawn(async move {
+        axum::serve(listener, router(state)).await.unwrap();
+    });
+    let base = format!("http://{addr}");
+    let intent = Intent {
+        goal: "all".into(),
+        wants: vec!["invoice(customer=each(customer())).exists".into(), "invoice(customer=each(customer())).status='sent'".into()],
+        ..Default::default()
+    };
+    let world = world_from(&base).await.unwrap();
+    // Unexpanded it is a lint error, never a quiet single lane.
+    assert!(zerohuman::intent::lint(&intent, &world, &CompileOptions::default())
+        .iter()
+        .any(|e| matches!(e, zerohuman::intent::LintError::UnexpandedSelector { .. })));
+    let expanded = expand_selectors(&intent, &base).await.unwrap();
+    assert!(zerohuman::intent::lint(&expanded, &world, &CompileOptions::default()).is_empty());
+    let plan = compile(&expanded, &Arc::new(world), &CompileOptions::default()).unwrap();
+    assert_eq!(plan.nodes.len(), 30, "ten customers, three nodes each");
+}

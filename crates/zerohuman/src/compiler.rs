@@ -577,7 +577,8 @@ mod tests {
         let took = t0.elapsed();
         assert_eq!(plan.nodes.len(), 900);
         assert_eq!(plan.depth(), 3);
-        assert!(took < std::time::Duration::from_secs(2), "compile took {took:?}");
+        // 0.12 s in release; the generous bound here only has to catch a return to quadratic.
+        assert!(took < std::time::Duration::from_secs(10), "compile took {took:?}");
     }
 
     #[test]

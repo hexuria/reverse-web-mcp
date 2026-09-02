@@ -64,6 +64,8 @@ pub enum LintError {
     Unsatisfiable { reason: String },
     #[error("intent has no wants; every goal needs at least one fact that must become true")]
     Empty,
+    #[error("want '{want}' has a selector this engine cannot expand: {selector}")]
+    UnexpandedSelector { want: String, selector: String },
 }
 
 fn has_var(v: &Val) -> bool {
@@ -72,6 +74,20 @@ fn has_var(v: &Val) -> bool {
         Val::List(xs) | Val::Each(xs) => xs.iter().any(has_var),
         Val::Entity(p) => p.args.iter().any(|(_, v)| has_var(v)) || has_var(&p.value),
         _ => false,
+    }
+}
+
+/// An `each(...)` element that no expansion turned into an identified entity. Compiling it would
+/// silently collapse many lanes into one.
+fn unexpanded(v: &Val) -> Option<String> {
+    match v {
+        Val::Each(items) => items.iter().find_map(|x| match x {
+            Val::Entity(p) if p.args.is_empty() || p.args.iter().any(|(k, _)| k == "name_prefix") => Some(x.to_string()),
+            _ => None,
+        }),
+        Val::List(xs) => xs.iter().find_map(unexpanded),
+        Val::Entity(p) => p.args.iter().find_map(|(_, a)| unexpanded(a)),
+        _ => None,
     }
 }
 
@@ -119,6 +135,11 @@ pub fn lint(intent: &Intent, world: &World, opts: &CompileOptions) -> Vec<LintEr
                         errs.push(LintError::UnknownField { want: want.clone(), entity: p.entity.clone(), field: p.field.clone() });
                     }
                 }
+            }
+        }
+        for (_, v) in &pred.args {
+            if let Some(bad) = unexpanded(v) {
+                errs.push(LintError::UnexpandedSelector { want: want.clone(), selector: bad });
             }
         }
         if pred.is_existence() && resolvable.contains(&pred.entity.as_str()) {
@@ -170,6 +191,8 @@ mod tests {
             ("invoice(customer=customer(name='Acme')).colour='red'", |e| matches!(e, LintError::UnknownField { field, .. } if field == "colour")),
             ("customer(name='Acme').exists", |e| matches!(e, LintError::WantsAnEntityThatAlreadyExists { .. })),
             ("invoice(customer=customer(name='Acme')).approved=true", |e| matches!(e, LintError::Unsatisfiable { .. })),
+            ("invoice(customer=each(customer())).exists", |e| matches!(e, LintError::UnexpandedSelector { .. })),
+            ("invoice(customer=each(customer(name_prefix='C'))).exists", |e| matches!(e, LintError::UnexpandedSelector { .. })),
         ];
         for (want, expected) in cases {
             let errs = lint_one(want);

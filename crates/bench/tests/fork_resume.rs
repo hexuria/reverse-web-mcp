@@ -71,7 +71,7 @@ async fn a_fork_is_answered_once_and_the_plan_resumes() {
     assert_eq!(effects["double_sends"], 0);
     assert!(bench::tasks::resumed_after_fork(&serde_json::to_value(&receipt).unwrap()));
     assert_eq!(task.expect.applicable(true).status, "committed");
-    assert_eq!(task.expect.applicable(false).status, "committed", "T6 declares a default now, so it commits either way");
+    assert_eq!(task.expect.applicable(false).status, "need_think", "an arm that cannot resolve the ambiguity asks");
 }
 
 struct EmptyAnswer;

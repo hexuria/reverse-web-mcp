@@ -25,6 +25,7 @@
       "reads": ["invoice:$id"],
       "writes": ["invoice:$id"],
       "surfaces": { "a11y": 50, "pixels": 100 },
+      "before": ["sendInvoice"],
       "route": "/ui/invoices/{id}",
       "control": { "role": "button", "name": "Approve invoice {id}" }
     }
@@ -95,6 +96,7 @@
           "reads": ["invoice:$id", "customer:*"],
           "writes": ["invoice:$id", "outbox:new"],
           "external": true,
+          "before": ["sendReceipt"],
           "surfaces": { "api": 1, "mcp": 3, "webmcp": 2, "a11y": 50, "pixels": 100 }
         }
       }

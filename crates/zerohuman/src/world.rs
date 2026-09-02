@@ -97,6 +97,9 @@ pub struct Op {
     pub fork: Option<Fork>,
     pub ui: Option<UiSpec>,
     pub check: Option<Check>,
+    /// Operations this one must precede when both touch the same entity. Two writes to one
+    /// thing have no order in a footprint; only the world model knows, so it says so here.
+    pub before: Vec<String>,
 }
 
 impl Op {
@@ -201,6 +204,7 @@ impl World {
                     fork: fork(zh.get("fork")),
                     ui: None,
                     check: None,
+                    before: strings(zh.get("before")),
                 });
             }
         }
@@ -232,6 +236,7 @@ impl World {
                     fork: None,
                     ui: Some(UiSpec { route, control: zh.get("control").cloned().unwrap_or(Value::Null) }),
                     check: None,
+                    before: strings(zh.get("before")),
                 });
             }
         }
@@ -255,6 +260,7 @@ impl World {
                     defaults: BTreeMap::new(),
                     fork: None,
                     ui: None,
+                    before: vec![],
                     check: zh.get("check").and_then(|c| serde_json::from_value(c.clone()).ok()),
                 });
             }

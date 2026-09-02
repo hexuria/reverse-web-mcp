@@ -25,6 +25,10 @@ pub enum CompileError {
     NoSurface(String, Vec<String>),
     #[error("argument '{0}' of {1} is unbound")]
     Unbound(String, String),
+    #[error("the plan has a cycle: {0}")]
+    Cycle(String),
+    #[error("the intent compiles to no work at all")]
+    Empty,
 }
 
 pub struct CompileOptions {
@@ -61,9 +65,16 @@ pub fn compile(intent: &Intent, world: &World, opts: &CompileOptions) -> Result<
             c.satisfy(&one)?;
         }
     }
+    if c.nodes.is_empty() {
+        return Err(CompileError::Empty);
+    }
     let mut edges = c.deps.clone();
     edges.extend(footprint_edges(&c.nodes));
-    let edges = reduce(dedupe(edges), &c.nodes);
+    let edges = dedupe(edges);
+    if let Some(path) = find_cycle(&c.nodes, &edges) {
+        return Err(CompileError::Cycle(path));
+    }
+    let edges = reduce(edges, &c.nodes);
     let gates =
         c.nodes.iter().filter(|n| n.external).map(|n| Gate { node: n.id.clone(), kind: GateKind::External, allowed: intent.constraints.external_ok }).collect();
     Ok(Plan { plan_id: opts.plan_id.clone(), goal: intent.goal.clone(), nodes: c.nodes, edges, gates })
@@ -289,6 +300,7 @@ impl<'a> Compiler<'a> {
             fork,
             ui: op.ui.clone(),
             check: op.check.clone(),
+            before: op.before.clone(),
             post,
         });
         deps.sort();
@@ -422,21 +434,79 @@ fn any_conflict(xs: &[String], ys: &[String]) -> bool {
     xs.iter().any(|x| ys.iter().any(|y| conflicts(x, y)))
 }
 
-/// Two nodes touch the same data → the later one waits. Disjoint footprints → no edge, and
-/// that absence is where the parallelism comes from.
+/// Two nodes touching the same data are ordered by what the data says, not by the order the
+/// wants happened to be written in:
+///
+/// - a writer precedes a reader, so a reader always sees the final state;
+/// - two writers are ordered by the world model's declared precedence, and only when it is
+///   silent does the want order decide.
+///
+/// Disjoint footprints produce no edge, and that absence is where the parallelism comes from.
 fn footprint_edges(nodes: &[Node]) -> Vec<(String, String)> {
     let mut out = Vec::new();
     for i in 0..nodes.len() {
         for j in (i + 1)..nodes.len() {
             let (a, b) = (&nodes[i], &nodes[j]);
-            let mut touched = b.reads.clone();
-            touched.extend(b.writes.iter().cloned());
-            if any_conflict(&a.writes, &touched) || any_conflict(&a.reads, &b.writes) {
+            let a_then_b = any_conflict(&a.writes, &b.reads);
+            let b_then_a = any_conflict(&b.writes, &a.reads);
+            let both_write = any_conflict(&a.writes, &b.writes);
+            if both_write {
+                if b.before.contains(&a.op) {
+                    out.push((b.id.clone(), a.id.clone()));
+                } else {
+                    out.push((a.id.clone(), b.id.clone()));
+                }
+            } else if a_then_b && !b_then_a {
+                out.push((a.id.clone(), b.id.clone()));
+            } else if b_then_a && !a_then_b {
+                out.push((b.id.clone(), a.id.clone()));
+            } else if a_then_b && b_then_a {
+                // Each reads what the other writes and neither writes the same thing: the order
+                // is genuinely undetermined, so take the order the wants were written in.
                 out.push((a.id.clone(), b.id.clone()));
             }
         }
     }
     out
+}
+
+/// The first cycle found, as a readable path, or None.
+fn find_cycle(nodes: &[Node], edges: &[(String, String)]) -> Option<String> {
+    use std::collections::HashMap;
+    let mut succ: HashMap<&str, Vec<&str>> = HashMap::new();
+    for (a, b) in edges {
+        succ.entry(a.as_str()).or_default().push(b.as_str());
+    }
+    let mut state: HashMap<&str, u8> = HashMap::new();
+    let mut stack: Vec<&str> = Vec::new();
+    fn walk<'a>(n: &'a str, succ: &HashMap<&'a str, Vec<&'a str>>, state: &mut HashMap<&'a str, u8>, stack: &mut Vec<&'a str>) -> Option<String> {
+        match state.get(n) {
+            Some(1) => {
+                let from = stack.iter().position(|x| *x == n).unwrap_or(0);
+                let mut path: Vec<&str> = stack[from..].to_vec();
+                path.push(n);
+                return Some(path.join(" → "));
+            }
+            Some(2) => return None,
+            _ => {}
+        }
+        state.insert(n, 1);
+        stack.push(n);
+        for m in succ.get(n).into_iter().flatten() {
+            if let Some(c) = walk(m, succ, state, stack) {
+                return Some(c);
+            }
+        }
+        stack.pop();
+        state.insert(n, 2);
+        None
+    }
+    for n in nodes {
+        if let Some(c) = walk(n.id.as_str(), &succ, &mut state, &mut stack) {
+            return Some(c);
+        }
+    }
+    None
 }
 
 fn dedupe(edges: Vec<(String, String)>) -> Vec<(String, String)> {
@@ -618,6 +688,63 @@ mod tests {
         assert_eq!(plan.nodes.iter().filter(|n| n.op == "sendInvoice").count(), 3);
         let report = plan.nodes.iter().find(|n| n.op == "createReport").unwrap();
         assert_eq!(plan.preds_of(&report.id).len(), 3, "the report joins all three lanes");
+    }
+
+    /// The order the wants were written in must not change the plan.
+    #[test]
+    fn edges_follow_the_data_not_the_want_order() {
+        let two = "each([customer(name='Acme'),customer(name='Globex')])";
+        let natural = intent(&[
+            &format!("invoice(customer={two}).exists"),
+            &format!("invoice(customer={two}).status='sent'"),
+            &format!("report(invoices=[all(invoice(customer={two}))]).exists"),
+        ]);
+        let mut reversed = natural.clone();
+        reversed.wants.reverse();
+        for (name, i) in [("natural", &natural), ("reversed", &reversed)] {
+            let plan = compile(i, &world(), &CompileOptions::default()).unwrap();
+            let report = plan.nodes.iter().find(|n| n.op == "createReport").unwrap();
+            let sends: Vec<&Node> = plan.nodes.iter().filter(|n| n.op == "sendInvoice").collect();
+            assert_eq!(sends.len(), 2, "{name}\n{}", plan.render());
+            for s in &sends {
+                assert!(reaches(&plan, &s.id, &report.id), "{name}: the report must wait for send {}\n{}", s.id, plan.render());
+                assert!(!reaches(&plan, &report.id, &s.id), "{name}: the report must not precede send {}", s.id);
+            }
+        }
+    }
+
+    /// Approval precedes sending because the world model says so, not because of want order.
+    #[test]
+    fn declared_precedence_orders_two_writers() {
+        let one = "customer(name='Acme')";
+        let opts = CompileOptions { plan_id: "p".into(), surfaces: vec!["api".into(), "a11y".into()] };
+        for wants in [
+            vec![format!("invoice(customer={one}).approved=true"), format!("invoice(customer={one}).status='sent'")],
+            vec![format!("invoice(customer={one}).status='sent'"), format!("invoice(customer={one}).approved=true")],
+        ] {
+            let i = Intent { goal: "t".into(), wants, ..Default::default() };
+            let plan = compile(&i, &world(), &opts).unwrap();
+            let approve = plan.nodes.iter().find(|n| n.op == "approveInvoice").unwrap();
+            let send = plan.nodes.iter().find(|n| n.op == "sendInvoice").unwrap();
+            assert!(reaches(&plan, &approve.id, &send.id), "approve before send\n{}", plan.render());
+            assert!(!reaches(&plan, &send.id, &approve.id));
+        }
+    }
+
+    fn reaches(plan: &Plan, from: &str, to: &str) -> bool {
+        let mut stack = vec![from.to_string()];
+        let mut seen = std::collections::HashSet::new();
+        while let Some(x) = stack.pop() {
+            for (a, b) in &plan.edges {
+                if *a == x && seen.insert(b.clone()) {
+                    if b == to {
+                        return true;
+                    }
+                    stack.push(b.clone());
+                }
+            }
+        }
+        false
     }
 
     #[test]

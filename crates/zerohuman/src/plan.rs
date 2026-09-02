@@ -46,6 +46,9 @@ pub struct Node {
     /// For a wait: how to confirm the fact by reading, if the event never arrives.
     #[serde(default)]
     pub check: Option<Check>,
+    /// Operations this node must precede when both write the same entity.
+    #[serde(default)]
+    pub before: Vec<String>,
     /// What this node makes true, for the receipt and for humans.
     pub post: String,
 }
